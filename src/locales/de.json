@@ -1,0 +1,306 @@
+{
+  "onboarding": {
+    "languageStep": {
+      "title": "Sprache wählen"
+    },
+    "steps": {
+      "gender": "Was ist dein Geschlecht?",
+      "hairColor": "Welche Haarfarbe hast du?",
+      "eyeColor": "Welche Augenfarbe hast du?",
+      "skinTone": "Welchen Hautton hast du?",
+      "measurements": "Wie groß bist du und wie viel wiegst du?",
+      "bodyType": "Welche Körperform hast du?",
+      "bodyMeasurements": "Körpermaße (optional)",
+      "stylePreferences": "Stilvorlieben (optional)"
+    },
+    "measurementsStep": {
+      "heightPlaceholder": "Größe (cm)",
+      "weightPlaceholder": "Gewicht (kg)",
+      "heightError": "Die Größe muss zwischen 90 und 250 cm liegen.",
+      "weightError": "Das Gewicht muss zwischen 20 und 300 kg liegen."
+    },
+    "stylePreferencesStep": {
+      "placeholder": "Z. B.: Ich bevorzuge Skinny Jeans, dunkle Farben, und hasse Oversize-Kleidung."
+    },
+    "buttons": {
+      "continue": "Weiter",
+      "skip": "Diesen Schritt überspringen",
+      "finish": "Fertig"
+    },
+    "options": {
+      "Women": "Frau",
+      "Men": "Mann",
+      "Other": "Divers",
+      "Trapezoid": "Trapez",
+      "Inverted Triangle": "Umgekehrtes Dreieck",
+      "Rectangle": "Rechteck",
+      "Oval": "Oval",
+      "Triangle": "Dreieck",
+      "Hourglass": "Sanduhr",
+      "Pear (Triangle)": "Birne (Dreieck)",
+      "Apple (Round)": "Apfel (rund)"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "unknownUser": "Unbekannter Nutzer",
+    "sections": {
+      "fitProfile": "Körperprofil",
+      "bodyMeasurements": "Körpermaße",
+      "styleVibes": "Lieblingsstile",
+      "stylePreferences": "Stilvorlieben"
+    },
+    "fields": {
+      "gender": "Geschlecht",
+      "hairColor": "Haarfarbe",
+      "eyeColor": "Augenfarbe",
+      "skinTone": "Hautton",
+      "bodyShape": "Körperform",
+      "height": "Größe",
+      "weight": "Gewicht",
+      "shoulders": "Schultern",
+      "chest": "Brust",
+      "waist": "Taille",
+      "hips": "Hüfte"
+    },
+    "save": "Speichern",
+    "styleVibes": {
+      "helper": "Wähle bis zu 3",
+      "Quiet Luxury": "Quiet Luxury",
+      "Streetwear": "Streetwear",
+      "Y2K": "Y2K",
+      "Gorpcore": "Gorpcore",
+      "Minimalism": "Minimalismus",
+      "Dark Fashion": "Dunkle Mode",
+      "Vintage": "Vintage",
+      "Business Casual": "Elegant Casual"
+    },
+    "options": {
+      "Black": "Schwarz",
+      "Dark Brown": "Dunkelbraun",
+      "Chestnut": "Kastanienbraun",
+      "Light Brown": "Hellbraun",
+      "Ash Brown": "Aschbraun",
+      "Ash Blonde": "Aschblond",
+      "Sandy Blonde": "Sandblond",
+      "Ginger": "Rotblond",
+      "Salt & Pepper": "Salz und Pfeffer",
+      "Grey": "Grau",
+      "White": "Weiß",
+      "Bald / Shaved": "Kahl / Rasiert",
+      "Jet Black": "Rabenschwarz",
+      "Auburn": "Kupferbraun",
+      "Copper": "Kupfer",
+      "Golden Blonde": "Goldblond",
+      "Platinum Blonde": "Platinblond",
+      "Balayage": "Balayage",
+      "Silver Grey": "Silbergrau",
+      "Brown": "Braun",
+      "Blue": "Blau",
+      "Green": "Grün",
+      "Greenish Blue": "Grünblau",
+      "Yellowish Green": "Gelbgrün",
+      "Amber": "Bernstein",
+      "Hazel": "Haselnussbraun",
+      "Deep Blue": "Tiefblau",
+      "Dark Green": "Dunkelgrün",
+      "Freckled Hazel": "Gesprenkeltes Haselnussbraun",
+      "Greyish Blue": "Graublau",
+      "Forest Green": "Waldgrün",
+      "Dark Hazel": "Dunkles Haselnussbraun",
+      "Spring Green": "Frühlingsgrün",
+      "Very Fair": "Sehr hell",
+      "Fair": "Hell",
+      "Light": "Mittelhell",
+      "Medium": "Mittel",
+      "Tan": "Gebräunt",
+      "Deep": "Dunkel",
+      "Very Deep": "Sehr dunkel"
+    },
+    "notSet": "Nicht festgelegt",
+    "editProfile": "Profil bearbeiten",
+    "logOut": "Abmelden",
+    "language": "Sprache"
+  },
+  "closet": {
+    "hub": {
+      "title": "Dein digitaler Kleiderschrank",
+      "subtitle": "Verwalte deine Sammlung, digitalisiere deine Kleidungsstücke und lass den KI-Concierge deine perfekten Looks basierend auf deinen Proportionen und deiner Farbpalette zusammenstellen.",
+      "insights": {
+        "itemCount_one": "Teil",
+        "itemCount_other": "Teile",
+        "topStyle": "Beliebtester Stil",
+        "topColor": "Beliebteste Farbe"
+      },
+      "planner": {
+        "title": "Wochenplaner",
+        "subtitle": "Plane deine täglichen Looks"
+      },
+      "catalogWidget": {
+        "title": "Katalog",
+        "subtitle_one": "{{count}} Teil",
+        "subtitle_other": "{{count}} Teile"
+      },
+      "weather": {
+        "dressMe": "Zieh mich an",
+        "loading": "Wetter wird ermittelt...",
+        "unavailable": "Wetter nicht verfügbar",
+        "unknownCity": "deiner Gegend",
+        "dressMePrompt": "Ich brauche ein Outfit für heute. Das aktuelle Wetter in {{city}} ist {{temperature}}°C, {{condition}}.",
+        "conditions": {
+          "clear": "Klar",
+          "cloudy": "Bewölkt",
+          "rain": "Regen",
+          "snow": "Schnee",
+          "storm": "Gewitter",
+          "fog": "Nebel",
+          "unknown": "Unbekannt"
+        },
+        "manualCityTitle": "Gib deine Stadt ein",
+        "manualCityPlaceholder": "z. B. Paris",
+        "manualCityCancel": "Abbrechen",
+        "manualCityApply": "Übernehmen",
+        "manualCityError": "Stadt nicht gefunden. Versuche eine andere Schreibweise."
+      },
+      "capsuleScore": {
+        "title": "78%",
+        "subtitle": "Garderoben-Kohärenz",
+        "proBadge": "PRO",
+        "premiumAlertTitle": "Premium-Funktion",
+        "premiumAlertMessage": "Führe ein Upgrade durch, um erweiterte Kleiderschrank-Analysen freizuschalten"
+      },
+      "shoppingCopilot": {
+        "title": "Shopping Copilot",
+        "subtitle": "Prüfe deinen Kauf",
+        "cameraPermissionMessage": "Bitte erlaube den Kamerazugriff in den Einstellungen."
+      },
+      "colorDna": {
+        "title": "Color DNA",
+        "subtitle": "Deine beste Palette",
+        "modalTitle": "Deine Color DNA",
+        "bestColors": "Beste Farben",
+        "avoidColors": "Vermeiden"
+      }
+    },
+    "hubActions": {
+      "viewWardrobe": "Kleiderschrank ansehen",
+      "addItem": "Teil hinzufügen"
+    },
+    "insightsCard": {
+      "mostWorn": "Am häufigsten getragen",
+      "hiddenGems": "Versteckte Schätze"
+    },
+    "tour": {
+      "scanButton": "Füge hier dein erstes Kleidungsstück hinzu",
+      "plannerCard": "Plane deine Outfits für die Woche"
+    },
+    "scan": {
+      "permissionTitle": "Berechtigung erforderlich",
+      "permissionMessage": "Bitte erlaube den Zugriff auf deine Fotobibliothek in den Einstellungen.",
+      "genericError": "Dieses Teil konnte nicht analysiert werden. Versuche ein anderes Foto."
+    },
+    "confirm": {
+      "title": "Teil bestätigen",
+      "category": "Kategorie",
+      "color": "Farbe",
+      "discard": "Verwerfen",
+      "confirm": "Bestätigen"
+    },
+    "plannerView": {
+      "title": "Wochenplaner",
+      "description": "Organisiere deinen Kleiderschrank. Plane, was du in der kommenden Woche trägst, um morgens Zeit zu sparen.",
+      "button": "Plan erstellen"
+    },
+    "plannerSetup": {
+      "title": "Look planen",
+      "dateStepLabel": "Wähle einen Tag",
+      "occasionPlaceholder": "Was ist der Anlass? (z. B. Büro, Date, Party)",
+      "askButton": "KI-Stylisten fragen",
+      "promptTemplate": "Ich brauche ein Outfit für {{occasion}} am {{date}}. Stelle einen Look aus meinem Kleiderschrank zusammen.",
+      "defaultOccasion": "einen Anlass"
+    },
+    "catalog": {
+      "title": "Dein Kleiderschrank",
+      "empty": "Dein Kleiderschrank ist leer — scanne ein Teil, um loszulegen.",
+      "emptyCategory": "Noch keine Teile. Tippe auf +, um hinzuzufügen.",
+      "wornCount": "Getragen: {{count}}"
+    },
+    "categories": {
+      "Tops": "Oberteile",
+      "Bottoms": "Hosen",
+      "Outerwear": "Oberbekleidung",
+      "Shoes": "Schuhe",
+      "Accessories": "Accessoires",
+      "Bags": "Taschen"
+    },
+    "categoryDescriptions": {
+      "Tops": "T-Shirts, Hemden und Pullover",
+      "Bottoms": "Hosen, Jeans und Shorts",
+      "Outerwear": "Mäntel, Jacken und Blazer",
+      "Shoes": "Sneaker, Stiefel und Absatzschuhe",
+      "Accessories": "Gürtel, Schmuck und Hüte",
+      "Bags": "Shopper, Rucksäcke und Clutches"
+    },
+    "colors": {
+      "Black": "Schwarz",
+      "White": "Weiß",
+      "Gray": "Grau",
+      "Beige": "Beige",
+      "Brown": "Braun",
+      "Red": "Rot",
+      "Orange": "Orange",
+      "Yellow": "Gelb",
+      "Green": "Grün",
+      "Blue": "Blau",
+      "Purple": "Lila",
+      "Pink": "Pink",
+      "Multicolor": "Mehrfarbig"
+    }
+  },
+  "stylist": {
+    "header": "KI-Stylist",
+    "inputPlaceholder": "Frag deinen Stylisten...",
+    "genericError": "Dein Stylist ist gerade nicht erreichbar. Bitte versuche es erneut.",
+    "welcomeMessage": "Hallo, ich bin dein persönlicher Stylist. Erzähl mir, welchen Look du suchst.",
+    "profileStale": {
+      "prompt": "Mir ist aufgefallen, dass du deine Profileinstellungen aktualisiert hast. Soll ich diese Änderungen in dein Stilprofil übernehmen?",
+      "yes": "Ja, aktualisieren",
+      "no": "Nein, abbrechen",
+      "confirmedNote": "Verstanden — ich berücksichtige ab jetzt dein aktualisiertes Profil.",
+      "dismissedNote": "Kein Problem — ich bleibe bei den Empfehlungen auf Basis deines vorherigen Profils."
+    },
+    "rateMyFit": {
+      "title": "Rate My Fit",
+      "message": "Kamera wird geöffnet..."
+    },
+    "cameraPermission": {
+      "title": "Kamerazugriff erforderlich",
+      "message": "Bitte erlaube den Kamerazugriff in den Geräteeinstellungen, um ein Foto aufzunehmen."
+    },
+    "profileFields": {
+      "gender": "Geschlecht",
+      "hairColor": "Haarfarbe",
+      "eyeColor": "Augenfarbe",
+      "skinTone": "Hautton",
+      "bodyType": "Körperform",
+      "height": "Größe",
+      "weight": "Gewicht",
+      "measurements": "Körpermaße",
+      "stylePreferences": "Stilvorlieben"
+    },
+    "saveToPlanner": "Im Planer speichern",
+    "plannerModal": {
+      "title": "Diesen Look speichern für...",
+      "saved": "Gespeichert für {{date}}"
+    }
+  },
+  "planner": {
+    "title": "Diese Woche",
+    "today": "Heute",
+    "askPrompt": "Was soll ich am {{date}} tragen?",
+    "removeTitle": "Geplanten Look entfernen",
+    "removeMessage": "Den für diesen Tag geplanten Look entfernen?",
+    "cancel": "Abbrechen",
+    "remove": "Entfernen"
+  }
+}

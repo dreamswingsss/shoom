@@ -1,0 +1,316 @@
+import { useLayoutEffect, useState } from 'react';
+import { View, Text, Image, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useWardrobeStore } from '../store/useWardrobeStore';
+import { toDateKey } from '../store/usePlannerStore';
+import { triggerHaptic } from '../utils/haptics';
+import { colors, spacing, radius, shadows, buttons, typography } from '../theme/tokens';
+import { CATEGORIES, COLOR_OPTIONS } from '../constants/wardrobeOptions';
+import { ChipPicker } from '../components/ChipPicker';
+
+const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+
+export default function ItemDetailScreen() {
+  const { t } = useTranslation();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const routeItem = route.params?.item;
+
+  const updateItem = useWardrobeStore((state) => state.updateItem);
+  const removeItem = useWardrobeStore((state) => state.removeItem);
+  const incrementWornCount = useWardrobeStore((state) => state.incrementWornCount);
+
+  // Reads the live item from the store (by id) rather than trusting the
+  // route param snapshot — keeps the screen in sync with itself after
+  // "I'm wearing this today" / inline edit, both of which mutate the store.
+  // Falls back to the snapshot only for the first render before the store
+  // subscription resolves.
+  const item = useWardrobeStore((state) => state.items.find((i) => i.id === routeItem?.id)) || routeItem;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftCategory, setDraftCategory] = useState(item?.category);
+  const [draftColor, setDraftColor] = useState(item?.color);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  function handleEditPress() {
+    triggerHaptic();
+    setDraftCategory(item.category);
+    setDraftColor(item.color);
+    setIsEditing(true);
+  }
+
+  function handleEditCancel() {
+    triggerHaptic();
+    setIsEditing(false);
+  }
+
+  function handleEditSave() {
+    triggerHaptic();
+    updateItem(item.id, { category: draftCategory, color: draftColor });
+    setIsEditing(false);
+  }
+
+  function handleDeletePress() {
+    triggerHaptic();
+    Alert.alert(t('itemDetail.deleteTitle'), t('itemDetail.deleteMessage'), [
+      { text: t('itemDetail.deleteCancel'), style: 'cancel' },
+      {
+        text: t('itemDetail.deleteConfirm'),
+        style: 'destructive',
+        onPress: async () => {
+          setIsDeleting(true);
+          // removeItem is optimistic-with-rollback (see useWardrobeStore) —
+          // it never throws, so a failed delete/Storage call surfaces as
+          // `error` in the store instead. Deleting is destructive AND
+          // navigates away, so — unlike the fire-and-forget wear/edit
+          // actions below — this is the one action worth confirming
+          // actually succeeded before leaving the screen; otherwise a
+          // failed network call would silently leave the item intact while
+          // the client already navigated off believing it was gone.
+          await removeItem(item.id);
+          setIsDeleting(false);
+
+          const syncError = useWardrobeStore.getState().error;
+          if (syncError) {
+            Alert.alert(t('itemDetail.deleteErrorTitle'), syncError);
+            return;
+          }
+          navigation.goBack();
+        },
+      },
+    ]);
+  }
+
+  useLayoutEffect(() => {
+    if (!item) return;
+    navigation.setOptions({
+      headerTitle: t(`closet.categories.${item.category}`),
+      headerRight: () => (
+        <View style={styles.headerActions}>
+          {isDeleting ? (
+            <ActivityIndicator size="small" color={colors.danger} />
+          ) : (
+            <>
+              <TouchableOpacity onPress={handleEditPress} hitSlop={HIT_SLOP} style={styles.headerIconBtn}>
+                <Feather name="edit-2" size={18} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDeletePress} hitSlop={HIT_SLOP} style={styles.headerIconBtn}>
+                <Feather name="trash-2" size={18} color={colors.danger} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      ),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    });
+  }, [navigation, item?.id, item?.category, t, isDeleting]);
+
+  if (!item) {
+    return (
+      <View style={styles.notFoundContainer}>
+        <Text style={styles.notFoundText}>{t('itemDetail.notFound')}</Text>
+      </View>
+    );
+  }
+
+  // Once per local calendar day — mirrors the guard useWardrobeStore's
+  // incrementWornCount() and the increment_worn_count() RPC both enforce,
+  // just for the button's own disabled/label state.
+  const today = toDateKey(new Date());
+  const wornToday = item.lastWornDate === today;
+
+  function handleWearToday() {
+    if (wornToday) return;
+    triggerHaptic();
+    incrementWornCount(item.id);
+  }
+
+  function handleStyleThis() {
+    triggerHaptic();
+    // Hands the exact item off via a route param (`targetItem`) rather than
+    // the chat store's pendingPrompt — StylistScreen watches this param and
+    // sends the "Build an outfit around my..." prompt itself on mount.
+    // ItemDetailScreen sits on the root Stack (a sibling of the "Main" tab
+    // navigator, not nested inside it), so reaching a specific tab needs the
+    // nested `{ screen, params }` form rather than a flat `navigate(...)`.
+    navigation.navigate('Main', { screen: 'AI Stylist', params: { targetItem: item } });
+  }
+
+  const wornCount = item.wornCount || 0;
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Image source={{ uri: item.imageUri }} style={styles.photo} />
+
+      <Text style={styles.title}>
+        {t(`closet.colors.${item.color}`)} {item.subcategory}
+      </Text>
+      <Text style={styles.subtitle}>
+        {t(`closet.colors.${item.color}`)} · {t(`closet.categories.${item.category}`)}
+      </Text>
+
+      <View style={styles.statPlaque}>
+        <View style={styles.statIconWrap}>
+          <Feather name="eye" size={16} color={colors.accent} />
+        </View>
+        <Text style={styles.statText}>{t('closet.catalog.wornCount', { count: wornCount })}</Text>
+      </View>
+
+      {isEditing ? (
+        <View style={styles.editPanel}>
+          <Text style={styles.editLabel}>{t('itemDetail.editCategoryLabel')}</Text>
+          <ChipPicker
+            options={CATEGORIES}
+            value={draftCategory}
+            onSelect={setDraftCategory}
+            getLabel={(option) => t(`closet.categories.${option}`)}
+          />
+
+          <Text style={[styles.editLabel, styles.editLabelSpaced]}>{t('itemDetail.editColorLabel')}</Text>
+          <ChipPicker
+            options={COLOR_OPTIONS}
+            value={draftColor}
+            onSelect={setDraftColor}
+            getLabel={(option) => t(`closet.colors.${option}`)}
+          />
+
+          <View style={styles.editActions}>
+            <TouchableOpacity style={styles.editCancelBtn} onPress={handleEditCancel} activeOpacity={0.8}>
+              <Text style={styles.editCancelBtnText}>{t('itemDetail.editCancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editSaveBtn} onPress={handleEditSave} activeOpacity={0.85}>
+              <Text style={styles.editSaveBtnText}>{t('itemDetail.editSave')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.wearTodayBtn, wornToday && styles.wearTodayBtnDone]}
+            onPress={handleWearToday}
+            disabled={wornToday}
+            activeOpacity={0.85}
+          >
+            <Feather
+              name={wornToday ? 'check' : 'plus-circle'}
+              size={18}
+              color={wornToday ? colors.textSecondary : colors.inverseText}
+            />
+            <Text style={[styles.wearTodayBtnText, wornToday && styles.wearTodayBtnTextDone]}>
+              {wornToday ? t('itemDetail.wornToday') : t('itemDetail.wearToday')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.styleThisBtn} onPress={handleStyleThis} activeOpacity={0.8}>
+            <Feather name="zap" size={16} color={colors.textPrimary} />
+            <Text style={styles.styleThisBtnText}>{t('itemDetail.styleThis')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.premiumBackground },
+  content: { padding: spacing.md, paddingBottom: spacing.xxl },
+
+  photo: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    ...shadows.soft,
+  },
+
+  title: {
+    ...typography.h2,
+    fontWeight: '700',
+    marginTop: spacing.md,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+
+  statPlaque: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.md,
+    ...shadows.soft,
+  },
+  statIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 102, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statText: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+
+  actions: { marginTop: spacing.lg, gap: spacing.sm },
+  wearTodayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.sm,
+  },
+  wearTodayBtnText: { fontSize: 16, fontWeight: '700', color: colors.inverseText },
+  // "Already worn today" state — swaps the Electric Blue fill for the same
+  // glass/outline treatment styleThisBtn (the secondary action) uses below,
+  // so the button visually reads as "done", not as another live CTA.
+  wearTodayBtnDone: { backgroundColor: colors.glassCard, ...shadows.sm },
+  wearTodayBtnTextDone: { color: colors.textSecondary },
+  styleThisBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.sm,
+    ...shadows.sm,
+  },
+  styleThisBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+
+  editPanel: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    ...shadows.soft,
+  },
+  editLabel: { ...typography.label },
+  editLabelSpaced: { marginTop: spacing.md },
+  editActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  editCancelBtn: { ...buttons.secondary, flex: 1, paddingVertical: spacing.xs },
+  editCancelBtnText: { ...buttons.secondaryText, fontSize: 14 },
+  editSaveBtn: { ...buttons.primary, flex: 1, paddingVertical: spacing.xs },
+  editSaveBtnText: { ...buttons.primaryText, fontSize: 14 },
+
+  headerActions: { flexDirection: 'row', gap: spacing.md, paddingRight: spacing.xs },
+  headerIconBtn: { padding: 2 },
+
+  notFoundContainer: {
+    flex: 1,
+    backgroundColor: colors.premiumBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  notFoundText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+});

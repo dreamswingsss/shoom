@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "MyApp",
+    "slug": "myapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to show local weather and suggest outfits."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos for the AI Stylist chat.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to attach outfit pictures in chat."
+        }
+      ],
+      "expo-notifications"
+    ]
+  }
+}

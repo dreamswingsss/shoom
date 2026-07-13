@@ -1,0 +1,306 @@
+{
+  "onboarding": {
+    "languageStep": {
+      "title": "Choisissez la langue"
+    },
+    "steps": {
+      "gender": "Quel est votre genre ?",
+      "hairColor": "Quelle est la couleur de vos cheveux ?",
+      "eyeColor": "Quelle est la couleur de vos yeux ?",
+      "skinTone": "Quel est votre teint de peau ?",
+      "measurements": "Quels sont votre taille et votre poids ?",
+      "bodyType": "Quelle est votre silhouette ?",
+      "bodyMeasurements": "Mensurations (facultatif)",
+      "stylePreferences": "Préférences de style (facultatif)"
+    },
+    "measurementsStep": {
+      "heightPlaceholder": "Taille (cm)",
+      "weightPlaceholder": "Poids (kg)",
+      "heightError": "La taille doit être comprise entre 90 et 250 cm.",
+      "weightError": "Le poids doit être compris entre 20 et 300 kg."
+    },
+    "stylePreferencesStep": {
+      "placeholder": "Ex. : je préfère les jeans slim, les couleurs sombres, et je déteste les vêtements amples."
+    },
+    "buttons": {
+      "continue": "Continuer",
+      "skip": "Passer cette étape",
+      "finish": "Terminer"
+    },
+    "options": {
+      "Women": "Femme",
+      "Men": "Homme",
+      "Other": "Autre",
+      "Trapezoid": "Trapèze",
+      "Inverted Triangle": "Triangle inversé",
+      "Rectangle": "Rectangle",
+      "Oval": "Ovale",
+      "Triangle": "Triangle",
+      "Hourglass": "Sablier",
+      "Pear (Triangle)": "Poire (triangle)",
+      "Apple (Round)": "Pomme (rond)"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "unknownUser": "Utilisateur inconnu",
+    "sections": {
+      "fitProfile": "Profil morphologique",
+      "bodyMeasurements": "Mensurations",
+      "styleVibes": "Styles préférés",
+      "stylePreferences": "Préférences de style"
+    },
+    "fields": {
+      "gender": "Genre",
+      "hairColor": "Couleur de cheveux",
+      "eyeColor": "Couleur des yeux",
+      "skinTone": "Teint de peau",
+      "bodyShape": "Silhouette",
+      "height": "Taille",
+      "weight": "Poids",
+      "shoulders": "Épaules",
+      "chest": "Poitrine",
+      "waist": "Taille",
+      "hips": "Hanches"
+    },
+    "save": "Enregistrer",
+    "styleVibes": {
+      "helper": "Choisissez jusqu'à 3",
+      "Quiet Luxury": "Quiet Luxury",
+      "Streetwear": "Streetwear",
+      "Y2K": "Y2K",
+      "Gorpcore": "Gorpcore",
+      "Minimalism": "Minimalisme",
+      "Dark Fashion": "Mode Sombre",
+      "Vintage": "Vintage",
+      "Business Casual": "Chic Décontracté"
+    },
+    "options": {
+      "Black": "Noir",
+      "Dark Brown": "Châtain foncé",
+      "Chestnut": "Châtain",
+      "Light Brown": "Châtain clair",
+      "Ash Brown": "Châtain cendré",
+      "Ash Blonde": "Blond cendré",
+      "Sandy Blonde": "Blond sable",
+      "Ginger": "Roux",
+      "Salt & Pepper": "Poivre et sel",
+      "Grey": "Gris",
+      "White": "Blanc",
+      "Bald / Shaved": "Chauve / Rasé",
+      "Jet Black": "Noir corbeau",
+      "Auburn": "Auburn",
+      "Copper": "Cuivré",
+      "Golden Blonde": "Blond doré",
+      "Platinum Blonde": "Blond platine",
+      "Balayage": "Balayage",
+      "Silver Grey": "Gris argenté",
+      "Brown": "Marron",
+      "Blue": "Bleu",
+      "Green": "Vert",
+      "Greenish Blue": "Bleu verdâtre",
+      "Yellowish Green": "Vert jaunâtre",
+      "Amber": "Ambre",
+      "Hazel": "Noisette",
+      "Deep Blue": "Bleu profond",
+      "Dark Green": "Vert foncé",
+      "Freckled Hazel": "Noisette moucheté",
+      "Greyish Blue": "Bleu grisâtre",
+      "Forest Green": "Vert forêt",
+      "Dark Hazel": "Noisette foncé",
+      "Spring Green": "Vert printemps",
+      "Very Fair": "Très claire",
+      "Fair": "Claire",
+      "Light": "Claire moyenne",
+      "Medium": "Moyenne",
+      "Tan": "Halée",
+      "Deep": "Foncée",
+      "Very Deep": "Très foncée"
+    },
+    "notSet": "Non renseigné",
+    "editProfile": "Modifier le profil",
+    "logOut": "Déconnexion",
+    "language": "Langue"
+  },
+  "closet": {
+    "hub": {
+      "title": "Votre dressing numérique",
+      "subtitle": "Gérez votre collection, numérisez vos vêtements et laissez l'IA composer vos tenues idéales selon vos proportions et votre palette de couleurs.",
+      "insights": {
+        "itemCount_one": "Article",
+        "itemCount_other": "Articles",
+        "topStyle": "Style dominant",
+        "topColor": "Couleur dominante"
+      },
+      "planner": {
+        "title": "Planificateur hebdomadaire",
+        "subtitle": "Planifiez vos tenues quotidiennes"
+      },
+      "catalogWidget": {
+        "title": "Catalogue",
+        "subtitle_one": "{{count}} article",
+        "subtitle_other": "{{count}} articles"
+      },
+      "weather": {
+        "dressMe": "Habillez-moi",
+        "loading": "Détection de la météo...",
+        "unavailable": "Météo indisponible",
+        "unknownCity": "votre région",
+        "dressMePrompt": "J'ai besoin d'une tenue pour aujourd'hui. La météo actuelle à {{city}} est de {{temperature}}°C, {{condition}}.",
+        "conditions": {
+          "clear": "Ciel dégagé",
+          "cloudy": "Nuageux",
+          "rain": "Pluie",
+          "snow": "Neige",
+          "storm": "Orage",
+          "fog": "Brouillard",
+          "unknown": "Inconnu"
+        },
+        "manualCityTitle": "Entrez votre ville",
+        "manualCityPlaceholder": "ex. Paris",
+        "manualCityCancel": "Annuler",
+        "manualCityApply": "Appliquer",
+        "manualCityError": "Ville introuvable. Essayez une autre orthographe."
+      },
+      "capsuleScore": {
+        "title": "78%",
+        "subtitle": "Cohérence du dressing",
+        "proBadge": "PRO",
+        "premiumAlertTitle": "Fonctionnalité Premium",
+        "premiumAlertMessage": "Passez à la version supérieure pour débloquer les analyses avancées de la garde-robe"
+      },
+      "shoppingCopilot": {
+        "title": "Shopping Copilot",
+        "subtitle": "Validez votre achat",
+        "cameraPermissionMessage": "Autorisez l'accès à l'appareil photo dans les Réglages."
+      },
+      "colorDna": {
+        "title": "Color DNA",
+        "subtitle": "Votre meilleure palette",
+        "modalTitle": "Votre Color DNA",
+        "bestColors": "Meilleures couleurs",
+        "avoidColors": "À éviter"
+      }
+    },
+    "hubActions": {
+      "viewWardrobe": "Voir le dressing",
+      "addItem": "Ajouter un article"
+    },
+    "insightsCard": {
+      "mostWorn": "Le plus porté",
+      "hiddenGems": "Trésors oubliés"
+    },
+    "tour": {
+      "scanButton": "Ajoutez ici votre premier vêtement",
+      "plannerCard": "Planifiez vos tenues de la semaine"
+    },
+    "scan": {
+      "permissionTitle": "Autorisation requise",
+      "permissionMessage": "Autorisez l'accès à votre photothèque dans les Réglages.",
+      "genericError": "Impossible d'analyser cet article. Essayez une autre photo."
+    },
+    "confirm": {
+      "title": "Confirmer l'article",
+      "category": "Catégorie",
+      "color": "Couleur",
+      "discard": "Ignorer",
+      "confirm": "Confirmer"
+    },
+    "plannerView": {
+      "title": "Planificateur hebdomadaire",
+      "description": "Organisez votre dressing. Planifiez vos tenues pour la semaine à venir afin de gagner du temps le matin.",
+      "button": "Créer un plan"
+    },
+    "plannerSetup": {
+      "title": "Planifier une tenue",
+      "dateStepLabel": "Choisissez un jour",
+      "occasionPlaceholder": "Quelle est l'occasion ? (ex. Bureau, Rendez-vous, Fête)",
+      "askButton": "Demander au Styliste IA",
+      "promptTemplate": "J'ai besoin d'une tenue pour {{occasion}} le {{date}}. Composez un look à partir de mon dressing.",
+      "defaultOccasion": "une occasion"
+    },
+    "catalog": {
+      "title": "Votre dressing",
+      "empty": "Votre dressing est vide — scannez un article pour commencer.",
+      "emptyCategory": "Aucun article pour l'instant. Appuyez sur + pour en ajouter.",
+      "wornCount": "Porté : {{count}}"
+    },
+    "categories": {
+      "Tops": "Hauts",
+      "Bottoms": "Bas",
+      "Outerwear": "Manteaux",
+      "Shoes": "Chaussures",
+      "Accessories": "Accessoires",
+      "Bags": "Sacs"
+    },
+    "categoryDescriptions": {
+      "Tops": "T-shirts, chemises et pulls",
+      "Bottoms": "Pantalons, jeans et shorts",
+      "Outerwear": "Manteaux, vestes et blazers",
+      "Shoes": "Baskets, bottes et talons",
+      "Accessories": "Ceintures, bijoux et chapeaux",
+      "Bags": "Cabas, sacs à dos et pochettes"
+    },
+    "colors": {
+      "Black": "Noir",
+      "White": "Blanc",
+      "Gray": "Gris",
+      "Beige": "Beige",
+      "Brown": "Marron",
+      "Red": "Rouge",
+      "Orange": "Orange",
+      "Yellow": "Jaune",
+      "Green": "Vert",
+      "Blue": "Bleu",
+      "Purple": "Violet",
+      "Pink": "Rose",
+      "Multicolor": "Multicolore"
+    }
+  },
+  "stylist": {
+    "header": "Styliste IA",
+    "inputPlaceholder": "Demandez à votre styliste...",
+    "genericError": "Impossible de joindre votre styliste. Réessayez.",
+    "welcomeMessage": "Bonjour, je suis votre styliste personnel. Dites-moi le look que vous recherchez.",
+    "profileStale": {
+      "prompt": "J'ai remarqué que vous avez mis à jour les paramètres de votre profil. Dois-je appliquer ces changements à votre profil de style ?",
+      "yes": "Oui, mettre à jour",
+      "no": "Non, annuler",
+      "confirmedNote": "Compris — je tiendrai compte de votre profil mis à jour à partir de maintenant.",
+      "dismissedNote": "Pas de souci — je garde mes conseils basés sur votre ancien profil."
+    },
+    "rateMyFit": {
+      "title": "Rate My Fit",
+      "message": "Ouverture de la caméra..."
+    },
+    "cameraPermission": {
+      "title": "Accès à la caméra requis",
+      "message": "Autorisez l'accès à la caméra dans les paramètres de votre appareil pour prendre une photo."
+    },
+    "profileFields": {
+      "gender": "genre",
+      "hairColor": "couleur de cheveux",
+      "eyeColor": "couleur des yeux",
+      "skinTone": "teint de peau",
+      "bodyType": "silhouette",
+      "height": "taille",
+      "weight": "poids",
+      "measurements": "mensurations",
+      "stylePreferences": "préférences de style"
+    },
+    "saveToPlanner": "Enregistrer dans le planificateur",
+    "plannerModal": {
+      "title": "Enregistrer cette tenue pour...",
+      "saved": "Enregistré pour {{date}}"
+    }
+  },
+  "planner": {
+    "title": "Cette semaine",
+    "today": "Aujourd'hui",
+    "askPrompt": "Que devrais-je porter le {{date}} ?",
+    "removeTitle": "Supprimer la tenue planifiée",
+    "removeMessage": "Supprimer la tenue planifiée pour ce jour ?",
+    "cancel": "Annuler",
+    "remove": "Supprimer"
+  }
+}

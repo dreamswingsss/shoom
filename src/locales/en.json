@@ -1,0 +1,421 @@
+{
+  "onboarding": {
+    "languageStep": {
+      "title": "Choose Language"
+    },
+    "steps": {
+      "gender": "What is your gender?",
+      "hairColor": "What is your hair color?",
+      "eyeColor": "What is your eye color?",
+      "skinTone": "What is your skin tone?",
+      "measurements": "What are your height & weight?",
+      "bodyType": "What is your body shape?",
+      "bodyMeasurements": "Body Measurements (Optional)",
+      "stylePreferences": "Style Preferences (Optional)",
+      "auth": "Save your Fit Profile"
+    },
+    "measurementsStep": {
+      "heightPlaceholder": "Height (cm)",
+      "weightPlaceholder": "Weight (kg)",
+      "heightError": "Height must be between 90 and 250 cm.",
+      "weightError": "Weight must be between 20 and 300 kg."
+    },
+    "stylePreferencesStep": {
+      "placeholder": "E.g., I prefer skinny jeans, dark colors, and hate oversized clothes."
+    },
+    "authStep": {
+      "subtitle": "Sign in with Google to save everything you just set up.",
+      "googleButton": "Continue with Google",
+      "genericError": "Could not sign in with Google. Please try again.",
+      "alreadyHaveAccount": "Already have an account? Sign in",
+      "saveErrorTitle": "Couldn't save your profile",
+      "saveErrorMessage": "You're signed in, but we couldn't save your Fit Profile. Please try again."
+    },
+    "buttons": {
+      "continue": "Continue",
+      "skip": "Skip this step",
+      "finish": "Finish"
+    },
+    "options": {
+      "Women": "Women",
+      "Men": "Men",
+      "Other": "Other",
+      "Trapezoid": "Trapezoid",
+      "Inverted Triangle": "Inverted Triangle",
+      "Rectangle": "Rectangle",
+      "Oval": "Oval",
+      "Triangle": "Triangle",
+      "Hourglass": "Hourglass",
+      "Pear (Triangle)": "Pear (Triangle)",
+      "Apple (Round)": "Apple (Round)"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "unknownUser": "Unknown User",
+    "sections": {
+      "fitProfile": "Fit Profile",
+      "bodyMeasurements": "Body Measurements",
+      "styleVibes": "Style Vibes",
+      "stylePreferences": "Style Preferences"
+    },
+    "fields": {
+      "gender": "Gender",
+      "hairColor": "Hair Color",
+      "eyeColor": "Eye Color",
+      "skinTone": "Skin Tone",
+      "bodyShape": "Body Shape",
+      "height": "Height",
+      "weight": "Weight",
+      "shoulders": "Shoulders",
+      "chest": "Chest",
+      "waist": "Waist",
+      "hips": "Hips"
+    },
+    "save": "Save",
+    "styleVibes": {
+      "helper": "Pick up to 3",
+      "Quiet Luxury": "Quiet Luxury",
+      "Streetwear": "Streetwear",
+      "Y2K": "Y2K",
+      "Gorpcore": "Gorpcore",
+      "Minimalism": "Minimalism",
+      "Dark Fashion": "Dark Fashion",
+      "Vintage": "Vintage",
+      "Business Casual": "Business Casual"
+    },
+    "options": {
+      "Black": "Black",
+      "Dark Brown": "Dark Brown",
+      "Chestnut": "Chestnut",
+      "Light Brown": "Light Brown",
+      "Ash Brown": "Ash Brown",
+      "Ash Blonde": "Ash Blonde",
+      "Sandy Blonde": "Sandy Blonde",
+      "Ginger": "Ginger",
+      "Salt & Pepper": "Salt & Pepper",
+      "Grey": "Grey",
+      "White": "White",
+      "Bald / Shaved": "Bald / Shaved",
+      "Jet Black": "Jet Black",
+      "Auburn": "Auburn",
+      "Copper": "Copper",
+      "Golden Blonde": "Golden Blonde",
+      "Platinum Blonde": "Platinum Blonde",
+      "Balayage": "Balayage",
+      "Silver Grey": "Silver Grey",
+      "Brown": "Brown",
+      "Blue": "Blue",
+      "Green": "Green",
+      "Greenish Blue": "Greenish Blue",
+      "Yellowish Green": "Yellowish Green",
+      "Amber": "Amber",
+      "Hazel": "Hazel",
+      "Deep Blue": "Deep Blue",
+      "Dark Green": "Dark Green",
+      "Freckled Hazel": "Freckled Hazel",
+      "Greyish Blue": "Greyish Blue",
+      "Forest Green": "Forest Green",
+      "Dark Hazel": "Dark Hazel",
+      "Spring Green": "Spring Green",
+      "Very Fair": "Very Fair",
+      "Fair": "Fair",
+      "Light": "Light",
+      "Medium": "Medium",
+      "Tan": "Tan",
+      "Deep": "Deep",
+      "Very Deep": "Very Deep"
+    },
+    "notSet": "Not set",
+    "editProfile": "Edit Profile",
+    "logOut": "Log Out",
+    "language": "Language",
+    "deleteAccount": {
+      "button": "Delete Account",
+      "confirmTitle": "Delete Account",
+      "confirmMessage": "Are you sure? This action cannot be undone and will permanently delete all your data, outfits, and uploaded photos.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "errorTitle": "Error"
+    }
+  },
+  "closet": {
+    "hub": {
+      "title": "Your Digital Closet",
+      "subtitle": "Manage your collection, digitize your physical garments, and let the AI concierge build your perfect daily looks based on your unique proportions and color palette.",
+      "greeting": "Hi, {{name}}",
+      "greetingFallback": "there",
+      "todayLabel": "Today",
+      "planAheadLabel": "Plan ahead",
+      "shopYourClosetLabel": "Shop your closet",
+      "insights": {
+        "itemCount_one": "Item",
+        "itemCount_other": "Items",
+        "topStyle": "Top Style",
+        "topColor": "Top Color"
+      },
+      "planner": {
+        "title": "Weekly Planner",
+        "subtitle": "Plan your daily looks"
+      },
+      "catalogWidget": {
+        "title": "Catalog",
+        "subtitle_one": "{{count}} item",
+        "subtitle_other": "{{count}} items"
+      },
+      "styleStreak": {
+        "count_one": "{{count}} Day",
+        "count_other": "{{count}} Days",
+        "subtitleActive": "Keep it going!",
+        "subtitleEmpty": "Plan a look to start",
+        "alertTitle": "Style Streak",
+        "alertMessage": "Plan a look with your AI Stylist on consecutive days to build your streak. Miss a full day and it resets."
+      },
+      "dailyChallenge": {
+        "badge": "Today's challenge",
+        "doneBadge": "Completed",
+        "subtitle": "Tap when done",
+        "doneSubtitle": "Completed today"
+      },
+      "weather": {
+        "dressMe": "Dress me",
+        "loading": "Detecting weather...",
+        "unavailable": "Weather unavailable",
+        "unknownCity": "your area",
+        "dressMePrompt": "I need an outfit for today. Current weather in {{city}} is {{temperature}}°C, {{condition}}.",
+        "conditions": {
+          "clear": "Clear",
+          "cloudy": "Cloudy",
+          "rain": "Rain",
+          "snow": "Snow",
+          "storm": "Storm",
+          "fog": "Fog",
+          "unknown": "Unknown"
+        },
+        "manualCityTitle": "Enter your city",
+        "manualCityPlaceholder": "e.g. Paris",
+        "manualCityCancel": "Cancel",
+        "manualCityApply": "Apply",
+        "manualCityError": "Couldn't find that city. Try a different spelling."
+      },
+      "capsuleScore": {
+        "subtitle": "Wardrobe cohesion",
+        "proBadge": "PRO",
+        "premiumAlertTitle": "Premium Feature",
+        "premiumAlertMessage": "Upgrade to unlock advanced wardrobe analytics"
+      },
+      "shoppingCopilot": {
+        "title": "Shopping Copilot",
+        "subtitle": "Validate your purchase",
+        "cameraPermissionMessage": "Please allow camera access in Settings."
+      },
+      "colorDna": {
+        "title": "Color DNA",
+        "subtitle": "Your best palette",
+        "modalTitle": "Your Color DNA",
+        "bestColors": "Best Colors",
+        "avoidColors": "Avoid"
+      },
+      "impact": {
+        "title": "Wardrobe Impact",
+        "ecoScore": "Eco-Score",
+        "inRotation": "In rotation"
+      },
+      "inspiration": {
+        "title": "Style Inspiration",
+        "comingSoon": "Coming soon",
+        "tags": {
+          "minimalism": "Minimalism",
+          "streetwear": "Streetwear",
+          "office": "Office",
+          "casual": "Casual",
+          "eveningwear": "Evening"
+        }
+      }
+    },
+    "hubActions": {
+      "viewWardrobe": "View Wardrobe",
+      "addItem": "Add Item"
+    },
+    "insightsCard": {
+      "mostWorn": "Most Worn",
+      "hiddenGems": "Hidden Gems"
+    },
+    "tour": {
+      "scanButton": "Add your first item here",
+      "plannerCard": "Plan your outfits for the week"
+    },
+    "scan": {
+      "permissionTitle": "Permission Required",
+      "permissionMessage": "Please allow access to your photo library in Settings.",
+      "genericError": "Could not analyze this item. Please try another photo."
+    },
+    "confirm": {
+      "title": "Confirm Item",
+      "category": "Category",
+      "color": "Color",
+      "discard": "Discard",
+      "confirm": "Confirm"
+    },
+    "catalog": {
+      "title": "Your Wardrobe",
+      "empty": "Your closet is empty — scan an item to get started.",
+      "emptyCategory": "No items yet. Tap + to add.",
+      "emptyCategoryNamed": "No {{category}} added yet",
+      "allFilter": "All",
+      "wornCount_one": "Worn: {{count}} time",
+      "wornCount_other": "Worn: {{count}} times"
+    },
+    "plannerView": {
+      "title": "Weekly Planner",
+      "description": "Organize your wardrobe. Plan what to wear for the upcoming week to save time in the mornings.",
+      "button": "Create a Plan"
+    },
+    "plannerSetup": {
+      "title": "Plan a Look",
+      "dateStepLabel": "Choose a day",
+      "occasionPlaceholder": "What's the occasion? (e.g., Office, Date, Party)",
+      "askButton": "Ask AI Stylist",
+      "promptTemplate": "I need an outfit for {{occasion}} on {{date}}. Build a look from my wardrobe.",
+      "defaultOccasion": "an occasion"
+    },
+    "categories": {
+      "Tops": "Tops",
+      "Bottoms": "Bottoms",
+      "Outerwear": "Outerwear",
+      "Shoes": "Shoes",
+      "Accessories": "Accessories",
+      "Bags": "Bags"
+    },
+    "categoryDescriptions": {
+      "Tops": "T-shirts, shirts, and sweaters",
+      "Bottoms": "Trousers, jeans, and shorts",
+      "Outerwear": "Coats, jackets, and blazers",
+      "Shoes": "Sneakers, boots, and heels",
+      "Accessories": "Belts, jewelry, and hats",
+      "Bags": "Totes, backpacks, and clutches"
+    },
+    "colors": {
+      "Black": "Black",
+      "White": "White",
+      "Gray": "Gray",
+      "Beige": "Beige",
+      "Brown": "Brown",
+      "Red": "Red",
+      "Orange": "Orange",
+      "Yellow": "Yellow",
+      "Green": "Green",
+      "Blue": "Blue",
+      "Purple": "Purple",
+      "Pink": "Pink",
+      "Multicolor": "Multicolor"
+    }
+  },
+  "stylist": {
+    "header": "AI Stylist",
+    "inputPlaceholder": "Ask your stylist...",
+    "inputPlaceholderShopping": "Ask for shopping ideas...",
+    "genericError": "Could not reach your stylist right now. Please try again.",
+    "welcomeMessage": "Hi, I'm your personal stylist. Tell me what look you're going for.",
+    "emptyState": {
+      "title": "Not sure what to wear?",
+      "caption": "Snap a photo of your outfit or pick a quick prompt below and I'll style it for you."
+    },
+    "profileStale": {
+      "prompt": "I've noticed you've updated your profile settings. Should I apply these changes to your style profile?",
+      "yes": "Yes, update",
+      "no": "No, cancel",
+      "confirmedNote": "Got it — I'll factor in your updated profile from here on.",
+      "dismissedNote": "No problem — kept styling advice based on your previous profile."
+    },
+    "rateMyFit": {
+      "title": "Rate My Fit",
+      "message": "Camera opening..."
+    },
+    "cameraPermission": {
+      "title": "Camera access needed",
+      "message": "Please allow camera access in your device settings to take a photo."
+    },
+    "profileFields": {
+      "gender": "gender",
+      "hairColor": "hair color",
+      "eyeColor": "eye color",
+      "skinTone": "skin tone",
+      "bodyType": "body shape",
+      "height": "height",
+      "weight": "weight",
+      "measurements": "body measurements",
+      "stylePreferences": "style preferences"
+    },
+    "saveToPlanner": "Save to Planner",
+    "plannerModal": {
+      "title": "Save this look for...",
+      "saved": "Saved for {{date}}"
+    },
+    "targetItemPrompt": "Build an outfit around my {{item}}.",
+    "quickPrompts": {
+      "officeLook": "Office look",
+      "dateNight": "Date night",
+      "casualWeekend": "Casual weekend",
+      "rainyDay": "Rainy day",
+      "surpriseMe": "Surprise me"
+    },
+    "quickActions": {
+      "swapTop": "🔄 Swap top",
+      "swapTopPrompt": "Swap the top in this outfit for a different piece — reuse my wardrobe if something fits, otherwise suggest one to buy.",
+      "warmer": "❄️ Warmer",
+      "warmerPrompt": "Make this outfit warmer — add or swap pieces so it works for colder weather.",
+      "cooler": "🔥 Cooler",
+      "coolerPrompt": "Make this outfit cooler — lighter pieces or fewer layers so it works for warmer weather.",
+      "moreFormal": "✨ More formal",
+      "moreFormalPrompt": "Dress this outfit up — swap in more formal pieces for a dressier occasion."
+    },
+    "feedbackActions": {
+      "loveIt": "✨ Love it",
+      "loveItPrompt": "I love this look!",
+      "notMyStyle": "👎 Not my style",
+      "notMyStylePrompt": "This isn't my style — try a completely different direction for this outfit.",
+      "tooBright": "🎨 Too bright",
+      "tooBrightPrompt": "This feels too bright — tone down the colors for something more muted."
+    },
+    "inspirationBoard": {
+      "title": "Inspiration Board"
+    },
+    "zeroCloset": {
+      "banner": "Inspiration Mode is on — your closet is empty, so I'm working as your personal shopper, suggesting pieces to buy based on your profile."
+    }
+  },
+  "planner": {
+    "title": "This Week",
+    "screenTitle": "Weekly Plan",
+    "today": "Today",
+    "askPrompt": "What should I wear on {{date}}?",
+    "removeTitle": "Remove Planned Outfit",
+    "removeMessage": "Remove the outfit planned for this day?",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "heroBadge": "This week",
+    "heroTitle": "{{count}} of 7 days planned",
+    "heroCaption": "Add a look for the days left blank",
+    "heroCaptionStreak": "{{count}}-day style streak going",
+    "yourPlan": "Your plan",
+    "plannedLook": "Planned look",
+    "styledByAi": "Styled by AI",
+    "snapOrShuffle": "Snap or shuffle"
+  },
+  "itemDetail": {
+    "wearToday": "I'm wearing this today",
+    "wornToday": "Worn today",
+    "styleThis": "Style this item",
+    "deleteTitle": "Delete Item",
+    "deleteMessage": "Remove this item from your closet? This can't be undone.",
+    "deleteCancel": "Cancel",
+    "deleteConfirm": "Delete",
+    "deleteErrorTitle": "Couldn't delete item",
+    "editCategoryLabel": "Category",
+    "editColorLabel": "Color",
+    "editSave": "Save",
+    "editCancel": "Cancel",
+    "notFound": "This item is no longer in your closet."
+  }
+}
