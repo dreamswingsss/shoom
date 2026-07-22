@@ -432,7 +432,7 @@
   "stylist": {
     "header": "Styliste IA",
     "inputPlaceholder": "Demandez à votre styliste...",
-    "inputPlaceholderShopping": "Demandez des idées shopping...",
+    "inputPlaceholderShopping": "Ajoutez des pièces pour débloquer le stylisme...",
     "genericError": "Impossible de joindre votre styliste. Réessayez.",
     "rateLimitApology": "Ouf, on est débordés de clients aujourd'hui ! Laissez-moi une minute pour souffler, et votre tenue sera prête.",
     "locationRestrictedApology": "J'ai du mal à joindre le moteur de style depuis votre connexion actuelle — réessayez dans un instant, ou changez de réseau si le problème persiste.",
@@ -494,7 +494,7 @@
     },
     "quickActions": {
       "swapTop": "🔄 Changer le haut",
-      "swapTopPrompt": "Remplacez le haut de cette tenue par une autre pièce — utilisez mon dressing si quelque chose convient, sinon suggérez-en un à acheter.",
+      "swapTopPrompt": "Remplacez le haut de cette tenue par une autre pièce de mon dressing.",
       "warmer": "❄️ Plus chaud",
       "warmerPrompt": "Rendez cette tenue plus chaude — ajoutez ou remplacez des pièces pour un temps plus froid.",
       "cooler": "🔥 Plus frais",
@@ -510,11 +510,12 @@
       "tooBright": "🎨 Trop vif",
       "tooBrightPrompt": "C'est trop vif — atténuez les couleurs pour quelque chose de plus sobre."
     },
-    "inspirationBoard": {
-      "title": "Tableau d'inspiration"
+    "closetEmpty": {
+      "message": "Votre dressing est vide — ajoutez d'abord quelques pièces, et je composerai de vraies tenues pour vous.",
+      "cta": "Ajouter des pièces"
     },
     "zeroCloset": {
-      "banner": "Le Mode Inspiration est activé — votre dressing est vide, donc je fais office de personal shopper et vous suggère des pièces à acheter selon votre profil."
+      "banner": "Votre dressing est vide. Ajoutez quelques pièces pour que votre styliste IA ait de quoi travailler."
     }
   },
   "planner": {

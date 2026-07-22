@@ -1,12 +1,9 @@
-// Shared keyword classifier — no category field ever comes back from
-// Gemini for a suggested item (only `name`/`search_query`, see
-// aiChatEngine.js's buildSystemPrompt/buildInspirationSystemPrompt), so
-// both `components/GeneratedItemThumb.js` (picking a placeholder icon) and
-// `services/aiChatEngine.js` (building a generic fallback Unsplash query,
-// e.g. "black pants flat lay") need to guess one from the item's own text.
-// Extracted here as ONE shared classifier instead of two copies that could
-// drift apart — a "Bonobos Chinos" item should infer the same category
-// (Bottoms) whether it's picking an icon or building a search query.
+// Keyword classifier — `components/GeneratedItemThumb.js` uses this to pick
+// a placeholder icon for a saved Lookbook entry that has no real photo
+// (legacy 'new'-type entries from before the stylist went wardrobe-only —
+// see that component's own comment); no category field ever came back from
+// Gemini for those, only `name`/`search_query`, so it has to guess one from
+// the item's own text.
 export function inferItemCategory(name = '', searchQuery = '') {
   const haystack = `${name} ${searchQuery}`.toLowerCase();
   // Leading `\b` only (not trailing) is deliberate — these need to match

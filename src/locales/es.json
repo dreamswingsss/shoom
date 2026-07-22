@@ -432,7 +432,7 @@
   "stylist": {
     "header": "Estilista IA",
     "inputPlaceholder": "Pregúntale a tu estilista...",
-    "inputPlaceholderShopping": "Pide ideas de compras...",
+    "inputPlaceholderShopping": "Añade prendas para desbloquear el estilismo...",
     "genericError": "No se pudo contactar con tu estilista. Inténtalo de nuevo.",
     "rateLimitApology": "¡Vaya, hoy estamos desbordados de clientes! Dame un minuto para tomar aire y tendré tu look listo.",
     "locationRestrictedApology": "Tengo problemas para conectar con el motor de estilismo desde tu conexión actual — inténtalo de nuevo en un momento, o cambia de red si sigue ocurriendo.",
@@ -494,7 +494,7 @@
     },
     "quickActions": {
       "swapTop": "🔄 Cambiar la parte de arriba",
-      "swapTopPrompt": "Cambia la parte de arriba de este look por otra prenda — usa mi armario si algo encaja, si no, sugiere una para comprar.",
+      "swapTopPrompt": "Cambia la parte de arriba de este look por otra prenda de mi armario.",
       "warmer": "❄️ Más abrigado",
       "warmerPrompt": "Haz este look más abrigado — añade o cambia prendas para climas más fríos.",
       "cooler": "🔥 Más fresco",
@@ -510,11 +510,12 @@
       "tooBright": "🎨 Demasiado llamativo",
       "tooBrightPrompt": "Esto se siente demasiado llamativo — suaviza los colores para algo más discreto."
     },
-    "inspirationBoard": {
-      "title": "Tablero de inspiración"
+    "closetEmpty": {
+      "message": "Tu armario está vacío — añade algunas prendas primero y empezaré a crear looks reales para ti.",
+      "cta": "Añadir prendas"
     },
     "zeroCloset": {
-      "banner": "El Modo Inspiración está activo — tu armario está vacío, así que estoy trabajando como tu personal shopper, sugiriendo prendas para comprar según tu perfil."
+      "banner": "Tu armario está vacío. Añade algunas prendas para que tu estilista de IA tenga algo real con lo que trabajar."
     }
   },
   "planner": {

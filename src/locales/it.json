@@ -432,7 +432,7 @@
   "stylist": {
     "header": "Stylist IA",
     "inputPlaceholder": "Chiedi al tuo stylist...",
-    "inputPlaceholderShopping": "Chiedi idee per lo shopping...",
+    "inputPlaceholderShopping": "Aggiungi capi per sbloccare lo styling...",
     "genericError": "Impossibile contattare il tuo stylist. Riprova.",
     "rateLimitApology": "Uff, oggi siamo sommersi di clienti! Dammi un minuto per riprendere fiato e il tuo outfit sarà pronto.",
     "locationRestrictedApology": "Sto avendo difficoltà a raggiungere il motore di styling dalla tua connessione attuale — riprova tra un momento, oppure cambia rete se il problema persiste.",
@@ -494,7 +494,7 @@
     },
     "quickActions": {
       "swapTop": "🔄 Cambia il top",
-      "swapTopPrompt": "Cambia il top di questo outfit con un altro capo — usa il mio guardaroba se qualcosa si adatta, altrimenti suggerisci uno da acquistare.",
+      "swapTopPrompt": "Cambia il top di questo outfit con un altro capo del mio guardaroba.",
       "warmer": "❄️ Più caldo",
       "warmerPrompt": "Rendi questo outfit più caldo — aggiungi o cambia capi per il clima più freddo.",
       "cooler": "🔥 Più fresco",
@@ -510,11 +510,12 @@
       "tooBright": "🎨 Troppo vivace",
       "tooBrightPrompt": "Questo sembra troppo vivace — attenua i colori per qualcosa di più sobrio."
     },
-    "inspirationBoard": {
-      "title": "Bacheca di ispirazione"
+    "closetEmpty": {
+      "message": "Il tuo guardaroba è vuoto — aggiungi prima qualche capo e comincerò a creare outfit reali per te.",
+      "cta": "Aggiungi capi"
     },
     "zeroCloset": {
-      "banner": "La Modalità Ispirazione è attiva — il tuo armadio è vuoto, quindi sto lavorando come tuo personal shopper, suggerendo capi da acquistare in base al tuo profilo."
+      "banner": "Il tuo guardaroba è vuoto. Aggiungi qualche capo così il tuo stylist IA avrà qualcosa di reale su cui lavorare."
     }
   },
   "planner": {

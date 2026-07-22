@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -13,6 +13,8 @@ import { getInitials } from '../utils/getInitials';
 import { colors, cardTints, spacing, radius, typography, withAlpha } from '../theme/tokens';
 import Skeleton from '../components/Skeleton';
 import ScreenContainer from '../components/ScreenContainer';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useConfirm } from '../hooks/useConfirm';
 import { TourTarget } from '../components/AppTour';
 
 const DAY_COUNT = 7;
@@ -58,6 +60,7 @@ export default function PlannerScreen() {
   const setPendingPrompt = useChatStore((state) => state.setPendingPrompt);
 
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
 
   const wardrobeById = useMemo(
     () => Object.fromEntries(wardrobe.map((item) => [item.id, item])),
@@ -117,10 +120,17 @@ export default function PlannerScreen() {
   }
 
   function handleRemove(dateKey) {
-    Alert.alert(t('planner.removeTitle'), t('planner.removeMessage'), [
-      { text: t('planner.cancel'), style: 'cancel' },
-      { text: t('planner.remove'), style: 'destructive', onPress: () => removeOutfit(dateKey) },
-    ]);
+    // useConfirm() routes to the real OS Alert on native and to a
+    // CenteredModal-based dialog on web — `Alert.alert` alone is a silent
+    // no-op in react-native-web, which would otherwise make this button do
+    // nothing at all for a web client.
+    confirm({
+      title: t('planner.removeTitle'),
+      message: t('planner.removeMessage'),
+      cancelLabel: t('planner.cancel'),
+      confirmLabel: t('planner.remove'),
+      onConfirm: () => removeOutfit(dateKey),
+    });
   }
 
   function handleCameraQuickAction() {
@@ -284,6 +294,10 @@ export default function PlannerScreen() {
           <Text style={styles.quickActionsCaption}>{t('planner.snapOrShuffle')}</Text>
         </View>
       </View>
+
+      {dialogProps && (
+        <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
+      )}
     </ScreenContainer>
   );
 }

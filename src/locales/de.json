@@ -432,7 +432,7 @@
   "stylist": {
     "header": "KI-Stylist",
     "inputPlaceholder": "Frag deinen Stylisten...",
-    "inputPlaceholderShopping": "Frag nach Shopping-Ideen...",
+    "inputPlaceholderShopping": "Füge Teile hinzu, um Styling freizuschalten...",
     "genericError": "Dein Stylist ist gerade nicht erreichbar. Bitte versuche es erneut.",
     "rateLimitApology": "Puh, wir sind heute mit Kundschaft überlastet! Gib mir eine Minute, dann ist dein Outfit fertig.",
     "locationRestrictedApology": "Ich habe gerade Schwierigkeiten, die Styling-Engine von deiner aktuellen Verbindung aus zu erreichen — versuche es gleich noch einmal oder wechsle das Netzwerk, falls es weiter auftritt.",
@@ -494,7 +494,7 @@
     },
     "quickActions": {
       "swapTop": "🔄 Oberteil tauschen",
-      "swapTopPrompt": "Tausche das Oberteil in diesem Outfit gegen ein anderes Teil — nutze meinen Kleiderschrank, falls etwas passt, sonst schlage etwas zum Kaufen vor.",
+      "swapTopPrompt": "Tausche das Oberteil in diesem Outfit gegen ein anderes Teil aus meinem Kleiderschrank.",
       "warmer": "❄️ Wärmer",
       "warmerPrompt": "Mach dieses Outfit wärmer — füge Teile hinzu oder tausche sie für kälteres Wetter.",
       "cooler": "🔥 Kühler",
@@ -510,11 +510,12 @@
       "tooBright": "🎨 Zu grell",
       "tooBrightPrompt": "Das wirkt zu grell — dämpfe die Farben für etwas Dezenteres."
     },
-    "inspirationBoard": {
-      "title": "Inspirations-Board"
+    "closetEmpty": {
+      "message": "Dein Kleiderschrank ist leer — füge zuerst ein paar Teile hinzu, dann stelle ich dir echte Outfits zusammen.",
+      "cta": "Teile hinzufügen"
     },
     "zeroCloset": {
-      "banner": "Der Inspirationsmodus ist aktiv — dein Kleiderschrank ist leer, deshalb arbeite ich als dein persönlicher Shopper und schlage Teile zum Kauf vor, basierend auf deinem Profil."
+      "banner": "Dein Kleiderschrank ist leer. Füge ein paar Teile hinzu, damit dein KI-Stylist etwas Echtes zum Arbeiten hat."
     }
   },
   "planner": {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, Image, Animated, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -11,10 +11,14 @@ import { supabase } from '../services/supabaseClient';
 import { deleteAccount } from '../services/accountService';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import { colors, cardTints, spacing, radius, shadows, hairline, typography, buttons } from '../theme/tokens';
 import EditProfileScreen from './EditProfileScreen';
 import ScreenContainer from '../components/ScreenContainer';
 import LanguagePicker from '../components/LanguagePicker';
+import ConfirmDialog from '../components/ConfirmDialog';
+import Toast from '../components/Toast';
 import { getInitials } from '../utils/getInitials';
 
 // Redesign v3 — Profile is a scannable vertical list (avatar row, a stats
@@ -55,6 +59,8 @@ export default function ProfileScreen({ navigation, route }) {
   // gender, fetches the profile, and logs in — isLoggedIn flips reactively
   // and this whole screen re-renders showing the real profile on its own.
   const { signIn: signInWithGoogle, signingIn, error: googleSignInError } = useGoogleSignIn();
+  const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
+  const { toastMessage, toastKey, showToast } = useToast();
   // Which nav row's content is expanded in place below it — see the file
   // comment above for why this is an accordion instead of real navigation.
   const [expandedSection, setExpandedSection] = useState(null);
@@ -117,33 +123,33 @@ export default function ProfileScreen({ navigation, route }) {
     });
   }
 
+  async function performDeleteAccount() {
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+    } catch (err) {
+      // `err.message` is now the REAL server-side reason (see
+      // accountService.js's own extractFunctionErrorMessage), not the
+      // generic "non-2xx status code" text — logged here too so it shows
+      // up in Metro/device logs even if the client doesn't read the toast.
+      console.log('[handleDeleteAccount] failed:', err.message);
+      showToast(err.message);
+      setIsDeleting(false);
+    }
+  }
+
   function handleDeleteAccount() {
-    Alert.alert(
-      t('profile.deleteAccount.confirmTitle'),
-      t('profile.deleteAccount.confirmMessage'),
-      [
-        { text: t('profile.deleteAccount.cancel'), style: 'cancel' },
-        {
-          text: t('profile.deleteAccount.confirm'),
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeleting(true);
-            try {
-              await deleteAccount();
-            } catch (err) {
-              // `err.message` is now the REAL server-side reason (see
-              // accountService.js's own extractFunctionErrorMessage), not
-              // the generic "non-2xx status code" text — logged here too
-              // so it shows up in Metro/device logs even if the client
-              // dismisses the alert without reading it.
-              console.log('[handleDeleteAccount] failed:', err.message);
-              Alert.alert(t('profile.deleteAccount.errorTitle'), err.message);
-              setIsDeleting(false);
-            }
-          },
-        },
-      ]
-    );
+    // useConfirm() routes to the real OS Alert on native and to a
+    // CenteredModal-based dialog on web — `Alert.alert` alone is a silent
+    // no-op in react-native-web, which would otherwise make this button do
+    // nothing at all for a web client.
+    confirm({
+      title: t('profile.deleteAccount.confirmTitle'),
+      message: t('profile.deleteAccount.confirmMessage'),
+      cancelLabel: t('profile.deleteAccount.cancel'),
+      confirmLabel: t('profile.deleteAccount.confirm'),
+      onConfirm: performDeleteAccount,
+    });
   }
 
   function toggleSection(key) {
@@ -151,7 +157,7 @@ export default function ProfileScreen({ navigation, route }) {
   }
 
   function showComingSoon(titleKey, messageKey) {
-    Alert.alert(t(titleKey), t(messageKey));
+    showToast(t(messageKey));
   }
 
   const hasMeasurements =
@@ -405,6 +411,11 @@ export default function ProfileScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
       </Animated.ScrollView>
+
+      {dialogProps && (
+        <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
+      )}
+      <Toast key={toastKey} message={toastMessage} />
     </ScreenContainer>
   );
 }

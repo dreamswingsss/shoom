@@ -13,7 +13,6 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -22,23 +21,22 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { sendChatMessage, fetchInspirationBoard } from '../services/aiChatEngine';
-import { getColorSeason } from '../services/stylistPromptBuilder';
+import { sendChatMessage } from '../services/aiChatEngine';
 import { useUserStore } from '../store/useUserStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { useChatStore } from '../store/useChatStore';
 import { usePlannerStore, toDateKey } from '../store/usePlannerStore';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
-import { useWeather } from '../hooks/useWeather';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
+import { useToast } from '../hooks/useToast';
 import { formatWeekdayLong, formatWeekdayShortWithDate } from '../utils/dateFormat';
 import { colors, cardTints, spacing, radius, typography, shadows, buttons, opacity } from '../theme/tokens';
 import ScreenContainer from '../components/ScreenContainer';
 import BottomSheet from '../components/BottomSheet';
 import { TourTarget } from '../components/AppTour';
 import { FadeInView } from '../components/AnimatedPressable';
-import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import FullScreenImageViewer from '../components/FullScreenImageViewer';
+import Toast from '../components/Toast';
 import { triggerHaptic } from '../utils/haptics';
 
 // Injected as a hidden ("sender: 'user'", not rendered) turn once the
@@ -52,25 +50,6 @@ import { triggerHaptic } from '../utils/haptics';
 const PROFILE_CONFIRMED_SYSTEM_NOTE =
   'The user has confirmed new profile parameters. From now on, use this new profile data for all outfit recommendations.';
 
-// AI Stylist Guard (Inspiration Mode only — see `hasMinimumProfileData`
-// below) — deliberately NOT run through t(), same reasoning as
-// PROFILE_CONFIRMED_SYSTEM_NOTE above: this is a fixed system notice, not
-// copy that should shift with the app's language setting. Kept in English
-// regardless of locale, per spec.
-const PROFILE_INCOMPLETE_MESSAGE =
-  'Not enough data to create a personalized look. Please complete your profile to get accurate recommendations.';
-
-// Client-side gate for the Zero-Closet ("Inspiration Mode") path only —
-// `sendChatMessage`'s own outfit-from-wardrobe path still has real items to
-// reason about even with a bare profile, but `fetchInspirationBoard` has
-// NOTHING else to go on; every recommendation it makes is reasoned purely
-// from these four fields (see aiChatEngine.js's buildInspirationSystemPrompt
-// and stylistPromptBuilder.js's buildProfileContext). Checked BEFORE the
-// Gemini call, not after — an incomplete profile means the request never
-// goes out at all, not that the reply gets discarded once it comes back.
-function hasMinimumProfileData({ height, weight, bodyType, skinTone }) {
-  return height != null && weight != null && Boolean(bodyType) && Boolean(getColorSeason(skinTone));
-}
 
 // Quick Prompts — a horizontal row of one-tap starters above the input bar.
 // Each `prompt` is the literal text sent to the stylist (translated, since
@@ -140,10 +119,6 @@ export default function StylistScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const wardrobe = useWardrobeStore((state) => state.items);
-  const height = useUserStore((state) => state.height);
-  const weight = useUserStore((state) => state.weight);
-  const bodyType = useUserStore((state) => state.bodyType);
-  const skinTone = useUserStore((state) => state.skinTone);
   const isProfileStale = useUserStore((state) => state.isProfileStale);
   const confirmProfileUpdate = useUserStore((state) => state.confirmProfileUpdate);
   const dismissProfileStale = useUserStore((state) => state.dismissProfileStale);
@@ -154,16 +129,15 @@ export default function StylistScreen() {
   const clearPendingPrompt = useChatStore((state) => state.clearPendingPrompt);
   const upsertProfileStalePrompt = useChatStore((state) => state.upsertProfileStalePrompt);
   const fadeOpacity = useFadeOnFocus();
-  const weather = useWeather();
 
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
-  // Full-screen viewer for any tapped chat image (wardrobe photo, suggested
-  // item, or Inspiration Board item) — one piece of state at screen level
-  // rather than per-message, since only one image can be open at a time
-  // regardless of which bubble it came from.
+  // Full-screen viewer for any tapped chat image (a wardrobe photo) — one
+  // piece of state at screen level rather than per-message, since only one
+  // image can be open at a time regardless of which bubble it came from.
   const [viewerUri, setViewerUri] = useState(null);
+  const { toastMessage, toastKey, toastHoldMs, showToast } = useToast();
 
   const listRef = useRef(null);
   // Synchronous companion to the `sending` state guard in handleSend below.
@@ -277,32 +251,26 @@ export default function StylistScreen() {
 
     try {
       if (wardrobe.length === 0) {
-        // AI Stylist Guard — see `hasMinimumProfileData`'s own comment.
-        // Short-circuits before any network call; `finally` below still
-        // resets `sending`/`sendingRef` on this path since `return` inside
-        // `try` runs it regardless.
-        if (!hasMinimumProfileData({ height, weight, bodyType, skinTone })) {
-          addMessage({ id: `${Date.now()}-ai`, sender: 'ai', type: 'profileIncomplete', text: PROFILE_INCOMPLETE_MESSAGE });
-          return;
-        }
-
-        // Zero-Closet — nothing to build an outfit from yet, so ask for a
-        // shopping-reference "Inspiration Board" reasoned from the profile
-        // (skin tone / body shape / hair color) instead.
-        const { text: aiText, boardItems } = await fetchInspirationBoard({
-          message: text,
-          history: historyForRequest,
-          weather,
-        });
-        addMessage({ id: `${Date.now()}-ai`, sender: 'ai', type: 'inspirationBoard', text: aiText, boardItems });
-      } else {
-        const { text: aiText, outfitIds, newItems } = await sendChatMessage({
-          message: text,
-          wardrobe,
-          history: historyForRequest,
-        });
-        addMessage({ id: `${Date.now()}-ai`, sender: 'ai', text: aiText, outfitIds, newItems, baseItemId });
+        // Wardrobe-Only Guard — the stylist only ever reasons about pieces
+        // that exist in the client's own closet (see aiChatEngine.js's
+        // RULE #5), so an empty closet has nothing for it to work with,
+        // full stop. Short-circuits before any network call, regardless of
+        // profile completeness or what the client typed — there used to be
+        // a "Zero-Closet Inspiration Mode" here that shopped for pieces to
+        // buy instead, but that's exactly the made-up-item behavior RULE #5
+        // now forbids, so this case has nothing left to do but ask for a
+        // real closet. `finally` below still resets `sending`/`sendingRef`
+        // on this path since `return` inside `try` runs it regardless.
+        addMessage({ id: `${Date.now()}-ai`, sender: 'ai', type: 'closetEmpty', text: t('stylist.closetEmpty.message') });
+        return;
       }
+
+      const { text: aiText, outfitIds } = await sendChatMessage({
+        message: text,
+        wardrobe,
+        history: historyForRequest,
+      });
+      addMessage({ id: `${Date.now()}-ai`, sender: 'ai', text: aiText, outfitIds, baseItemId });
     } catch (err) {
       setError(err.message || t('stylist.genericError'));
     } finally {
@@ -311,23 +279,21 @@ export default function StylistScreen() {
     }
   }
 
-  // "Complete Profile" CTA under the profileIncomplete message — Profile is
-  // a sibling tab inside the same "Main" tab navigator this screen already
-  // lives in (unlike ItemDetailScreen, which sits on the root Stack and has
-  // to nest through `{ screen, params }` to reach a tab — see that screen's
-  // own comment), so this navigates directly by tab name. `openEditProfile`
-  // is a route param ProfileScreen watches for on focus to jump straight
-  // into its inline edit view instead of landing on the plain profile list.
-  function handleCompleteProfile() {
+  // "Add Items" CTA under the closetEmpty message — Closet is a sibling tab
+  // inside the same "Main" tab navigator this screen already lives in
+  // (unlike ItemDetailScreen, which sits on the root Stack and has to nest
+  // through `{ screen, params }` to reach a tab — see that screen's own
+  // comment), so this navigates directly by tab name.
+  function handleAddItems() {
     triggerHaptic();
-    navigation.navigate('Profile', { openEditProfile: true });
+    navigation.navigate('Closet');
   }
 
   async function handleCameraPress() {
     triggerHaptic();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('stylist.cameraPermission.title'), t('stylist.cameraPermission.message'));
+      showToast(t('stylist.cameraPermission.message'));
       return;
     }
 
@@ -397,7 +363,8 @@ export default function StylistScreen() {
               onDismissProfileUpdate={handleProfileUpdateDismiss}
               onQuickAction={(prompt) => handleSend(prompt)}
               onImagePress={setViewerUri}
-              onCompleteProfile={handleCompleteProfile}
+              onAddItems={handleAddItems}
+              showToast={showToast}
             />
           </FadeInView>
         )}
@@ -459,6 +426,7 @@ export default function StylistScreen() {
       </Animated.View>
 
       <FullScreenImageViewer visible={!!viewerUri} imageUri={viewerUri} onClose={() => setViewerUri(null)} />
+      <Toast key={toastKey} message={toastMessage} holdMs={toastHoldMs} />
     </ScreenContainer>
   );
 }
@@ -472,7 +440,8 @@ function MessageBubble({
   onDismissProfileUpdate,
   onQuickAction,
   onImagePress,
-  onCompleteProfile,
+  onAddItems,
+  showToast,
 }) {
   const { t } = useTranslation();
   const isUser = item.sender === 'user';
@@ -482,51 +451,20 @@ function MessageBubble({
   // while the next reply is still streaming in.
   const showResponseActions = !isUser && isLastMessage && !sending && item.id !== 'welcome';
 
-  // AI Stylist Guard's own card — see PROFILE_INCOMPLETE_MESSAGE/
-  // hasMinimumProfileData above. No SaveInspirationButton or response-action
-  // rows here (see showResponseActions above) — there's no outfit/board to
-  // save or react to, just a dead end with one way out: complete the profile.
-  if (item.type === 'profileIncomplete') {
+  // Wardrobe-Only Guard's own card — see handleSend's own comment in the
+  // parent screen. No SaveInspirationButton or response-action rows here
+  // (see showResponseActions above) — there's no outfit to save or react
+  // to, just a dead end with one way out: go add something to the closet.
+  if (item.type === 'closetEmpty') {
     return (
       <View style={styles.messageRowAi}>
         <View style={styles.aiCard}>
           <Text style={styles.aiMessageText}>{item.text}</Text>
-          <TouchableOpacity style={styles.completeProfileBtn} onPress={onCompleteProfile} activeOpacity={0.85}>
-            <Feather name="user-check" size={15} color={colors.inverseText} />
-            <Text style={styles.completeProfileBtnText}>Complete Profile</Text>
+          <TouchableOpacity style={styles.completeProfileBtn} onPress={onAddItems} activeOpacity={0.85}>
+            <Feather name="plus-circle" size={15} color={colors.inverseText} />
+            <Text style={styles.completeProfileBtnText}>{t('stylist.closetEmpty.cta')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    );
-  }
-
-  if (item.type === 'inspirationBoard') {
-    const boardItems = item.boardItems || [];
-    return (
-      <View style={styles.messageRowAi}>
-        <View style={styles.aiCard}>
-          <Text style={styles.aiMessageText}>{item.text}</Text>
-          <InspirationBoard items={boardItems} onImagePress={onImagePress} />
-          {boardItems.length > 0 && (
-            <SaveInspirationButton
-              messageId={item.id}
-              saved={Boolean(item.inspirationSaved)}
-              baseItemId={null}
-              aiText={item.text}
-              generatedItems={boardItems.map((board) => ({
-                type: 'new',
-                name: board.name,
-                imageUrl: board.imageUrl,
-              }))}
-            />
-          )}
-        </View>
-        {showResponseActions && (
-          <>
-            <QuickActionsRow onSelect={onQuickAction} />
-            <FeedbackActionsRow onSelect={onQuickAction} />
-          </>
-        )}
       </View>
     );
   }
@@ -581,7 +519,6 @@ function MessageBubble({
   }
 
   const outfitItems = (item.outfitIds || []).map((id) => wardrobeById[id]).filter(Boolean);
-  const newItems = item.newItems || [];
 
   return (
     <View style={styles.messageRowAi}>
@@ -610,58 +547,22 @@ function MessageBubble({
           </View>
         )}
 
-        {newItems.length > 0 && (
-          <View style={styles.buyStrip}>
-            {/* Tapping opens the full-screen viewer (real photo or the
-                distinctive placeholder — both are worth seeing larger); this
-                is separate from RULE #4's "no tap-through to a browser" —
-                there's still no outbound link here, just a bigger look at
-                the same image already on screen. */}
-            {newItems.map((newItem, index) => (
-              <View key={`${newItem.name}-${index}`} style={styles.buyCardShadow}>
-                <TouchableOpacity
-                  style={styles.buyCard}
-                  onPress={() => onImagePress(newItem.imageUrl)}
-                  activeOpacity={0.85}
-                  disabled={!newItem.imageUrl}
-                >
-                  <GeneratedItemThumb
-                    uri={newItem.imageUrl}
-                    name={newItem.name}
-                    searchQuery={newItem.searchQuery}
-                    style={styles.buyImage}
-                  />
-                  <Text style={styles.buyName} numberOfLines={2}>
-                    {newItem.name}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {(outfitItems.length > 0 || newItems.length > 0) && (
+        {outfitItems.length > 0 && (
           <>
             <SaveInspirationButton
               messageId={item.id}
               saved={Boolean(item.inspirationSaved)}
               baseItemId={item.baseItemId ?? null}
               aiText={item.text}
-              generatedItems={[
-                ...outfitItems.map((wardrobeItem) => ({
-                  type: 'wardrobe',
-                  id: wardrobeItem.id,
-                  name: wardrobeItem.subcategory,
-                  imageUrl: wardrobeItem.imageUri,
-                })),
-                ...newItems.map((newItem) => ({
-                  type: 'new',
-                  name: newItem.name,
-                  imageUrl: newItem.imageUrl,
-                })),
-              ]}
+              generatedItems={outfitItems.map((wardrobeItem) => ({
+                type: 'wardrobe',
+                id: wardrobeItem.id,
+                name: wardrobeItem.subcategory,
+                imageUrl: wardrobeItem.imageUri,
+              }))}
+              showToast={showToast}
             />
-            <SaveToPlannerButton outfitIds={item.outfitIds || []} newItems={newItems} />
+            <SaveToPlannerButton outfitIds={item.outfitIds || []} />
           </>
         )}
       </View>
@@ -690,7 +591,7 @@ function MessageBubble({
 // is what lets a successful sign-in fall straight through into performSave()
 // with the generated look still in hand, instead of the client losing this
 // exact look the moment they navigate away to sign in from Profile.
-function SaveInspirationButton({ messageId, saved, baseItemId, aiText, generatedItems }) {
+function SaveInspirationButton({ messageId, saved, baseItemId, aiText, generatedItems, showToast }) {
   const { t } = useTranslation();
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const updateMessage = useChatStore((state) => state.updateMessage);
@@ -712,7 +613,7 @@ function SaveInspirationButton({ messageId, saved, baseItemId, aiText, generated
       updateMessage(messageId, { inspirationSaved: true, inspirationId: inspiration.id });
     } catch (err) {
       console.error('[StylistScreen] Save inspiration failed:', err);
-      Alert.alert(t('stylist.saveInspiration.errorTitle'), err.message || t('stylist.saveInspiration.genericError'));
+      showToast(err.message || t('stylist.saveInspiration.genericError'));
     } finally {
       setSaving(false);
     }
@@ -863,52 +764,6 @@ function FeedbackActionsRow({ onSelect }) {
   );
 }
 
-// "Inspiration Board" — the Zero-Closet reply's shopping-reference grid.
-// Visually similar to the "suggested to buy" strip on a normal outfit turn
-// (same card width/shadow), but each card also shows the profile-tied
-// "reason" the client doesn't get from a plain buy card.
-function InspirationBoard({ items, onImagePress }) {
-  const { t } = useTranslation();
-  if (items.length === 0) return null;
-
-  return (
-    <View style={styles.inspirationBoard}>
-      <View style={styles.inspirationHeader}>
-        <Feather name="compass" size={12} color={colors.accent} />
-        <Text style={styles.inspirationHeaderText}>{t('stylist.inspirationBoard.title')}</Text>
-      </View>
-      <View style={styles.buyStrip}>
-        {/* Reference cards only — see the buy-strip's own comment above. */}
-        {items.map((boardItem, index) => (
-          <View key={`${boardItem.name}-${index}`} style={styles.inspirationCardShadow}>
-            <TouchableOpacity
-              style={styles.inspirationCard}
-              onPress={() => onImagePress(boardItem.imageUrl)}
-              activeOpacity={0.85}
-              disabled={!boardItem.imageUrl}
-            >
-              <GeneratedItemThumb
-                uri={boardItem.imageUrl}
-                name={boardItem.name}
-                searchQuery={boardItem.searchQuery}
-                style={styles.buyImage}
-              />
-              <Text style={styles.buyName} numberOfLines={2}>
-                {boardItem.name}
-              </Text>
-              {!!boardItem.reason && (
-                <Text style={styles.inspirationReason} numberOfLines={3}>
-                  {boardItem.reason}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 // Redesign v2 — fills the dead space between the welcome bubble and the
 // input bar when there's nothing else to look at yet (rendered as the
 // FlatList's footer, so it sits directly after the welcome bubble and
@@ -958,7 +813,7 @@ function QuickPromptsRow({ onSelect, disabled }) {
 // Lets the client pin this exact generated look (wardrobe item ids + any
 // suggested-to-buy items) to a day on the WeeklyPlanner without leaving the
 // chat. Picks from the same 7-day window WeeklyPlanner shows.
-function SaveToPlannerButton({ outfitIds, newItems }) {
+function SaveToPlannerButton({ outfitIds }) {
   const { t, i18n } = useTranslation();
   const scheduleOutfit = usePlannerStore((state) => state.scheduleOutfit);
   const [modalVisible, setModalVisible] = useState(false);
@@ -975,7 +830,7 @@ function SaveToPlannerButton({ outfitIds, newItems }) {
 
   function handleSelectDay(date) {
     triggerHaptic();
-    scheduleOutfit(toDateKey(date), { outfitIds, newItems });
+    scheduleOutfit(toDateKey(date), { outfitIds });
     setModalVisible(false);
     setSavedLabel(formatWeekdayShortWithDate(date, i18n.language));
   }
@@ -1189,9 +1044,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  // AI Stylist Guard's CTA — solid accent fill (same weight as a primary
-  // action, not a secondary/outline chip) since completing the profile is
-  // the ONLY way forward from this card, not one option among several.
+  // Wardrobe-Only Guard's CTA — solid accent fill (same weight as a primary
+  // action, not a secondary/outline chip) since adding an item is the ONLY
+  // way forward from this card, not one option among several.
   completeProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1217,26 +1072,6 @@ const styles = StyleSheet.create({
   },
   outfitMiniLabel: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
   outfitMiniColor: { fontSize: 11, color: colors.textSecondary },
-
-  // "Suggested to buy" cards — visually distinct from wardrobe mini cards:
-  // glass background, slightly wider.
-  buyStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
-  // Split shadow (outer) / clip (inner): a rounded-corner soft shadow and
-  // `overflow: hidden` (needed to clip BuyItemImage to the card's corners)
-  // can't live on the same node — iOS clips the shadow away too.
-  buyCardShadow: {
-    width: 104,
-    borderRadius: radius.card,
-    backgroundColor: colors.glassCard,
-    ...shadows.soft,
-  },
-  buyCard: {
-    width: 104,
-    borderRadius: radius.card,
-    overflow: 'hidden',
-  },
-  buyImage: { width: '100%', height: 104, backgroundColor: colors.surface },
-  buyName: { fontSize: 12, fontWeight: '600', color: colors.textPrimary, padding: 6 },
 
   saveToPlannerBtn: {
     flexDirection: 'row',
@@ -1354,30 +1189,6 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   feedbackActionChipText: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
-
-  // Inspiration Board (Zero-Closet) — same card geometry as the "buy" strip,
-  // plus a header label and a reason caption baked into each card.
-  inspirationBoard: { marginTop: spacing.xs },
-  inspirationHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.xs },
-  inspirationHeaderText: {
-    ...typography.label,
-    fontSize: 11,
-    color: colors.accent,
-  },
-  inspirationCardShadow: {
-    width: 132,
-    borderRadius: radius.card,
-    backgroundColor: colors.glassCard,
-    ...shadows.soft,
-  },
-  inspirationCard: { width: 132, borderRadius: radius.card, overflow: 'hidden' },
-  inspirationReason: {
-    fontSize: 11,
-    lineHeight: 14,
-    color: colors.textSecondary,
-    paddingHorizontal: 6,
-    paddingBottom: 8,
-  },
 
   plannerSavedText: {
     fontSize: 12,

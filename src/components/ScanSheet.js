@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   View,
   Text,
   TouchableOpacity,
@@ -17,12 +16,14 @@ import { useTranslation } from 'react-i18next';
 import BottomSheet from './BottomSheet';
 import CenteredModal from './CenteredModal';
 import RegistrationFlow from './RegistrationFlow';
+import Toast from './Toast';
 import { ChipPicker } from './ChipPicker';
 import { readImageAsBase64 } from '../utils/imageBase64';
 import { compressImage } from '../utils/imageCompression';
 import { scanClothingItem } from '../services/aiScanner';
 import { calculateColorDnaMatch } from '../utils/colorDna';
 import { useUserStore } from '../store/useUserStore';
+import { useToast } from '../hooks/useToast';
 import { CATEGORIES, COLOR_OPTIONS } from '../constants/wardrobeOptions';
 import {
   colors,
@@ -75,6 +76,7 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
   const [editingDetails, setEditingDetails] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const { toastMessage, toastKey, showToast } = useToast();
 
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const gender = useUserStore((state) => state.gender);
@@ -283,16 +285,18 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
       // Logged for us to diagnose (the raw Supabase/Postgrest error — code,
       // hint, details — carries more than `.message` alone), surfaced to
       // the client via BOTH an inline banner (stays readable after the
-      // alert is dismissed, useful if they want to re-read it while editing
-      // details and retrying) and a native Alert. The alert is the part
-      // that actually matters here: the inline banner alone rendered at the
+      // toast fades, useful if they want to re-read it while editing
+      // details and retrying) and a Toast. The toast is the part that
+      // actually matters here: the inline banner alone rendered at the
       // bottom of the sheet, easy to miss below the fold with no scroll
       // indicator — which is exactly what made a real, already-caught error
       // read as "the app just froze, nothing happened" instead of a
-      // failure the client could act on.
+      // failure the client could act on. (Used to be a native Alert, which
+      // is a silent no-op on react-native-web — this app ships a real web
+      // target, so that left web clients with only the easy-to-miss banner.)
       console.error('[ScanSheet] Save failed:', err);
       setSaveError(message);
-      Alert.alert(t('closet.scan.saveErrorTitle'), message);
+      showToast(message);
     } finally {
       setSaving(false);
     }
@@ -369,7 +373,7 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
       await performSave();
     } catch (err) {
       console.error('[ScanSheet] completeOnboarding failed:', err);
-      Alert.alert(t('closet.scan.saveErrorTitle'), err.message || t('closet.scan.calibration.genericError'));
+      showToast(err.message || t('closet.scan.calibration.genericError'));
     }
   }
 
@@ -548,6 +552,12 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
             </View>
           </View>
         )}
+
+        {/* Rendered as a child of the sheet panel itself (not a screen-level
+            sibling) — BottomSheet is a real native <Modal>, which portals
+            above everything else in its own layer, so a Toast rendered
+            outside it would be invisible while this sheet is open. */}
+        <Toast key={toastKey} message={toastMessage} />
       </BottomSheet>
 
       {/* Centered, not a sheet stacking on top of the one above — Critical

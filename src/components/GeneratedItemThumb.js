@@ -1,17 +1,15 @@
-// Shared thumbnail for any AI-suggested ("new"/"board") item — StylistScreen's
-// buy strip, its zero-closet Inspiration Board, and WardrobeScreen's saved
-// Lookbook cards all render the exact same shape of data (`{ name, imageUrl }`,
-// no category field of its own) through this one component instead of each
-// screen rolling its own fallback.
+// Shared thumbnail for a saved Lookbook entry (`{ name, imageUrl }`, no
+// category field of its own) — WardrobeScreen's Lookbook cards and
+// InspirationDetailScreen render this same shape through one component
+// instead of each screen rolling its own fallback.
 //
-// The bug this replaces: every item without a real photo used to fall back
-// to a SHARED generic Unsplash search (`fetchItemImage`'s old
-// GENERIC_FALLBACK_QUERY in aiChatEngine.js), so any two items whose specific
-// search both came up empty rendered the literal same stock photo. That
-// generic-query fallback is gone now (see aiChatEngine.js) — this component
-// is what a missing/failed photo degrades to instead: a deterministic
-// gradient + category icon, hashed off the item's own name, so two different
-// items never look identical even when neither has a real photo.
+// The AI stylist now only ever suggests real wardrobe items (see
+// aiChatEngine.js's RULE #5 — it no longer invents purchasable pieces or
+// fetches stock photos for them), so a missing/failed `imageUrl` here is
+// legacy data from before that change, not a live code path. Either way,
+// this degrades to a deterministic gradient + category icon, hashed off the
+// item's own name, so two different items never look identical even when
+// neither has a real photo.
 import { useState } from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -66,7 +64,9 @@ const CATEGORY_ICONS = {
   Outerwear: 'hanger',
 };
 
-// `uri`: real photo (wardrobe `imageUri` or a resolved Unsplash `imageUrl`).
+// `uri`: a real photo — a saved Lookbook entry's `imageUrl` (a wardrobe
+// item's own photo at save time), or `undefined`/`null` for legacy 'new'-
+// type entries saved before the stylist went wardrobe-only.
 // `name`/`searchQuery`: used only to pick a stable gradient + icon when
 // there's no photo (or it fails to load) — never displayed by this
 // component itself, the caller renders the name as its own label.

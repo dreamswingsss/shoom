@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -8,8 +8,10 @@ import { triggerHaptic } from '../utils/haptics';
 import { colors, cardTints, spacing, radius, shadows, typography } from '../theme/tokens';
 import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Toast from '../components/Toast';
 import ScreenContainer from '../components/ScreenContainer';
 import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 const THUMB_SIZE = 64;
@@ -44,6 +46,7 @@ export default function InspirationDetailScreen() {
   const wardrobeById = useMemo(() => Object.fromEntries(wardrobe.map((item) => [item.id, item])), [wardrobe]);
   const removeInspiration = useWardrobeStore((state) => state.removeInspiration);
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
+  const { toastMessage, toastKey, showToast } = useToast();
 
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -58,7 +61,7 @@ export default function InspirationDetailScreen() {
 
     const syncError = useWardrobeStore.getState().error;
     if (syncError) {
-      Alert.alert(t('itemDetail.deleteErrorTitle'), syncError);
+      showToast(syncError);
       return;
     }
     navigation.goBack();
@@ -167,6 +170,7 @@ export default function InspirationDetailScreen() {
       {dialogProps && (
         <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
       )}
+      <Toast key={toastKey} message={toastMessage} />
     </ScreenContainer>
   );
 }

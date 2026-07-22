@@ -439,7 +439,7 @@
   "stylist": {
     "header": "AI Stylist",
     "inputPlaceholder": "Ask your stylist...",
-    "inputPlaceholderShopping": "Ask for shopping ideas...",
+    "inputPlaceholderShopping": "Add items to unlock styling...",
     "genericError": "Could not reach your stylist right now. Please try again.",
     "rateLimitApology": "Whew, we're swamped with clients today! Give me one minute to catch my breath, and I'll have your outfit ready.",
     "locationRestrictedApology": "I'm having trouble reaching the styling engine from your current connection — try again in a moment, or switch networks if it keeps happening.",
@@ -501,7 +501,7 @@
     },
     "quickActions": {
       "swapTop": "🔄 Swap top",
-      "swapTopPrompt": "Swap the top in this outfit for a different piece — reuse my wardrobe if something fits, otherwise suggest one to buy.",
+      "swapTopPrompt": "Swap the top in this outfit for a different piece from my wardrobe.",
       "warmer": "❄️ Warmer",
       "warmerPrompt": "Make this outfit warmer — add or swap pieces so it works for colder weather.",
       "cooler": "🔥 Cooler",
@@ -517,11 +517,12 @@
       "tooBright": "🎨 Too bright",
       "tooBrightPrompt": "This feels too bright — tone down the colors for something more muted."
     },
-    "inspirationBoard": {
-      "title": "Inspiration Board"
+    "closetEmpty": {
+      "message": "Your closet is empty — add a few pieces first, and I'll start styling real outfits for you.",
+      "cta": "Add Items"
     },
     "zeroCloset": {
-      "banner": "Inspiration Mode is on — your closet is empty, so I'm working as your personal shopper, suggesting pieces to buy based on your profile."
+      "banner": "Your closet is empty. Add a few pieces so your AI stylist has something real to work with."
     }
   },
   "planner": {

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -10,6 +10,10 @@ import { colors, spacing, radius, shadows, buttons, typography, withAlpha } from
 import { CATEGORIES, COLOR_OPTIONS } from '../constants/wardrobeOptions';
 import { ChipPicker } from '../components/ChipPicker';
 import ScreenContainer from '../components/ScreenContainer';
+import ConfirmDialog from '../components/ConfirmDialog';
+import Toast from '../components/Toast';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -34,6 +38,8 @@ export default function ItemDetailScreen() {
   const [draftCategory, setDraftCategory] = useState(item?.category);
   const [draftColor, setDraftColor] = useState(item?.color);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
+  const { toastMessage, toastKey, showToast } = useToast();
 
   function handleEditPress() {
     triggerHaptic();
@@ -53,35 +59,39 @@ export default function ItemDetailScreen() {
     setIsEditing(false);
   }
 
+  async function performDelete() {
+    setIsDeleting(true);
+    // removeItem is optimistic-with-rollback (see useWardrobeStore) — it
+    // never throws, so a failed delete/Storage call surfaces as `error` in
+    // the store instead. Deleting is destructive AND navigates away, so —
+    // unlike the fire-and-forget wear/edit actions below — this is the one
+    // action worth confirming actually succeeded before leaving the screen;
+    // otherwise a failed network call would silently leave the item intact
+    // while the client already navigated off believing it was gone.
+    await removeItem(item.id);
+    setIsDeleting(false);
+
+    const syncError = useWardrobeStore.getState().error;
+    if (syncError) {
+      showToast(syncError);
+      return;
+    }
+    navigation.goBack();
+  }
+
   function handleDeletePress() {
     triggerHaptic();
-    Alert.alert(t('itemDetail.deleteTitle'), t('itemDetail.deleteMessage'), [
-      { text: t('itemDetail.deleteCancel'), style: 'cancel' },
-      {
-        text: t('itemDetail.deleteConfirm'),
-        style: 'destructive',
-        onPress: async () => {
-          setIsDeleting(true);
-          // removeItem is optimistic-with-rollback (see useWardrobeStore) —
-          // it never throws, so a failed delete/Storage call surfaces as
-          // `error` in the store instead. Deleting is destructive AND
-          // navigates away, so — unlike the fire-and-forget wear/edit
-          // actions below — this is the one action worth confirming
-          // actually succeeded before leaving the screen; otherwise a
-          // failed network call would silently leave the item intact while
-          // the client already navigated off believing it was gone.
-          await removeItem(item.id);
-          setIsDeleting(false);
-
-          const syncError = useWardrobeStore.getState().error;
-          if (syncError) {
-            Alert.alert(t('itemDetail.deleteErrorTitle'), syncError);
-            return;
-          }
-          navigation.goBack();
-        },
-      },
-    ]);
+    // useConfirm() routes to the real OS Alert on native and to a
+    // CenteredModal-based dialog on web (see that hook's own comment) —
+    // `Alert.alert` alone is a silent no-op in react-native-web, which
+    // would otherwise make this button do nothing at all for a web client.
+    confirm({
+      title: t('itemDetail.deleteTitle'),
+      message: t('itemDetail.deleteMessage'),
+      cancelLabel: t('itemDetail.deleteCancel'),
+      confirmLabel: t('itemDetail.deleteConfirm'),
+      onConfirm: performDelete,
+    });
   }
 
   useLayoutEffect(() => {
@@ -221,6 +231,11 @@ export default function ItemDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {dialogProps && (
+        <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
+      )}
+      <Toast key={toastKey} message={toastMessage} />
     </ScreenContainer>
   );
 }

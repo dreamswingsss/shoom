@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   ScrollView,
   Animated,
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -45,6 +44,7 @@ import HorizontalFadeScroll from '../components/HorizontalFadeScroll';
 import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import ScanSheet from '../components/ScanSheet';
 import LockableTile from '../components/LockableTile';
 import Toast from '../components/Toast';
@@ -109,12 +109,7 @@ export default function WardrobeScreen() {
   const [scanSheetVisible, setScanSheetVisible] = useState(false);
   const [copilotAnalyzing, setCopilotAnalyzing] = useState(false);
   const [colorDnaModalVisible, setColorDnaModalVisible] = useState(false);
-  // `toastKey` forces Toast to remount (and replay its animation) even when
-  // the client taps the same locked tile twice in a row with the exact same
-  // message — see Toast's own comment for why keying off `message` alone
-  // isn't enough.
-  const [toastMessage, setToastMessage] = useState(null);
-  const [toastKey, setToastKey] = useState(0);
+  const { toastMessage, toastKey, toastHoldMs, showToast } = useToast();
 
   const palette = useMemo(() => getPalette(skinTone, hairColor, eyeColor), [skinTone, hairColor, eyeColor]);
   // Progressive Profiling gate — Deferred Registration stopped collecting
@@ -304,8 +299,7 @@ export default function WardrobeScreen() {
   // feels responsive instead of dead.
   function handleLockedTilePress() {
     triggerHaptic();
-    setToastMessage(t('closet.hub.lockedTile.message'));
-    setToastKey((key) => key + 1);
+    showToast(t('closet.hub.lockedTile.message'));
   }
 
   // Snaps a candidate purchase in-store and asks the AI for a quick "Buy or
@@ -315,7 +309,7 @@ export default function WardrobeScreen() {
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('closet.scan.permissionTitle'), t('closet.hub.shoppingCopilot.cameraPermissionMessage'));
+      showToast(t('closet.hub.shoppingCopilot.cameraPermissionMessage'));
       return;
     }
 
@@ -329,9 +323,12 @@ export default function WardrobeScreen() {
         capsuleScore: cohesionScore,
         styleVibes,
       });
-      Alert.alert(verdict, reasoning);
+      // Longer hold than the default toast — this is a verdict + a full
+      // sentence of reasoning the client actually needs to read, not a
+      // quick one-word confirmation.
+      showToast(`${verdict}: ${reasoning}`, 3200);
     } catch (err) {
-      Alert.alert(t('closet.scan.genericError'), err.message);
+      showToast(err.message || t('closet.scan.genericError'));
     } finally {
       setCopilotAnalyzing(false);
     }
@@ -426,7 +423,7 @@ export default function WardrobeScreen() {
 
           <View style={styles.bentoRow}>
             <FadeInView delay={100} style={styles.bentoRowItem}>
-              <StyleStreakTile />
+              <StyleStreakTile showToast={showToast} />
             </FadeInView>
 
             <FadeInView delay={140} style={styles.bentoRowItem}>
@@ -446,12 +443,7 @@ export default function WardrobeScreen() {
                 // breakdown (ColorDnaModal's equivalent for this tile) is the
                 // paywalled part. Real paywall (subscription screen) TBD; this
                 // is the UI lock ahead of it.
-                onPress={() =>
-                  Alert.alert(
-                    t('closet.hub.capsuleScore.premiumAlertTitle'),
-                    t('closet.hub.capsuleScore.premiumAlertMessage')
-                  )
-                }
+                onPress={() => showToast(t('closet.hub.capsuleScore.premiumAlertMessage'))}
               />
             </FadeInView>
           </View>
@@ -633,7 +625,7 @@ export default function WardrobeScreen() {
         palette={palette}
       />
 
-      <Toast key={toastKey} message={toastMessage} />
+      <Toast key={toastKey} message={toastMessage} holdMs={toastHoldMs} />
       </Animated.View>
     </ScreenContainer>
   );
@@ -914,14 +906,14 @@ function LookbookSection({ inspirations, loading }) {
 // scheduledOutfits through getStyleStreak() — no separate counter to keep
 // in sync. Tapping explains the mechanic rather than navigating anywhere,
 // same pattern as the Capsule Score tile above.
-function StyleStreakTile() {
+function StyleStreakTile({ showToast }) {
   const { t } = useTranslation();
   const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
   const streak = useMemo(() => getStyleStreak(scheduledOutfits), [scheduledOutfits]);
 
   function handlePress() {
     triggerHaptic();
-    Alert.alert(t('closet.hub.styleStreak.alertTitle'), t('closet.hub.styleStreak.alertMessage'));
+    showToast(t('closet.hub.styleStreak.alertMessage'));
   }
 
   return (
