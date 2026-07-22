@@ -6,9 +6,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { toDateKey } from '../store/usePlannerStore';
 import { triggerHaptic } from '../utils/haptics';
-import { colors, spacing, radius, shadows, buttons, typography } from '../theme/tokens';
+import { colors, spacing, radius, shadows, buttons, typography, withAlpha } from '../theme/tokens';
 import { CATEGORIES, COLOR_OPTIONS } from '../constants/wardrobeOptions';
 import { ChipPicker } from '../components/ChipPicker';
+import ScreenContainer from '../components/ScreenContainer';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -103,15 +104,17 @@ export default function ItemDetailScreen() {
           )}
         </View>
       ),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     });
   }, [navigation, item?.id, item?.category, t, isDeleting]);
 
   if (!item) {
     return (
-      <View style={styles.notFoundContainer}>
+      // edges=['bottom'] only — native-stack's own header already reserves
+      // the top safe-area inset for this screen; only the home-indicator
+      // clearance at the bottom is this component's own responsibility.
+      <ScreenContainer edges={['bottom']} scroll={false} contentStyle={styles.notFoundContainer}>
         <Text style={styles.notFoundText}>{t('itemDetail.notFound')}</Text>
-      </View>
+      </ScreenContainer>
     );
   }
 
@@ -141,89 +144,103 @@ export default function ItemDetailScreen() {
   const wornCount = item.wornCount || 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Image source={{ uri: item.imageUri }} style={styles.photo} />
+    // edges=['bottom'] only — see the not-found branch above for why.
+    // scroll=false + our own ScrollView (rather than ScreenContainer's
+    // built-in one) is what lets `photo` sit as its own full-bleed child,
+    // outside the 16px margin `detailPad` applies to everything below it —
+    // ScreenContainer's own content box would otherwise inset the image too.
+    <ScreenContainer edges={['bottom']} scroll={false} contentStyle={styles.zeroHPadding}>
+      <ScrollView style={styles.flexFill} contentContainerStyle={styles.scrollContent}>
+        <Image source={{ uri: item.imageUri }} style={styles.photo} />
 
-      <Text style={styles.title}>
-        {t(`closet.colors.${item.color}`)} {item.subcategory}
-      </Text>
-      <Text style={styles.subtitle}>
-        {t(`closet.colors.${item.color}`)} · {t(`closet.categories.${item.category}`)}
-      </Text>
+        <View style={styles.detailPad}>
+          <Text style={styles.title}>
+            {t(`closet.colors.${item.color}`)} {item.subcategory}
+          </Text>
+          <Text style={styles.subtitle}>
+            {t(`closet.colors.${item.color}`)} · {t(`closet.categories.${item.category}`)}
+          </Text>
 
-      <View style={styles.statPlaque}>
-        <View style={styles.statIconWrap}>
-          <Feather name="eye" size={16} color={colors.accent} />
-        </View>
-        <Text style={styles.statText}>{t('closet.catalog.wornCount', { count: wornCount })}</Text>
-      </View>
-
-      {isEditing ? (
-        <View style={styles.editPanel}>
-          <Text style={styles.editLabel}>{t('itemDetail.editCategoryLabel')}</Text>
-          <ChipPicker
-            options={CATEGORIES}
-            value={draftCategory}
-            onSelect={setDraftCategory}
-            getLabel={(option) => t(`closet.categories.${option}`)}
-          />
-
-          <Text style={[styles.editLabel, styles.editLabelSpaced]}>{t('itemDetail.editColorLabel')}</Text>
-          <ChipPicker
-            options={COLOR_OPTIONS}
-            value={draftColor}
-            onSelect={setDraftColor}
-            getLabel={(option) => t(`closet.colors.${option}`)}
-          />
-
-          <View style={styles.editActions}>
-            <TouchableOpacity style={styles.editCancelBtn} onPress={handleEditCancel} activeOpacity={0.8}>
-              <Text style={styles.editCancelBtnText}>{t('itemDetail.editCancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.editSaveBtn} onPress={handleEditSave} activeOpacity={0.85}>
-              <Text style={styles.editSaveBtnText}>{t('itemDetail.editSave')}</Text>
-            </TouchableOpacity>
+          <View style={styles.statPlaque}>
+            <View style={styles.statIconWrap}>
+              <Feather name="eye" size={16} color={colors.accent} />
+            </View>
+            <Text style={styles.statText}>{t('closet.catalog.wornCount', { count: wornCount })}</Text>
           </View>
-        </View>
-      ) : (
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.wearTodayBtn, wornToday && styles.wearTodayBtnDone]}
-            onPress={handleWearToday}
-            disabled={wornToday}
-            activeOpacity={0.85}
-          >
-            <Feather
-              name={wornToday ? 'check' : 'plus-circle'}
-              size={18}
-              color={wornToday ? colors.textSecondary : colors.inverseText}
-            />
-            <Text style={[styles.wearTodayBtnText, wornToday && styles.wearTodayBtnTextDone]}>
-              {wornToday ? t('itemDetail.wornToday') : t('itemDetail.wearToday')}
-            </Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity style={styles.styleThisBtn} onPress={handleStyleThis} activeOpacity={0.8}>
-            <Feather name="zap" size={16} color={colors.textPrimary} />
-            <Text style={styles.styleThisBtnText}>{t('itemDetail.styleThis')}</Text>
-          </TouchableOpacity>
+          {isEditing ? (
+            <View style={styles.editPanel}>
+              <Text style={styles.editLabel}>{t('itemDetail.editCategoryLabel')}</Text>
+              <ChipPicker
+                options={CATEGORIES}
+                value={draftCategory}
+                onSelect={setDraftCategory}
+                getLabel={(option) => t(`closet.categories.${option}`)}
+              />
+
+              <Text style={[styles.editLabel, styles.editLabelSpaced]}>{t('itemDetail.editColorLabel')}</Text>
+              <ChipPicker
+                options={COLOR_OPTIONS}
+                value={draftColor}
+                onSelect={setDraftColor}
+                getLabel={(option) => t(`closet.colors.${option}`)}
+              />
+
+              <View style={styles.editActions}>
+                <TouchableOpacity style={styles.editCancelBtn} onPress={handleEditCancel} activeOpacity={0.8}>
+                  <Text style={styles.editCancelBtnText}>{t('itemDetail.editCancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.editSaveBtn} onPress={handleEditSave} activeOpacity={0.85}>
+                  <Text style={styles.editSaveBtnText}>{t('itemDetail.editSave')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.wearTodayBtn, wornToday && styles.wearTodayBtnDone]}
+                onPress={handleWearToday}
+                disabled={wornToday}
+                activeOpacity={0.85}
+              >
+                <Feather
+                  name={wornToday ? 'check' : 'plus-circle'}
+                  size={18}
+                  color={wornToday ? colors.textSecondary : colors.inverseText}
+                />
+                <Text style={[styles.wearTodayBtnText, wornToday && styles.wearTodayBtnTextDone]}>
+                  {wornToday ? t('itemDetail.wornToday') : t('itemDetail.wearToday')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.styleThisBtn} onPress={handleStyleThis} activeOpacity={0.8}>
+                <Feather name="zap" size={16} color={colors.textPrimary} />
+                <Text style={styles.styleThisBtnText}>{t('itemDetail.styleThis')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-      )}
-    </ScrollView>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.premiumBackground },
-  content: { padding: spacing.md, paddingBottom: spacing.xxl },
+  // Cancels ScreenContainer's own 16px shell padding — `photo` below needs
+  // to sit full-bleed against the screen edges; `detailPad` re-applies that
+  // same 16px, one layer in, to just the text/actions content beneath it.
+  zeroHPadding: { paddingHorizontal: 0 },
+  flexFill: { flex: 1 },
+  scrollContent: { paddingBottom: spacing.xxl },
 
+  // Edge-to-edge — no rounding/shadow (both would read as "a card floating
+  // on the page", the opposite of a full-bleed hero photo).
   photo: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 24,
     backgroundColor: colors.surface,
-    ...shadows.soft,
   },
+  detailPad: { paddingHorizontal: spacing.screenH },
 
   title: {
     ...typography.h2,
@@ -253,7 +270,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 102, 255, 0.1)',
+    backgroundColor: withAlpha(colors.sky, 0.1),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -306,8 +323,6 @@ const styles = StyleSheet.create({
   headerIconBtn: { padding: 2 },
 
   notFoundContainer: {
-    flex: 1,
-    backgroundColor: colors.premiumBackground,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,

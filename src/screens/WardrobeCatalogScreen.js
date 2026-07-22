@@ -11,13 +11,14 @@ import {
   UIManager,
   StyleSheet,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, radius, typography, shadows } from '../theme/tokens';
+import { colors, spacing, radius, typography, withAlpha } from '../theme/tokens';
 import { CATEGORIES } from '../constants/wardrobeOptions';
 import Skeleton from '../components/Skeleton';
+import HorizontalFadeScroll from '../components/HorizontalFadeScroll';
+import ScreenContainer from '../components/ScreenContainer';
 
 // 3 rows x 2 columns — enough to fill the screen below the header without
 // looking sparse, without the (harmless, but pointless) cost of animating
@@ -49,10 +50,9 @@ function chunkIntoRows(items, columns) {
   return rows;
 }
 
-export default function WardrobeCatalogScreen({ wardrobe, loading, onBack }) {
+export default function WardrobeCatalogScreen({ wardrobe, loading, onBack, onAddItem }) {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState('All');
 
   const filteredItems = useMemo(
@@ -95,7 +95,10 @@ export default function WardrobeCatalogScreen({ wardrobe, loading, onBack }) {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
+    // edges=['top'] — this replaces WardrobeScreen's own body in place
+    // (still the Closet tab, still sitting above TabNavigator's floating
+    // bar), same as WardrobeScreen's own root.
+    <ScreenContainer edges={['top']} scroll={false} contentStyle={styles.topGap}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
           <Feather name="chevron-left" size={20} color={colors.textPrimary} />
@@ -104,9 +107,9 @@ export default function WardrobeCatalogScreen({ wardrobe, loading, onBack }) {
         <View style={styles.backBtn} />
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
+      <HorizontalFadeScroll
+        fadeColor={colors.background}
+        style={styles.carouselBleed}
         contentContainerStyle={styles.filterRow}
       >
         {FILTERS.map((category) => {
@@ -124,7 +127,7 @@ export default function WardrobeCatalogScreen({ wardrobe, loading, onBack }) {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </HorizontalFadeScroll>
 
       {showLoading ? (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
@@ -139,7 +142,7 @@ export default function WardrobeCatalogScreen({ wardrobe, loading, onBack }) {
         <Animated.View
           style={[styles.gridWrap, { opacity: entranceOpacity, transform: [{ translateY: entranceTranslateY }] }]}
         >
-          <CategoryEmptyState category={activeCategory} />
+          <CategoryEmptyState category={activeCategory} onAddItem={onAddItem} />
         </Animated.View>
       ) : (
         <Animated.View
@@ -176,7 +179,7 @@ export default function WardrobeCatalogScreen({ wardrobe, loading, onBack }) {
           </ScrollView>
         </Animated.View>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
@@ -196,8 +199,16 @@ function GridCardSkeleton() {
 
 // Shown instead of a bare blank grid when the active filter has zero items —
 // "All" gets the generic empty-closet copy, any real category gets its own
-// named copy ("No shoes added yet").
-function CategoryEmptyState({ category }) {
+// named copy ("No {{category}} yet"). The ENTIRE dashed card is the tap
+// target (not just a small CTA button inside it) — `onAddItem` fires from
+// the outer TouchableOpacity, with `minHeight: 200` guaranteeing a large hit
+// area even when the icon+text content itself is shorter than that. Styled
+// as an inviting call-to-action (dashed border, tinted fill, a big
+// translucent hanger, a muted "Tap to add" hint) rather than a plain white
+// card — this is often the FIRST thing a client sees after a category has
+// been sitting empty, so it should read as "tap anywhere here to fix that",
+// not just as a passive placeholder with one small hotspot inside it.
+function CategoryEmptyState({ category, onAddItem }) {
   const { t } = useTranslation();
   const label =
     category === 'All'
@@ -206,19 +217,26 @@ function CategoryEmptyState({ category }) {
 
   return (
     <View style={styles.emptyStateWrap}>
-      <View style={styles.emptyStateCard}>
-        <View style={styles.emptyStateIconWrap}>
-          <Feather name="shopping-bag" size={26} color={colors.textMuted} />
-        </View>
+      <TouchableOpacity style={styles.emptyStateCard} onPress={onAddItem} activeOpacity={0.7}>
+        <MaterialCommunityIcons
+          name="hanger"
+          size={64}
+          color={withAlpha(colors.accent, 0.3)}
+          style={styles.emptyStateIcon}
+        />
         <Text style={styles.emptyStateText}>{label}</Text>
-      </View>
+        <Text style={styles.emptyStateHint}>{t('closet.catalog.emptyHint')}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // paddingTop set inline above, from real safe-area top inset.
-  container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.sm },
+  // ScreenContainer already handles flex:1, background, safe-area top inset,
+  // and the strict 16px horizontal margin — this is just the extra
+  // breathing room below the inset the old `insets.top + spacing.sm` calc
+  // used to add on top of it.
+  topGap: { paddingTop: spacing.sm },
 
   header: {
     flexDirection: 'row',
@@ -229,9 +247,13 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { ...typography.title },
 
-  // Category filter chips
+  // Category filter chips — bleeds to the true screen edge on scroll
+  // instead of stopping at an invisible 16px wall (see WardrobeScreen's own
+  // carouselBleed comment for the full mechanic).
+  carouselBleed: { marginHorizontal: -spacing.screenH },
   filterRow: {
     gap: spacing.xs,
+    paddingHorizontal: spacing.screenH,
     paddingBottom: spacing.sm,
   },
   filterChip: {
@@ -270,38 +292,48 @@ const styles = StyleSheet.create({
   skeletonLineGap: { marginTop: 2 },
   skeletonLineGapSmall: { marginTop: 4 },
 
-  // Empty state — deliberately borrows the Hub's "glassCard" treatment
-  // (see theme/tokens.js) rather than this screen's own Quiet Luxury
-  // surface/border convention, so an empty filter reads as a soft, elevated
-  // placeholder rather than a plain box.
+  // Empty state — a dashed, tinted "drop zone" rather than the old solid
+  // glassCard box, so an empty filter reads as an invitation to add
+  // something, not just a passive placeholder. `cardTints.violet` under a
+  // dashed `colors.accent` border (both already used elsewhere for the
+  // same violet accent, see theme/tokens.js) instead of a plain surface fill.
   emptyStateWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
+  // The whole card is the TouchableOpacity (see CategoryEmptyState) —
+  // `minHeight` guarantees a generous tap target regardless of how short
+  // the icon+text content ends up being, instead of relying on padding
+  // alone to size the hit area.
   emptyStateCard: {
     width: '100%',
-    alignItems: 'center',
-    backgroundColor: colors.glassCard,
-    borderRadius: radius.card,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    ...shadows.soft,
-  },
-  emptyStateIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.surface,
+    minHeight: 200,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    backgroundColor: withAlpha(colors.accent, 0.06),
+    borderRadius: radius.card,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: withAlpha(colors.accent, 0.35),
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
+  emptyStateIcon: { marginBottom: spacing.sm },
   emptyStateText: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  // Passive hint, not a button — the whole card is already tappable, so
+  // this just labels the affordance instead of being its own hotspot.
+  emptyStateHint: {
+    marginTop: spacing.xs,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: colors.accent,
     textAlign: 'center',
   },
 

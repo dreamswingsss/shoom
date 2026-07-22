@@ -1,28 +1,56 @@
 {
   "onboarding": {
+    "splashWordmark": "shoom",
+    "splashTagline": "Dein persönlicher KI-Stylist und digitaler Kleiderschrank",
+    "splashHeadline": {
+      "line1": "Dein persönlicher",
+      "highlight": "KI-Stylist"
+    },
     "languageStep": {
       "title": "Sprache wählen"
     },
     "steps": {
       "gender": "Was ist dein Geschlecht?",
+      "colorDna": "Deine Farb-DNA",
       "hairColor": "Welche Haarfarbe hast du?",
       "eyeColor": "Welche Augenfarbe hast du?",
       "skinTone": "Welchen Hautton hast du?",
       "measurements": "Wie groß bist du und wie viel wiegst du?",
       "bodyType": "Welche Körperform hast du?",
       "bodyMeasurements": "Körpermaße (optional)",
-      "stylePreferences": "Stilvorlieben (optional)"
+      "stylePreferences": "Stilvorlieben (optional)",
+      "auth": "Speichere dein Stilprofil"
+    },
+    "stepSubtitles": {
+      "bodyType": "So empfiehlt dir der KI-Stylist Schnitte, die wirklich zu dir passen.",
+      "colorDna": "So weiß der KI-Stylist, welche Farben dir am besten stehen."
     },
     "measurementsStep": {
+      "unitMetric": "Metrisch (cm, kg)",
+      "unitImperial": "Imperial (ft/in, lbs)",
       "heightPlaceholder": "Größe (cm)",
+      "heightFeetPlaceholder": "Fuß",
+      "heightInchesPlaceholder": "Zoll",
       "weightPlaceholder": "Gewicht (kg)",
+      "weightPlaceholderLbs": "Gewicht (lbs)",
       "heightError": "Die Größe muss zwischen 90 und 250 cm liegen.",
-      "weightError": "Das Gewicht muss zwischen 20 und 300 kg liegen."
+      "heightErrorImperial": "Die Größe muss zwischen 3'0\" und 8'2\" liegen.",
+      "weightError": "Das Gewicht muss zwischen 20 und 300 kg liegen.",
+      "weightErrorImperial": "Das Gewicht muss zwischen 44 und 661 lbs liegen."
     },
     "stylePreferencesStep": {
       "placeholder": "Z. B.: Ich bevorzuge Skinny Jeans, dunkle Farben, und hasse Oversize-Kleidung."
     },
+    "authStep": {
+      "subtitle": "Melde dich mit Google an, um alles zu speichern, was du gerade eingerichtet hast.",
+      "googleButton": "Weiter mit Google",
+      "genericError": "Anmeldung mit Google fehlgeschlagen. Bitte versuche es erneut.",
+      "alreadyHaveAccount": "Bereits ein Konto? Anmelden",
+      "saveErrorTitle": "Profil konnte nicht gespeichert werden",
+      "saveErrorMessage": "Du bist angemeldet, aber wir konnten dein Stilprofil nicht speichern. Bitte versuche es erneut."
+    },
     "buttons": {
+      "getStarted": "Los geht's",
       "continue": "Weiter",
       "skip": "Diesen Schritt überspringen",
       "finish": "Fertig"
@@ -44,8 +72,16 @@
   "profile": {
     "title": "Profil",
     "unknownUser": "Unbekannter Nutzer",
+    "guest": {
+      "name": "Gast",
+      "subtitle": "Melde dich an, um deine Daten zu speichern",
+      "ctaTitle": "Erstelle dein Konto",
+      "ctaMessage": "Melde dich mit Google an, um deinen Kleiderschrank zu speichern, dein Profil zu synchronisieren und KI-Funktionen freizuschalten."
+    },
     "sections": {
+      "basicInfo": "Grundinformationen",
       "fitProfile": "Körperprofil",
+      "heightWeight": "Größe & Gewicht",
       "bodyMeasurements": "Körpermaße",
       "styleVibes": "Lieblingsstile",
       "stylePreferences": "Stilvorlieben"
@@ -61,7 +97,8 @@
       "shoulders": "Schultern",
       "chest": "Brust",
       "waist": "Taille",
-      "hips": "Hüfte"
+      "hips": "Hüfte",
+      "styleNotes": "Beschreibe deinen Stil"
     },
     "save": "Speichern",
     "styleVibes": {
@@ -118,14 +155,68 @@
       "Very Deep": "Sehr dunkel"
     },
     "notSet": "Nicht festgelegt",
+    "stats": {
+      "items": "Teile",
+      "dayStreak": "Tage-Serie",
+      "capsuleScore": "Capsule-Score"
+    },
+    "nav": {
+      "notifications": "Benachrichtigungen",
+      "wearHistory": "Trageverlauf",
+      "languageRegion": "Sprache & Region"
+    },
+    "comingSoon": {
+      "title": "Demnächst verfügbar",
+      "notifications": "Benachrichtigungseinstellungen sind bald verfügbar.",
+      "wearHistory": "Der Trageverlauf ist bald verfügbar."
+    },
     "editProfile": "Profil bearbeiten",
     "logOut": "Abmelden",
-    "language": "Sprache"
+    "language": "Sprache",
+    "deleteAccount": {
+      "button": "Konto löschen",
+      "confirmTitle": "Konto löschen",
+      "confirmMessage": "Bist du sicher? Diese Aktion kann nicht rückgängig gemacht werden und löscht dauerhaft alle deine Daten, Looks und hochgeladenen Fotos.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen",
+      "errorTitle": "Fehler"
+    }
   },
   "closet": {
+    "sections": {
+      "items": "Kleiderschrank",
+      "inspirations": "Inspirationen"
+    },
+    "inspirations": {
+      "empty": "Noch keine gespeicherten Looks. Tippe bei einem Vorschlag des KI-Stylisten auf „Look speichern“, um dein Lookbook zu starten.",
+      "deleteTitle": "Look löschen",
+      "deleteMessage": "Diesen Look aus deinem Lookbook entfernen? Das kann nicht rückgängig gemacht werden."
+    },
+    "inspirationDetail": {
+      "title": "Gespeicherter Look",
+      "notFound": "Dieser Look ist nicht mehr gespeichert.",
+      "itemsHeading": "Teile in diesem Look",
+      "fromCloset": "Aus deinem Kleiderschrank",
+      "suggested": "Vorgeschlagen"
+    },
     "hub": {
       "title": "Dein digitaler Kleiderschrank",
       "subtitle": "Verwalte deine Sammlung, digitalisiere deine Kleidungsstücke und lass den KI-Concierge deine perfekten Looks basierend auf deinen Proportionen und deiner Farbpalette zusammenstellen.",
+      "emptyState": {
+        "welcomeHeading": "Willkommen in deinem KI-Kleiderschrank! Lass uns deinen Stil aufbauen.",
+        "title": "Scanne dein erstes Teil",
+        "caption": "Baue deinen digitalen Kleiderschrank auf — mach ein Foto und lass die KI es katalogisieren.",
+        "cta": "Erstes Teil hinzufügen",
+        "exploreCta": "Erst mal umsehen"
+      },
+      "lockedTile": {
+        "message": "Füge mindestens ein Teil hinzu, um diese Funktion freizuschalten."
+      },
+      "greeting": "Hallo, {{name}}",
+      "greetingFallback": "Freund",
+      "todayLabel": "Heute",
+      "planAheadLabel": "Planen",
+      "shopYourClosetLabel": "Shoppe in deinem Kleiderschrank",
       "insights": {
         "itemCount_one": "Teil",
         "itemCount_other": "Teile",
@@ -140,6 +231,20 @@
         "title": "Katalog",
         "subtitle_one": "{{count}} Teil",
         "subtitle_other": "{{count}} Teile"
+      },
+      "styleStreak": {
+        "count_one": "{{count}} Tag",
+        "count_other": "{{count}} Tage",
+        "subtitleActive": "Weiter so!",
+        "subtitleEmpty": "Plane einen Look, um zu starten",
+        "alertTitle": "Style-Serie",
+        "alertMessage": "Plane an aufeinanderfolgenden Tagen einen Look mit deinem KI-Stylisten, um deine Serie aufzubauen. Verpasst du einen ganzen Tag, wird sie zurückgesetzt."
+      },
+      "dailyChallenge": {
+        "badge": "Heutige Challenge",
+        "doneBadge": "Erledigt",
+        "subtitle": "Tippen, wenn erledigt",
+        "doneSubtitle": "Heute erledigt"
       },
       "weather": {
         "dressMe": "Zieh mich an",
@@ -163,7 +268,6 @@
         "manualCityError": "Stadt nicht gefunden. Versuche eine andere Schreibweise."
       },
       "capsuleScore": {
-        "title": "78%",
         "subtitle": "Garderoben-Kohärenz",
         "proBadge": "PRO",
         "premiumAlertTitle": "Premium-Funktion",
@@ -179,8 +283,40 @@
         "subtitle": "Deine beste Palette",
         "modalTitle": "Deine Color DNA",
         "bestColors": "Beste Farben",
-        "avoidColors": "Vermeiden"
+        "avoidColors": "Vermeiden",
+        "calibration": {
+          "title": "Entdecke deine Color DNA",
+          "subtitle": "Um deine perfekte Palette zu finden, erzähl uns etwas mehr über dich.",
+          "saveButton": "Palette anzeigen"
+        }
+      },
+      "impact": {
+        "title": "Garderoben-Impact",
+        "ecoScore": "Öko-Score",
+        "inRotation": "Im Einsatz"
+      },
+      "inspiration": {
+        "title": "Style-Inspiration",
+        "comingSoon": "Demnächst",
+        "tags": {
+          "minimalism": "Minimalismus",
+          "streetwear": "Streetwear",
+          "office": "Büro",
+          "casual": "Casual",
+          "eveningwear": "Abend"
+        }
       }
+    },
+    "tour": {
+      "step1": "Willkommen in deinem KI-Kleiderschrank! Schauen wir uns kurz um.",
+      "stepPlanner": "Plane deine Outfits im Voraus mit unserem Wochenplaner.",
+      "stepPlannerWeek": "Plane deine täglichen Outfits für die ganze Woche im Voraus.",
+      "step3": "Dein erster Schritt. Tippe hier, um dein erstes Kleidungsstück zu scannen und deinen digitalen Kleiderschrank aufzubauen!",
+      "step4": "Hier werden alle deine gescannten Teile und fertigen Outfits gesammelt.",
+      "step5": "Schau mal — der KI-Stylist stellt dir ein komplettes Outfit aus deinem Kleiderschrank zusammen.",
+      "skip": "Überspringen",
+      "next": "Weiter",
+      "finish": "Fertig"
     },
     "hubActions": {
       "viewWardrobe": "Kleiderschrank ansehen",
@@ -190,21 +326,63 @@
       "mostWorn": "Am häufigsten getragen",
       "hiddenGems": "Versteckte Schätze"
     },
-    "tour": {
-      "scanButton": "Füge hier dein erstes Kleidungsstück hinzu",
-      "plannerCard": "Plane deine Outfits für die Woche"
-    },
     "scan": {
       "permissionTitle": "Berechtigung erforderlich",
       "permissionMessage": "Bitte erlaube den Zugriff auf deine Fotobibliothek in den Einstellungen.",
-      "genericError": "Dieses Teil konnte nicht analysiert werden. Versuche ein anderes Foto."
+      "cameraPermissionMessage": "Bitte erlaube den Kamerazugriff in den Einstellungen, um ein Foto aufzunehmen.",
+      "genericError": "Dieses Teil konnte nicht analysiert werden. Versuche ein anderes Foto.",
+      "notSignedInError": "Bitte melde dich an, um deine Teile zu speichern.",
+      "saveErrorTitle": "Speichern fehlgeschlagen",
+      "timeoutError": "Zeitüberschreitung. Bitte prüfe deine Verbindung und versuche es erneut.",
+      "sheetTitle": "Teil hinzufügen",
+      "resultTitle": "Das habe ich gefunden",
+      "takePhoto": "Foto aufnehmen",
+      "takePhotoCaption": "Jetzt das Teil fotografieren",
+      "chooseFromLibrary": "Aus Bibliothek wählen",
+      "chooseFromLibraryCaption": "Ein vorhandenes Foto wählen",
+      "status": {
+        "analyzingFabric": "Stoff wird analysiert...",
+        "extractingColors": "Farben werden extrahiert...",
+        "checkingColorDna": "Farb-DNA wird geprüft...",
+        "categorizing": "Wird kategorisiert..."
+      },
+      "verdict": "Sieht aus wie ein {{color}} {{item}}!",
+      "colorDnaMatch": "Passt zu {{percent}}% zu deiner Farb-DNA",
+      "editDetails": "Nicht ganz richtig? Details bearbeiten",
+      "retake": "Erneut aufnehmen",
+      "saveToCloset": "Im Kleiderschrank speichern",
+      "authPrompt": {
+        "title": "Konto erforderlich",
+        "message": "Erstelle ein Profil, um dieses Teil in deinem Kleiderschrank zu speichern und personalisierte KI-Empfehlungen zu erhalten.",
+        "cancel": "Abbrechen",
+        "googleButton": "Weiter mit Google",
+        "genericError": "Bei der Anmeldung ist etwas schiefgelaufen. Bitte versuche es erneut."
+      },
+      "calibration": {
+        "title": "Nur noch ein paar Angaben",
+        "subtitle": "Das hilft deinem KI-Stylisten, Outfits auf dich abzustimmen.",
+        "heightPlaceholder": "Größe",
+        "weightPlaceholder": "Gewicht",
+        "heightError": "Gib eine Größe zwischen 90 und 250 cm ein.",
+        "weightError": "Gib ein Gewicht zwischen 20 und 300 kg ein.",
+        "bodyTypeLabel": "Körperform",
+        "saveButton": "Speichern und weiter",
+        "genericError": "Deine Angaben konnten nicht gespeichert werden. Bitte versuche es erneut."
+      }
     },
     "confirm": {
-      "title": "Teil bestätigen",
       "category": "Kategorie",
-      "color": "Farbe",
-      "discard": "Verwerfen",
-      "confirm": "Bestätigen"
+      "color": "Farbe"
+    },
+    "catalog": {
+      "title": "Dein Kleiderschrank",
+      "empty": "Dein Kleiderschrank ist leer — scanne ein Teil, um loszulegen.",
+      "emptyCategory": "Noch keine Teile",
+      "emptyCategoryNamed": "Noch keine {{category}}",
+      "emptyHint": "Zum Hinzufügen tippen",
+      "allFilter": "Alle",
+      "wornCount_one": "Getragen: {{count}} Mal",
+      "wornCount_other": "Getragen: {{count}} Mal"
     },
     "plannerView": {
       "title": "Wochenplaner",
@@ -218,12 +396,6 @@
       "askButton": "KI-Stylisten fragen",
       "promptTemplate": "Ich brauche ein Outfit für {{occasion}} am {{date}}. Stelle einen Look aus meinem Kleiderschrank zusammen.",
       "defaultOccasion": "einen Anlass"
-    },
-    "catalog": {
-      "title": "Dein Kleiderschrank",
-      "empty": "Dein Kleiderschrank ist leer — scanne ein Teil, um loszulegen.",
-      "emptyCategory": "Noch keine Teile. Tippe auf +, um hinzuzufügen.",
-      "wornCount": "Getragen: {{count}}"
     },
     "categories": {
       "Tops": "Oberteile",
@@ -260,8 +432,20 @@
   "stylist": {
     "header": "KI-Stylist",
     "inputPlaceholder": "Frag deinen Stylisten...",
+    "inputPlaceholderShopping": "Frag nach Shopping-Ideen...",
     "genericError": "Dein Stylist ist gerade nicht erreichbar. Bitte versuche es erneut.",
+    "rateLimitApology": "Puh, wir sind heute mit Kundschaft überlastet! Gib mir eine Minute, dann ist dein Outfit fertig.",
+    "locationRestrictedApology": "Ich habe gerade Schwierigkeiten, die Styling-Engine von deiner aktuellen Verbindung aus zu erreichen — versuche es gleich noch einmal oder wechsle das Netzwerk, falls es weiter auftritt.",
     "welcomeMessage": "Hallo, ich bin dein persönlicher Stylist. Erzähl mir, welchen Look du suchst.",
+    "status": {
+      "analyzingWeather": "Wetter wird analysiert...",
+      "checkingColorDna": "Farb-DNA wird geprüft...",
+      "matchingOutfits": "Outfits werden abgestimmt..."
+    },
+    "emptyState": {
+      "title": "Nicht sicher, was du anziehen sollst?",
+      "caption": "Mach ein Foto von deinem Look oder wähle unten einen schnellen Vorschlag — ich style ihn für dich."
+    },
     "profileStale": {
       "prompt": "Mir ist aufgefallen, dass du deine Profileinstellungen aktualisiert hast. Soll ich diese Änderungen in dein Stilprofil übernehmen?",
       "yes": "Ja, aktualisieren",
@@ -289,18 +473,101 @@
       "stylePreferences": "Stilvorlieben"
     },
     "saveToPlanner": "Im Planer speichern",
+    "saveInspiration": {
+      "save": "Look speichern",
+      "saved": "Gespeichert",
+      "errorTitle": "Look konnte nicht gespeichert werden",
+      "genericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "authPromptMessage": "Erstelle ein Profil, um diesen Look in deinem Lookbook zu speichern und personalisierte KI-Empfehlungen zu erhalten."
+    },
     "plannerModal": {
       "title": "Diesen Look speichern für...",
       "saved": "Gespeichert für {{date}}"
+    },
+    "targetItemPrompt": "Stelle ein Outfit rund um mein Teil zusammen: {{item}}.",
+    "quickPrompts": {
+      "officeLook": "Büro-Look",
+      "dateNight": "Date-Abend",
+      "casualWeekend": "Lässiges Wochenende",
+      "rainyDay": "Regentag",
+      "surpriseMe": "Überrasch mich"
+    },
+    "quickActions": {
+      "swapTop": "🔄 Oberteil tauschen",
+      "swapTopPrompt": "Tausche das Oberteil in diesem Outfit gegen ein anderes Teil — nutze meinen Kleiderschrank, falls etwas passt, sonst schlage etwas zum Kaufen vor.",
+      "warmer": "❄️ Wärmer",
+      "warmerPrompt": "Mach dieses Outfit wärmer — füge Teile hinzu oder tausche sie für kälteres Wetter.",
+      "cooler": "🔥 Kühler",
+      "coolerPrompt": "Mach dieses Outfit kühler — leichtere Teile oder weniger Schichten für wärmeres Wetter.",
+      "moreFormal": "✨ Förmlicher",
+      "moreFormalPrompt": "Style dieses Outfit eleganter — tausche gegen förmlichere Teile für einen festlicheren Anlass."
+    },
+    "feedbackActions": {
+      "loveIt": "✨ Liebe es",
+      "loveItPrompt": "Ich liebe diesen Look!",
+      "notMyStyle": "👎 Nicht mein Stil",
+      "notMyStylePrompt": "Das ist nicht mein Stil — probier eine ganz andere Richtung für dieses Outfit.",
+      "tooBright": "🎨 Zu grell",
+      "tooBrightPrompt": "Das wirkt zu grell — dämpfe die Farben für etwas Dezenteres."
+    },
+    "inspirationBoard": {
+      "title": "Inspirations-Board"
+    },
+    "zeroCloset": {
+      "banner": "Der Inspirationsmodus ist aktiv — dein Kleiderschrank ist leer, deshalb arbeite ich als dein persönlicher Shopper und schlage Teile zum Kauf vor, basierend auf deinem Profil."
     }
   },
   "planner": {
     "title": "Diese Woche",
+    "screenTitle": "Wochenplan",
     "today": "Heute",
     "askPrompt": "Was soll ich am {{date}} tragen?",
     "removeTitle": "Geplanten Look entfernen",
     "removeMessage": "Den für diesen Tag geplanten Look entfernen?",
     "cancel": "Abbrechen",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "heroBadge": "Diese Woche",
+    "heroTitle": "{{count}} von 7 Tagen geplant",
+    "heroCaption": "Füge einen Look für die noch offenen Tage hinzu",
+    "heroCaptionStreak": "{{count}}-Tage-Style-Serie läuft",
+    "yourPlan": "Dein Plan",
+    "emptyState": "Noch keine Looks geplant. Tippe oben auf einen Tag, um einen zu planen.",
+    "plannedLook": "Geplanter Look",
+    "styledByAi": "Gestylt von KI",
+    "snapOrShuffle": "Foto machen oder mischen"
+  },
+  "itemDetail": {
+    "wearToday": "Ich trage das heute",
+    "wornToday": "Heute getragen",
+    "styleThis": "Outfit zu diesem Teil",
+    "deleteTitle": "Teil löschen",
+    "deleteMessage": "Dieses Teil aus deinem Kleiderschrank entfernen? Das kann nicht rückgängig gemacht werden.",
+    "deleteCancel": "Abbrechen",
+    "deleteConfirm": "Löschen",
+    "deleteErrorTitle": "Teil konnte nicht gelöscht werden",
+    "editCategoryLabel": "Kategorie",
+    "editColorLabel": "Farbe",
+    "editSave": "Speichern",
+    "editCancel": "Abbrechen",
+    "notFound": "Dieses Teil ist nicht mehr in deinem Kleiderschrank."
+  },
+  "tabs": {
+    "closet": "Schrank",
+    "planner": "Planer",
+    "stylist": "Stylist",
+    "profile": "Profil"
+  },
+  "errorBoundary": {
+    "message": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen"
+  },
+  "common": {
+    "units": {
+      "cm": "cm",
+      "kg": "kg",
+      "ft": "ft",
+      "in": "in",
+      "lbs": "lbs"
+    }
   }
 }

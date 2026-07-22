@@ -36,7 +36,9 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to attach outfit pictures in chat."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-web-browser",
+      "expo-localization"
     ]
   }
 }

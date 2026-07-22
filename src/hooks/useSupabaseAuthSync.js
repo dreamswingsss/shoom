@@ -12,7 +12,12 @@ import { usePlannerStore } from '../store/usePlannerStore';
 // other providers that use the raw OIDC claim names instead. `id` rides
 // along so completeOnboarding/updateProfile/toggleStyleVibe in useUserStore
 // know which `public.users` row to write back to.
-function mapSupabaseUser(user) {
+// Exported — ScanSheet's own Google sign-in (Deferred Registration: auth now
+// happens there, not in OnboardingScreen) needs this same mapping right
+// after its setSession call, before this hook's onAuthStateChange listener
+// gets to it, so the two never drift into two different shapes for the
+// same session.
+export function mapSupabaseUser(user) {
   return {
     id: user.id,
     name: user.user_metadata?.full_name || user.user_metadata?.name || null,
@@ -90,13 +95,27 @@ export function useSupabaseAuthSync() {
     let cancelled = false;
 
     async function bootstrap() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (cancelled) return;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (cancelled) return;
 
-      if (session) await syncSession(session);
-      if (!cancelled) setSessionReady(true);
+        if (session) await syncSession(session);
+      } catch (err) {
+        // A cold start with no network — or Supabase unreachable behind a
+        // VPN/carrier block — throws a bare TypeError straight out of
+        // auth-js's own fetch wrapper (getSession() calls it internally to
+        // refresh an expired token); it's not a typed Supabase error with a
+        // status code to branch on, just "this failed." Swallowing it and
+        // falling through to sessionReady=true in `finally` below is
+        // exactly what an already-supported "no session at all" cold start
+        // does — offline-at-startup joins that same guest/local-data path
+        // instead of crashing the whole app on a white/red screen.
+        console.warn('[useSupabaseAuthSync] Could not restore session (offline or Supabase unreachable):', err);
+      } finally {
+        if (!cancelled) setSessionReady(true);
+      }
     }
 
     bootstrap();
@@ -110,7 +129,14 @@ export function useSupabaseAuthSync() {
         // bootstrap() above is already handling) and `TOKEN_REFRESHED`
         // (same user, same profile) would just be a redundant round-trip.
         if (event === 'SIGNED_IN') {
-          syncSession(session);
+          // Not awaited (this callback isn't async) — but still needs a
+          // .catch, otherwise a network failure here (same fetch-throws-
+          // TypeError risk as bootstrap above, this time mid-session
+          // rather than at cold start) is an unhandled promise rejection
+          // instead of a message this hook can just log and move past.
+          syncSession(session).catch((err) => {
+            console.warn('[useSupabaseAuthSync] Post-sign-in profile sync failed:', err);
+          });
         }
       } else {
         logout();

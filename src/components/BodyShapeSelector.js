@@ -36,37 +36,80 @@ const SHAPE_PROPORTIONS = {
 };
 const DEFAULT_PROPORTIONS = SHAPE_PROPORTIONS.Rectangle;
 
-const VIEW_WIDTH = 80;
-const VIEW_HEIGHT = 132;
-const HEAD_RADIUS = 9;
-const TORSO_TOP = 30;
-const TORSO_MID = 72;
-const TORSO_BOTTOM = 124;
-const MAX_HALF_WIDTH = 30;
+// Fashion-croquis proportions — an elongated, faceless figure (head, neck,
+// torso, two separate legs) instead of the old head-plus-trapezoid "sign
+// icon". Every y-coordinate below is fixed across shapes (a body TYPE
+// changes the shoulder/waist/hip WIDTHS, never head size or leg length);
+// only the widths come from SHAPE_PROPORTIONS.
+const VIEW_WIDTH = 100;
+const VIEW_HEIGHT = 220;
+const CX = VIEW_WIDTH / 2;
 
-// Smooth tapered outline through (shoulder width, waist width, hip width) —
-// mirrored left/right around the vertical centerline, with a cubic-bezier
-// curve at each transition instead of straight edges so it reads as a body,
-// not a chevron.
+const HEAD_R = 10;
+const HEAD_CY = 18;
+const NECK_Y = HEAD_CY + HEAD_R + 3;
+const NECK_HALF = 6;
+const SHOULDER_Y = 42;
+const WAIST_Y = 98;
+const HIP_Y = 122;
+const CROTCH_Y = 130;
+const ANKLE_Y = 208;
+
+const MAX_HALF = 34;
+const LEG_GAP_HALF = 4;
+const ANKLE_HALF = 7;
+
+// Torso outline: neck -> rounded shoulder -> waist taper -> hip flare,
+// mirrored left/right around CX, every transition a cubic bezier so the
+// silhouette reads as a body, not a chevron. Bottom edge (at HIP_Y) is a
+// straight line — that's the seam the two leg paths below pick up from.
 function buildTorsoPath({ shoulder, waist, hip }) {
-  const cx = VIEW_WIDTH / 2;
-  const sHalf = shoulder * MAX_HALF_WIDTH;
-  const wHalf = waist * MAX_HALF_WIDTH;
-  const hHalf = hip * MAX_HALF_WIDTH;
-  const topL = cx - sHalf;
-  const topR = cx + sHalf;
-  const midL = cx - wHalf;
-  const midR = cx + wHalf;
-  const botL = cx - hHalf;
-  const botR = cx + hHalf;
+  const sHalf = shoulder * MAX_HALF;
+  const wHalf = waist * MAX_HALF;
+  const hHalf = hip * MAX_HALF;
+
+  const neckL = CX - NECK_HALF;
+  const neckR = CX + NECK_HALF;
+  const shL = CX - sHalf;
+  const shR = CX + sHalf;
+  const wL = CX - wHalf;
+  const wR = CX + wHalf;
+  const hL = CX - hHalf;
+  const hR = CX + hHalf;
 
   return [
-    `M ${topL} ${TORSO_TOP}`,
-    `C ${topL} ${TORSO_TOP + 16}, ${midL} ${TORSO_MID - 16}, ${midL} ${TORSO_MID}`,
-    `C ${midL} ${TORSO_MID + 16}, ${botL} ${TORSO_BOTTOM - 16}, ${botL} ${TORSO_BOTTOM}`,
-    `L ${botR} ${TORSO_BOTTOM}`,
-    `C ${botR} ${TORSO_BOTTOM - 16}, ${midR} ${TORSO_MID + 16}, ${midR} ${TORSO_MID}`,
-    `C ${midR} ${TORSO_MID - 16}, ${topR} ${TORSO_TOP + 16}, ${topR} ${TORSO_TOP}`,
+    `M ${neckL} ${NECK_Y}`,
+    `C ${neckL - 2} ${NECK_Y + 6}, ${shL} ${SHOULDER_Y - 6}, ${shL} ${SHOULDER_Y}`,
+    `C ${shL} ${SHOULDER_Y + 26}, ${wL} ${WAIST_Y - 20}, ${wL} ${WAIST_Y}`,
+    `C ${wL} ${WAIST_Y + 14}, ${hL} ${HIP_Y - 12}, ${hL} ${HIP_Y}`,
+    `L ${hR} ${HIP_Y}`,
+    `C ${hR} ${HIP_Y - 12}, ${wR} ${WAIST_Y + 14}, ${wR} ${WAIST_Y}`,
+    `C ${wR} ${WAIST_Y - 20}, ${shR} ${SHOULDER_Y + 26}, ${shR} ${SHOULDER_Y}`,
+    `C ${shR} ${SHOULDER_Y - 6}, ${neckR + 2} ${NECK_Y + 6}, ${neckR} ${NECK_Y}`,
+    'Z',
+  ].join(' ');
+}
+
+// One leg, `side` = +1 (right) or -1 (left). Starts exactly on the torso's
+// own hip line (same X coordinates as buildTorsoPath's hip points) so the
+// two shapes read as one continuous figure with no seam or overlap, tapers
+// to a fixed ankle width regardless of body shape (ankles don't vary by
+// silhouette category the way waist/hip do), and leaves LEG_GAP_HALF*2 of
+// negative space between the two legs at the crotch — the detail that
+// actually reads as "two legs" instead of "a skirt".
+function buildLegPath(hip, side) {
+  const hHalf = hip * MAX_HALF;
+  const innerTopX = CX + side * LEG_GAP_HALF;
+  const outerHipX = CX + side * hHalf;
+  const outerAnkleX = CX + side * ANKLE_HALF;
+  const innerAnkleX = CX + side * (LEG_GAP_HALF * 0.4);
+
+  return [
+    `M ${innerTopX} ${HIP_Y}`,
+    `L ${outerHipX} ${HIP_Y}`,
+    `C ${outerHipX} ${HIP_Y + 30}, ${outerAnkleX} ${ANKLE_Y - 40}, ${outerAnkleX} ${ANKLE_Y}`,
+    `L ${innerAnkleX} ${ANKLE_Y}`,
+    `C ${innerAnkleX} ${ANKLE_Y - 50}, ${innerTopX} ${CROTCH_Y + 10}, ${innerTopX} ${CROTCH_Y}`,
     'Z',
   ].join(' ');
 }
@@ -82,13 +125,10 @@ function BodyShapeIllustration({ shape, size = 140 }) {
 
   return (
     <Svg width={size} height={VIEW_HEIGHT * scale} viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
-      <Circle
-        cx={VIEW_WIDTH / 2}
-        cy={TORSO_TOP - HEAD_RADIUS - 6}
-        r={HEAD_RADIUS}
-        fill={colors.inverseBackground}
-      />
+      <Circle cx={CX} cy={HEAD_CY} r={HEAD_R} fill={colors.inverseBackground} />
       <Path d={buildTorsoPath(proportions)} fill={colors.inverseBackground} />
+      <Path d={buildLegPath(proportions.hip, -1)} fill={colors.inverseBackground} />
+      <Path d={buildLegPath(proportions.hip, 1)} fill={colors.inverseBackground} />
     </Svg>
   );
 }

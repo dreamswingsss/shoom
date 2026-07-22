@@ -4,10 +4,12 @@ import { NavigationContainer, createNavigationContainerRef } from '@react-naviga
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import { useTranslation } from 'react-i18next';
 import TabNavigator from './src/navigation/TabNavigator';
 import ItemDetailScreen from './src/screens/ItemDetailScreen';
-import OnboardingScreen from './src/screens/OnboardingScreen';
-import AppTour from './src/components/AppTour';
+import InspirationDetailScreen from './src/screens/InspirationDetailScreen';
+import WelcomeScreen from './src/screens/WelcomeScreen';
+import { AppTourProvider } from './src/components/AppTour';
 import { useUserStore } from './src/store/useUserStore';
 import { useSupabaseAuthSync } from './src/hooks/useSupabaseAuthSync';
 import { colors } from './src/theme/tokens';
@@ -34,13 +36,40 @@ function RootNavigator() {
           headerTintColor: colors.textPrimary,
         }}
       />
+      <RootStack.Screen
+        name="InspirationDetail"
+        component={InspirationDetailScreen}
+        options={{
+          headerTitle: '',
+          headerStyle: { backgroundColor: colors.premiumBackground },
+          headerShadowVisible: false,
+          headerTintColor: colors.textPrimary,
+        }}
+      />
     </RootStack.Navigator>
   );
 }
 
+// Fallback UI shown by AppErrorBoundary below — a plain function component
+// so it can use useTranslation(); the class component itself can't (no
+// hook equivalent for getDerivedStateFromError/componentDidCatch), so it
+// only owns the error-catching lifecycle and delegates rendering here.
+function ErrorFallback({ onRetry }) {
+  const { t } = useTranslation();
+  return (
+    <View style={[styles.root, styles.loading]}>
+      <Text style={styles.errorText}>{t('errorBoundary.message')}</Text>
+      <TouchableOpacity onPress={onRetry} style={styles.retryBtn} activeOpacity={0.8}>
+        <Text style={styles.retryBtnText}>{t('errorBoundary.retry')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // Root safety net — a white screen is what ANY uncaught render error looks
-// like with no boundary in the tree (this is literally how the post-Google-
-// sign-in crash in OnboardingScreen presented). Catches whatever the next
+// like with no boundary in the tree (this is literally how a post-Google-
+// sign-in crash used to present, back when this flow lived in
+// OnboardingScreen). Catches whatever the next
 // one turns out to be too, instead of relying on every screen individually
 // never throwing. Class component because getDerivedStateFromError /
 // componentDidCatch have no hook equivalent.
@@ -62,14 +91,7 @@ class AppErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
-      return (
-        <View style={[styles.root, styles.loading]}>
-          <Text style={styles.errorText}>Something went wrong.</Text>
-          <TouchableOpacity onPress={this.handleRetry} style={styles.retryBtn} activeOpacity={0.8}>
-            <Text style={styles.retryBtnText}>Try again</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      return <ErrorFallback onRetry={this.handleRetry} />;
     }
     return this.props.children;
   }
@@ -77,10 +99,9 @@ class AppErrorBoundary extends Component {
 
 export default function App() {
   // Optional-chained even though this is a flat, always-initialized zustand
-  // field (never a nullable `profile` object to destructure) — a brand-new
-  // account genuinely has no Fit Profile row yet, and this read must resolve
-  // to a falsy value (routing to Onboarding) rather than ever throw.
-  const gender = useUserStore((state) => state?.gender);
+  // field — defensive consistency with the rest of this component's reads,
+  // not because it's ever expected to be missing.
+  const hasCompletedWelcome = useUserStore((state) => state?.hasCompletedWelcome);
   // Drives useUserStore's isLoggedIn/user/profile from the real Supabase
   // session (restored session on cold start, or a live sign-in/sign-out)
   // instead of trusting whatever was last persisted to AsyncStorage on its
@@ -114,20 +135,20 @@ export default function App() {
   }, []);
 
   // Root routing rule (in priority order):
-  //   1. !sessionReady  -> loading screen below
-  //   2. !gender        -> OnboardingScreen
-  //   3. gender         -> MainTabs
-  // `gender` is step 2 of Onboarding (right after language) and is required
-  // — every other Fit Profile field can be skipped/left blank — so it's the
-  // one reliable "has this client ever finished Onboarding?" signal already
-  // used everywhere else in the app (StylistScreen's profile prompt, etc.).
-  // Google sign-in itself now lives as OnboardingScreen's LAST step (moved
-  // from the old standalone AuthScreen) rather than gating Onboarding —
-  // `gender` alone is enough to route both a brand-new install (no session,
-  // no profile) and a logged-out client (session cleared, profile cleared
-  // by logout()) into OnboardingScreen, with no separate isLoggedIn check
-  // needed here.
-  const needsOnboarding = !gender;
+  //   1. !sessionReady         -> loading screen below
+  //   2. !hasCompletedWelcome  -> WelcomeScreen
+  //   3. hasCompletedWelcome   -> MainTabs
+  // Deferred Registration: neither `isLoggedIn` nor any profile field
+  // (`gender` included) is part of this gate. WelcomeScreen's splash is the
+  // ONLY thing "Get Started" has to clear — no session, no parameters, just
+  // `completeWelcome()` (see useUserStore.js). Every parameter this used to
+  // ask up front (gender included) is collected later, inside
+  // RegistrationFlow, the first time a guest tries to save a scanned item —
+  // gating this on any of THOSE fields would strand a guest on WelcomeScreen
+  // forever, since nothing on that screen sets them anymore. Requiring
+  // `isLoggedIn` here would have the same failure mode for a different
+  // reason: tapping Get Started never creates a session by itself.
+  const needsOnboarding = !hasCompletedWelcome;
 
   if (!fontsLoaded || !languageReady || !sessionReady) {
     return (
@@ -145,13 +166,22 @@ export default function App() {
         <View style={styles.root}>
           <View style={styles.shell}>
             {needsOnboarding ? (
-              <OnboardingScreen />
+              // WelcomeScreen — just the splash. No parameters collected
+              // here at all anymore (gender included — see its own top
+              // comment); "Get Started" goes straight to TabNavigator below.
+              <WelcomeScreen />
             ) : (
-              <AppTour navigationRef={navigationRef}>
+              // Wraps TabNavigator so WardrobeScreen's App Tour (its own
+              // "App Tour auto-start" effect) can spotlight the tab bar/CTA
+              // the moment a guest lands here right after "Get Started" —
+              // that auto-start is what actually shows them around; every
+              // profile parameter (gender included) is asked later, inside
+              // RegistrationFlow, only once they try to save a scanned item.
+              <AppTourProvider>
                 <NavigationContainer ref={navigationRef}>
                   <RootNavigator />
                 </NavigationContainer>
-              </AppTour>
+              </AppTourProvider>
             )}
           </View>
         </View>

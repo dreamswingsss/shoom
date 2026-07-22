@@ -1,10 +1,17 @@
 {
   "onboarding": {
+    "splashWordmark": "shoom",
+    "splashTagline": "Upload your wardrobe, discover new pairings, and let your AI stylist build the perfect look for your taste and the weather — every day.",
+    "splashHeadline": {
+      "line1": "Your pocket",
+      "highlight": "AI Stylist"
+    },
     "languageStep": {
       "title": "Choose Language"
     },
     "steps": {
       "gender": "What is your gender?",
+      "colorDna": "Your Color DNA",
       "hairColor": "What is your hair color?",
       "eyeColor": "What is your eye color?",
       "skinTone": "What is your skin tone?",
@@ -14,11 +21,22 @@
       "stylePreferences": "Style Preferences (Optional)",
       "auth": "Save your Fit Profile"
     },
+    "stepSubtitles": {
+      "bodyType": "The AI Stylist uses this to recommend cuts that actually flatter you.",
+      "colorDna": "This is how the AI Stylist knows which colors work best on you."
+    },
     "measurementsStep": {
+      "unitMetric": "Metric (cm, kg)",
+      "unitImperial": "Imperial (ft/in, lbs)",
       "heightPlaceholder": "Height (cm)",
+      "heightFeetPlaceholder": "Feet",
+      "heightInchesPlaceholder": "Inches",
       "weightPlaceholder": "Weight (kg)",
+      "weightPlaceholderLbs": "Weight (lbs)",
       "heightError": "Height must be between 90 and 250 cm.",
-      "weightError": "Weight must be between 20 and 300 kg."
+      "heightErrorImperial": "Height must be between 3'0\" and 8'2\".",
+      "weightError": "Weight must be between 20 and 300 kg.",
+      "weightErrorImperial": "Weight must be between 44 and 661 lbs."
     },
     "stylePreferencesStep": {
       "placeholder": "E.g., I prefer skinny jeans, dark colors, and hate oversized clothes."
@@ -32,6 +50,7 @@
       "saveErrorMessage": "You're signed in, but we couldn't save your Fit Profile. Please try again."
     },
     "buttons": {
+      "getStarted": "Get Started",
       "continue": "Continue",
       "skip": "Skip this step",
       "finish": "Finish"
@@ -53,8 +72,16 @@
   "profile": {
     "title": "Profile",
     "unknownUser": "Unknown User",
+    "guest": {
+      "name": "Guest",
+      "subtitle": "Sign in to save your data",
+      "ctaTitle": "Create your account",
+      "ctaMessage": "Sign in with Google to save your wardrobe, sync your profile, and unlock AI features."
+    },
     "sections": {
+      "basicInfo": "Basic Info",
       "fitProfile": "Fit Profile",
+      "heightWeight": "Height & Weight",
       "bodyMeasurements": "Body Measurements",
       "styleVibes": "Style Vibes",
       "stylePreferences": "Style Preferences"
@@ -70,7 +97,8 @@
       "shoulders": "Shoulders",
       "chest": "Chest",
       "waist": "Waist",
-      "hips": "Hips"
+      "hips": "Hips",
+      "styleNotes": "Describe Your Style"
     },
     "save": "Save",
     "styleVibes": {
@@ -127,6 +155,21 @@
       "Very Deep": "Very Deep"
     },
     "notSet": "Not set",
+    "stats": {
+      "items": "Items",
+      "dayStreak": "Day streak",
+      "capsuleScore": "Capsule score"
+    },
+    "nav": {
+      "notifications": "Notifications",
+      "wearHistory": "Wear History",
+      "languageRegion": "Language & Region"
+    },
+    "comingSoon": {
+      "title": "Coming soon",
+      "notifications": "Notification settings are on the way.",
+      "wearHistory": "Wear history tracking is on the way."
+    },
     "editProfile": "Edit Profile",
     "logOut": "Log Out",
     "language": "Language",
@@ -137,12 +180,39 @@
       "cancel": "Cancel",
       "confirm": "Delete",
       "errorTitle": "Error"
-    }
+    },
+    "devResetAppTour": "Reset App Tour (dev)"
   },
   "closet": {
+    "sections": {
+      "items": "Wardrobe",
+      "inspirations": "Inspirations"
+    },
+    "inspirations": {
+      "empty": "No saved looks yet. Tap \"Save Look\" on an AI Stylist suggestion to build your Lookbook.",
+      "deleteTitle": "Delete Look",
+      "deleteMessage": "Remove this look from your Lookbook? This can't be undone."
+    },
+    "inspirationDetail": {
+      "title": "Saved Look",
+      "notFound": "This look is no longer saved.",
+      "itemsHeading": "Items in this look",
+      "fromCloset": "From your closet",
+      "suggested": "Suggested"
+    },
     "hub": {
       "title": "Your Digital Closet",
       "subtitle": "Manage your collection, digitize your physical garments, and let the AI concierge build your perfect daily looks based on your unique proportions and color palette.",
+      "emptyState": {
+        "welcomeHeading": "Welcome to your AI Wardrobe! Let's build your style.",
+        "title": "Scan your first item",
+        "caption": "Build your digital closet — snap a photo and let AI catalog it for you.",
+        "cta": "Add your first item",
+        "exploreCta": "Explore the app first"
+      },
+      "lockedTile": {
+        "message": "Add at least one item to unlock this feature."
+      },
       "greeting": "Hi, {{name}}",
       "greetingFallback": "there",
       "todayLabel": "Today",
@@ -214,7 +284,12 @@
         "subtitle": "Your best palette",
         "modalTitle": "Your Color DNA",
         "bestColors": "Best Colors",
-        "avoidColors": "Avoid"
+        "avoidColors": "Avoid",
+        "calibration": {
+          "title": "Discover your Color DNA",
+          "subtitle": "To discover your perfect palette, tell us a bit more about yourself.",
+          "saveButton": "Reveal my palette"
+        }
       },
       "impact": {
         "title": "Wardrobe Impact",
@@ -233,6 +308,17 @@
         }
       }
     },
+    "tour": {
+      "step1": "Welcome to your AI Wardrobe! Let's take a quick look around.",
+      "stepPlanner": "Plan your looks ahead of time with our Weekly Planner.",
+      "stepPlannerWeek": "Plan your daily looks for the whole week ahead.",
+      "step3": "Your first step. Tap here to scan your first clothing item and start building your digital wardrobe!",
+      "step4": "This is where all your scanned items and outfits will live.",
+      "step5": "Check this out — the AI Stylist puts together a full outfit from your wardrobe.",
+      "skip": "Skip",
+      "next": "Next",
+      "finish": "Finish"
+    },
     "hubActions": {
       "viewWardrobe": "View Wardrobe",
       "addItem": "Add Item"
@@ -241,27 +327,66 @@
       "mostWorn": "Most Worn",
       "hiddenGems": "Hidden Gems"
     },
-    "tour": {
-      "scanButton": "Add your first item here",
-      "plannerCard": "Plan your outfits for the week"
-    },
     "scan": {
       "permissionTitle": "Permission Required",
       "permissionMessage": "Please allow access to your photo library in Settings.",
-      "genericError": "Could not analyze this item. Please try another photo."
+      "cameraPermissionMessage": "Please allow camera access in Settings to take a photo.",
+      "genericError": "Could not analyze this item. Please try another photo.",
+      "notSignedInError": "Please log in to save your items.",
+      "saveErrorTitle": "Couldn't Save Item",
+      "timeoutError": "Request timed out. Please check your connection and try again.",
+      "sheetTitle": "Add an item",
+      "resultTitle": "Here's what I found",
+      "takePhoto": "Take a photo",
+      "takePhotoCaption": "Snap the item right now",
+      "chooseFromLibrary": "Choose from library",
+      "chooseFromLibraryCaption": "Pick an existing photo",
+      "status": {
+        "analyzingFabric": "Analyzing fabric...",
+        "extractingColors": "Extracting colors...",
+        "checkingColorDna": "Checking your Color DNA...",
+        "categorizing": "Categorizing..."
+      },
+      "verdict": "Looks like a {{color}} {{item}}!",
+      "colorDnaMatch": "Matches your Color DNA by {{percent}}%",
+      "editDetails": "Not quite right? Edit details",
+      "retake": "Retake",
+      "saveToCloset": "Save to Closet",
+      "authPrompt": {
+        "title": "You're not signed up yet",
+        "message": "You're not registered yet, so this item won't be saved. Sign up to save items to your wardrobe and train the AI on your personal style.",
+        "cancel": "Cancel",
+        "registerButton": "Sign Up",
+        "googleButton": "Continue with Google",
+        "genericError": "Something went wrong signing you in. Please try again."
+      },
+      "registration": {
+        "heightWeightTitle": "What's your height & weight?",
+        "finalTitle": "Create your account",
+        "finalSubtitle": "Sign in with Google to save this item and everything you just told us."
+      },
+      "calibration": {
+        "title": "Just a few details",
+        "subtitle": "This helps your AI Stylist fit outfits to you.",
+        "heightPlaceholder": "Height",
+        "weightPlaceholder": "Weight",
+        "heightError": "Enter a height between 90-250 cm.",
+        "weightError": "Enter a weight between 20-300 kg.",
+        "bodyTypeLabel": "Body type",
+        "saveButton": "Save and continue",
+        "genericError": "Couldn't save your details. Please try again."
+      }
     },
     "confirm": {
-      "title": "Confirm Item",
       "category": "Category",
-      "color": "Color",
-      "discard": "Discard",
-      "confirm": "Confirm"
+      "color": "Color"
     },
     "catalog": {
       "title": "Your Wardrobe",
       "empty": "Your closet is empty — scan an item to get started.",
-      "emptyCategory": "No items yet. Tap + to add.",
-      "emptyCategoryNamed": "No {{category}} added yet",
+      "emptyCategory": "No items yet",
+      "emptyCategoryNamed": "No {{category}} yet",
+      "emptyHint": "Tap to add",
       "allFilter": "All",
       "wornCount_one": "Worn: {{count}} time",
       "wornCount_other": "Worn: {{count}} times"
@@ -316,7 +441,14 @@
     "inputPlaceholder": "Ask your stylist...",
     "inputPlaceholderShopping": "Ask for shopping ideas...",
     "genericError": "Could not reach your stylist right now. Please try again.",
+    "rateLimitApology": "Whew, we're swamped with clients today! Give me one minute to catch my breath, and I'll have your outfit ready.",
+    "locationRestrictedApology": "I'm having trouble reaching the styling engine from your current connection — try again in a moment, or switch networks if it keeps happening.",
     "welcomeMessage": "Hi, I'm your personal stylist. Tell me what look you're going for.",
+    "status": {
+      "analyzingWeather": "Analyzing weather...",
+      "checkingColorDna": "Checking Color DNA...",
+      "matchingOutfits": "Matching outfits..."
+    },
     "emptyState": {
       "title": "Not sure what to wear?",
       "caption": "Snap a photo of your outfit or pick a quick prompt below and I'll style it for you."
@@ -348,6 +480,13 @@
       "stylePreferences": "style preferences"
     },
     "saveToPlanner": "Save to Planner",
+    "saveInspiration": {
+      "save": "Save Look",
+      "saved": "Saved",
+      "errorTitle": "Couldn't save this look",
+      "genericError": "Something went wrong. Please try again.",
+      "authPromptMessage": "Create a profile to save this look to your Lookbook and get personalized AI recommendations."
+    },
     "plannerModal": {
       "title": "Save this look for...",
       "saved": "Saved for {{date}}"
@@ -399,6 +538,7 @@
     "heroCaption": "Add a look for the days left blank",
     "heroCaptionStreak": "{{count}}-day style streak going",
     "yourPlan": "Your plan",
+  "emptyState": "No looks planned yet. Tap a day above to plan one.",
     "plannedLook": "Planned look",
     "styledByAi": "Styled by AI",
     "snapOrShuffle": "Snap or shuffle"
@@ -417,5 +557,24 @@
     "editSave": "Save",
     "editCancel": "Cancel",
     "notFound": "This item is no longer in your closet."
+  },
+  "tabs": {
+    "closet": "Closet",
+    "planner": "Planner",
+    "stylist": "Stylist",
+    "profile": "Profile"
+  },
+  "errorBoundary": {
+    "message": "Something went wrong.",
+    "retry": "Try again"
+  },
+  "common": {
+    "units": {
+      "cm": "cm",
+      "kg": "kg",
+      "ft": "ft",
+      "in": "in",
+      "lbs": "lbs"
+    }
   }
 }

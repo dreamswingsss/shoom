@@ -1,28 +1,56 @@
 {
   "onboarding": {
+    "splashWordmark": "shoom",
+    "splashTagline": "Il tuo stylist IA personale e guardaroba digitale",
+    "splashHeadline": {
+      "line1": "Il tuo stylist",
+      "highlight": "IA tascabile"
+    },
     "languageStep": {
       "title": "Scegli la lingua"
     },
     "steps": {
       "gender": "Qual è il tuo genere?",
+      "colorDna": "Il tuo DNA del colore",
       "hairColor": "Di che colore sono i tuoi capelli?",
       "eyeColor": "Di che colore sono i tuoi occhi?",
       "skinTone": "Qual è il tuo tono della pelle?",
       "measurements": "Quali sono la tua altezza e il tuo peso?",
       "bodyType": "Qual è la tua corporatura?",
       "bodyMeasurements": "Misure corporee (opzionale)",
-      "stylePreferences": "Preferenze di stile (opzionale)"
+      "stylePreferences": "Preferenze di stile (opzionale)",
+      "auth": "Salva il tuo profilo di stile"
+    },
+    "stepSubtitles": {
+      "bodyType": "Lo Stylist IA lo usa per consigliarti i tagli che ti valorizzano davvero.",
+      "colorDna": "Così lo Stylist IA sa quali colori ti stanno meglio."
     },
     "measurementsStep": {
+      "unitMetric": "Metrico (cm, kg)",
+      "unitImperial": "Imperiale (ft/in, lbs)",
       "heightPlaceholder": "Altezza (cm)",
+      "heightFeetPlaceholder": "Piedi",
+      "heightInchesPlaceholder": "Pollici",
       "weightPlaceholder": "Peso (kg)",
+      "weightPlaceholderLbs": "Peso (lbs)",
       "heightError": "L'altezza deve essere tra 90 e 250 cm.",
-      "weightError": "Il peso deve essere tra 20 e 300 kg."
+      "heightErrorImperial": "L'altezza deve essere tra 3'0\" e 8'2\".",
+      "weightError": "Il peso deve essere tra 20 e 300 kg.",
+      "weightErrorImperial": "Il peso deve essere tra 44 e 661 lbs."
     },
     "stylePreferencesStep": {
       "placeholder": "Es.: preferisco jeans skinny, colori scuri, e odio i vestiti oversize."
     },
+    "authStep": {
+      "subtitle": "Accedi con Google per salvare tutto ciò che hai appena configurato.",
+      "googleButton": "Continua con Google",
+      "genericError": "Impossibile accedere con Google. Riprova.",
+      "alreadyHaveAccount": "Hai già un account? Accedi",
+      "saveErrorTitle": "Impossibile salvare il tuo profilo",
+      "saveErrorMessage": "Hai effettuato l'accesso, ma non è stato possibile salvare il tuo profilo di stile. Riprova."
+    },
     "buttons": {
+      "getStarted": "Inizia",
       "continue": "Continua",
       "skip": "Salta questo passaggio",
       "finish": "Fine"
@@ -44,8 +72,16 @@
   "profile": {
     "title": "Profilo",
     "unknownUser": "Utente sconosciuto",
+    "guest": {
+      "name": "Ospite",
+      "subtitle": "Accedi per salvare i tuoi dati",
+      "ctaTitle": "Crea il tuo account",
+      "ctaMessage": "Accedi con Google per salvare il tuo armadio, sincronizzare il tuo profilo e sbloccare le funzioni IA."
+    },
     "sections": {
+      "basicInfo": "Informazioni di base",
       "fitProfile": "Profilo fisico",
+      "heightWeight": "Altezza e peso",
       "bodyMeasurements": "Misure corporee",
       "styleVibes": "Stili preferiti",
       "stylePreferences": "Preferenze di stile"
@@ -61,7 +97,8 @@
       "shoulders": "Spalle",
       "chest": "Petto",
       "waist": "Vita",
-      "hips": "Fianchi"
+      "hips": "Fianchi",
+      "styleNotes": "Descrivi il tuo stile"
     },
     "save": "Salva",
     "styleVibes": {
@@ -118,14 +155,68 @@
       "Very Deep": "Molto scura"
     },
     "notSet": "Non impostato",
+    "stats": {
+      "items": "Capi",
+      "dayStreak": "Serie di giorni",
+      "capsuleScore": "Punteggio capsule"
+    },
+    "nav": {
+      "notifications": "Notifiche",
+      "wearHistory": "Cronologia utilizzo",
+      "languageRegion": "Lingua e regione"
+    },
+    "comingSoon": {
+      "title": "Prossimamente",
+      "notifications": "Le impostazioni delle notifiche saranno presto disponibili.",
+      "wearHistory": "La cronologia di utilizzo sarà presto disponibile."
+    },
     "editProfile": "Modifica profilo",
     "logOut": "Esci",
-    "language": "Lingua"
+    "language": "Lingua",
+    "deleteAccount": {
+      "button": "Elimina account",
+      "confirmTitle": "Elimina account",
+      "confirmMessage": "Sei sicuro? Questa azione è irreversibile ed eliminerà definitivamente tutti i tuoi dati, look e foto caricate.",
+      "cancel": "Annulla",
+      "confirm": "Elimina",
+      "errorTitle": "Errore"
+    }
   },
   "closet": {
+    "sections": {
+      "items": "Guardaroba",
+      "inspirations": "Ispirazioni"
+    },
+    "inspirations": {
+      "empty": "Nessun look salvato ancora. Tocca «Salva il look» su un suggerimento dello stylist IA per iniziare il tuo Lookbook.",
+      "deleteTitle": "Elimina look",
+      "deleteMessage": "Rimuovere questo look dal tuo Lookbook? Questa azione non può essere annullata."
+    },
+    "inspirationDetail": {
+      "title": "Look salvato",
+      "notFound": "Questo look non è più salvato.",
+      "itemsHeading": "Capi di questo look",
+      "fromCloset": "Dal tuo armadio",
+      "suggested": "Suggerito"
+    },
     "hub": {
       "title": "Il tuo armadio digitale",
       "subtitle": "Gestisci la tua collezione, digitalizza i tuoi capi fisici e lascia che l'assistente IA crei i tuoi look perfetti in base alle tue proporzioni e alla tua palette di colori.",
+      "emptyState": {
+        "welcomeHeading": "Benvenuto nel tuo armadio IA! Costruiamo il tuo stile.",
+        "title": "Scansiona il tuo primo capo",
+        "caption": "Costruisci il tuo armadio digitale — scatta una foto e lascia che l'IA la catalogizzi per te.",
+        "cta": "Aggiungi il tuo primo capo",
+        "exploreCta": "Esplora prima l'app"
+      },
+      "lockedTile": {
+        "message": "Aggiungi almeno un capo per sbloccare questa funzione."
+      },
+      "greeting": "Ciao, {{name}}",
+      "greetingFallback": "di nuovo",
+      "todayLabel": "Oggi",
+      "planAheadLabel": "Pianifica",
+      "shopYourClosetLabel": "Fai shopping nel tuo armadio",
       "insights": {
         "itemCount_one": "Capo",
         "itemCount_other": "Capi",
@@ -140,6 +231,20 @@
         "title": "Catalogo",
         "subtitle_one": "{{count}} capo",
         "subtitle_other": "{{count}} capi"
+      },
+      "styleStreak": {
+        "count_one": "{{count}} Giorno",
+        "count_other": "{{count}} Giorni",
+        "subtitleActive": "Continua così!",
+        "subtitleEmpty": "Pianifica un look per iniziare",
+        "alertTitle": "Serie di stile",
+        "alertMessage": "Pianifica un look con il tuo Stylist IA per giorni consecutivi per costruire la tua serie. Se salti un giorno intero, si azzera."
+      },
+      "dailyChallenge": {
+        "badge": "Sfida di oggi",
+        "doneBadge": "Completata",
+        "subtitle": "Tocca quando hai finito",
+        "doneSubtitle": "Completata oggi"
       },
       "weather": {
         "dressMe": "Vestimi",
@@ -163,7 +268,6 @@
         "manualCityError": "Città non trovata. Prova un'altra grafia."
       },
       "capsuleScore": {
-        "title": "78%",
         "subtitle": "Coerenza del guardaroba",
         "proBadge": "PRO",
         "premiumAlertTitle": "Funzione Premium",
@@ -179,8 +283,40 @@
         "subtitle": "La tua palette ideale",
         "modalTitle": "Il tuo Color DNA",
         "bestColors": "Colori migliori",
-        "avoidColors": "Da evitare"
+        "avoidColors": "Da evitare",
+        "calibration": {
+          "title": "Scopri il tuo Color DNA",
+          "subtitle": "Per scoprire la tua palette perfetta, raccontaci qualcosa in più su di te.",
+          "saveButton": "Rivela la mia palette"
+        }
+      },
+      "impact": {
+        "title": "Impatto del guardaroba",
+        "ecoScore": "Eco-punteggio",
+        "inRotation": "In uso"
+      },
+      "inspiration": {
+        "title": "Ispirazione di stile",
+        "comingSoon": "Prossimamente",
+        "tags": {
+          "minimalism": "Minimalismo",
+          "streetwear": "Streetwear",
+          "office": "Ufficio",
+          "casual": "Casual",
+          "eveningwear": "Serata"
+        }
       }
+    },
+    "tour": {
+      "step1": "Benvenuto nel tuo armadio IA! Facciamo un rapido giro.",
+      "stepPlanner": "Pianifica i tuoi outfit in anticipo con il nostro Pianificatore Settimanale.",
+      "stepPlannerWeek": "Pianifica i tuoi outfit quotidiani per tutta la settimana.",
+      "step3": "Il tuo primo passo. Tocca qui per scansionare il tuo primo capo e iniziare a costruire il tuo armadio digitale!",
+      "step4": "Qui troverai tutti i capi scansionati e gli outfit completi.",
+      "step5": "Dai un'occhiata — lo Stylist IA ti crea un outfit completo dal tuo armadio.",
+      "skip": "Salta",
+      "next": "Avanti",
+      "finish": "Fine"
     },
     "hubActions": {
       "viewWardrobe": "Vedi l'armadio",
@@ -190,21 +326,63 @@
       "mostWorn": "Più indossato",
       "hiddenGems": "Gioielli nascosti"
     },
-    "tour": {
-      "scanButton": "Aggiungi qui il tuo primo capo",
-      "plannerCard": "Pianifica i tuoi outfit della settimana"
-    },
     "scan": {
       "permissionTitle": "Autorizzazione necessaria",
       "permissionMessage": "Consenti l'accesso alla libreria foto nelle Impostazioni.",
-      "genericError": "Impossibile analizzare questo capo. Prova con un'altra foto."
+      "cameraPermissionMessage": "Consenti l'accesso alla fotocamera nelle Impostazioni per scattare una foto.",
+      "genericError": "Impossibile analizzare questo capo. Prova con un'altra foto.",
+      "notSignedInError": "Accedi per salvare i tuoi capi.",
+      "saveErrorTitle": "Salvataggio non riuscito",
+      "timeoutError": "Tempo scaduto. Controlla la connessione e riprova.",
+      "sheetTitle": "Aggiungi un capo",
+      "resultTitle": "Ecco cosa ho trovato",
+      "takePhoto": "Scatta una foto",
+      "takePhotoCaption": "Fotografa subito il capo",
+      "chooseFromLibrary": "Scegli dalla libreria",
+      "chooseFromLibraryCaption": "Scegli una foto esistente",
+      "status": {
+        "analyzingFabric": "Analisi del tessuto...",
+        "extractingColors": "Estrazione dei colori...",
+        "checkingColorDna": "Verifica del tuo DNA colore...",
+        "categorizing": "Categorizzazione..."
+      },
+      "verdict": "Sembra un {{item}} {{color}}!",
+      "colorDnaMatch": "Corrisponde al tuo DNA colore all'{{percent}}%",
+      "editDetails": "Non è corretto? Modifica i dettagli",
+      "retake": "Rifai la foto",
+      "saveToCloset": "Salva nell'armadio",
+      "authPrompt": {
+        "title": "Account richiesto",
+        "message": "Crea un profilo per salvare questo capo nel tuo guardaroba e ricevere consigli IA personalizzati.",
+        "cancel": "Annulla",
+        "googleButton": "Continua con Google",
+        "genericError": "Si è verificato un problema durante l'accesso. Riprova."
+      },
+      "calibration": {
+        "title": "Ancora pochi dettagli",
+        "subtitle": "Questo aiuta il tuo Stylist IA ad adattare i look al tuo fisico.",
+        "heightPlaceholder": "Altezza",
+        "weightPlaceholder": "Peso",
+        "heightError": "Inserisci un'altezza tra 90 e 250 cm.",
+        "weightError": "Inserisci un peso tra 20 e 300 kg.",
+        "bodyTypeLabel": "Corporatura",
+        "saveButton": "Salva e continua",
+        "genericError": "Impossibile salvare i tuoi dati. Riprova."
+      }
     },
     "confirm": {
-      "title": "Conferma capo",
       "category": "Categoria",
-      "color": "Colore",
-      "discard": "Scarta",
-      "confirm": "Conferma"
+      "color": "Colore"
+    },
+    "catalog": {
+      "title": "Il tuo armadio",
+      "empty": "Il tuo armadio è vuoto — scansiona un capo per iniziare.",
+      "emptyCategory": "Ancora nessun capo",
+      "emptyCategoryNamed": "Ancora nessun capo in {{category}}",
+      "emptyHint": "Tocca per aggiungere",
+      "allFilter": "Tutti",
+      "wornCount_one": "Indossato: {{count}} volta",
+      "wornCount_other": "Indossato: {{count}} volte"
     },
     "plannerView": {
       "title": "Pianificatore settimanale",
@@ -218,12 +396,6 @@
       "askButton": "Chiedi allo Stylist IA",
       "promptTemplate": "Ho bisogno di un look per {{occasion}} il {{date}}. Crea un outfit dal mio guardaroba.",
       "defaultOccasion": "un'occasione"
-    },
-    "catalog": {
-      "title": "Il tuo armadio",
-      "empty": "Il tuo armadio è vuoto — scansiona un capo per iniziare.",
-      "emptyCategory": "Ancora nessun capo. Tocca + per aggiungere.",
-      "wornCount": "Indossato: {{count}}"
     },
     "categories": {
       "Tops": "Top",
@@ -260,8 +432,20 @@
   "stylist": {
     "header": "Stylist IA",
     "inputPlaceholder": "Chiedi al tuo stylist...",
+    "inputPlaceholderShopping": "Chiedi idee per lo shopping...",
     "genericError": "Impossibile contattare il tuo stylist. Riprova.",
+    "rateLimitApology": "Uff, oggi siamo sommersi di clienti! Dammi un minuto per riprendere fiato e il tuo outfit sarà pronto.",
+    "locationRestrictedApology": "Sto avendo difficoltà a raggiungere il motore di styling dalla tua connessione attuale — riprova tra un momento, oppure cambia rete se il problema persiste.",
     "welcomeMessage": "Ciao, sono il tuo stylist personale. Dimmi che look stai cercando.",
+    "status": {
+      "analyzingWeather": "Analisi del meteo...",
+      "checkingColorDna": "Verifica del DNA colore...",
+      "matchingOutfits": "Abbinamento degli outfit..."
+    },
+    "emptyState": {
+      "title": "Non sai cosa indossare?",
+      "caption": "Scatta una foto del tuo look o scegli un suggerimento rapido qui sotto e ti aiuterò a valorizzarlo."
+    },
     "profileStale": {
       "prompt": "Ho notato che hai aggiornato le impostazioni del tuo profilo. Devo applicare queste modifiche al tuo profilo di stile?",
       "yes": "Sì, aggiorna",
@@ -289,18 +473,101 @@
       "stylePreferences": "preferenze di stile"
     },
     "saveToPlanner": "Salva nel planner",
+    "saveInspiration": {
+      "save": "Salva il look",
+      "saved": "Salvato",
+      "errorTitle": "Impossibile salvare il look",
+      "genericError": "Qualcosa è andato storto. Riprova.",
+      "authPromptMessage": "Crea un profilo per salvare questo look nel tuo Lookbook e ricevere consigli IA personalizzati."
+    },
     "plannerModal": {
       "title": "Salva questo look per...",
       "saved": "Salvato per {{date}}"
+    },
+    "targetItemPrompt": "Crea un outfit intorno al mio {{item}}.",
+    "quickPrompts": {
+      "officeLook": "Look da ufficio",
+      "dateNight": "Serata romantica",
+      "casualWeekend": "Weekend casual",
+      "rainyDay": "Giornata di pioggia",
+      "surpriseMe": "Sorprendimi"
+    },
+    "quickActions": {
+      "swapTop": "🔄 Cambia il top",
+      "swapTopPrompt": "Cambia il top di questo outfit con un altro capo — usa il mio guardaroba se qualcosa si adatta, altrimenti suggerisci uno da acquistare.",
+      "warmer": "❄️ Più caldo",
+      "warmerPrompt": "Rendi questo outfit più caldo — aggiungi o cambia capi per il clima più freddo.",
+      "cooler": "🔥 Più fresco",
+      "coolerPrompt": "Rendi questo outfit più fresco — capi più leggeri o meno strati per il clima più caldo.",
+      "moreFormal": "✨ Più formale",
+      "moreFormalPrompt": "Rendi questo outfit più elegante — cambia con capi più formali per un'occasione più elegante."
+    },
+    "feedbackActions": {
+      "loveIt": "✨ Lo adoro",
+      "loveItPrompt": "Adoro questo look!",
+      "notMyStyle": "👎 Non è il mio stile",
+      "notMyStylePrompt": "Questo non è il mio stile — prova una direzione completamente diversa per questo outfit.",
+      "tooBright": "🎨 Troppo vivace",
+      "tooBrightPrompt": "Questo sembra troppo vivace — attenua i colori per qualcosa di più sobrio."
+    },
+    "inspirationBoard": {
+      "title": "Bacheca di ispirazione"
+    },
+    "zeroCloset": {
+      "banner": "La Modalità Ispirazione è attiva — il tuo armadio è vuoto, quindi sto lavorando come tuo personal shopper, suggerendo capi da acquistare in base al tuo profilo."
     }
   },
   "planner": {
     "title": "Questa settimana",
+    "screenTitle": "Piano settimanale",
     "today": "Oggi",
     "askPrompt": "Cosa dovrei indossare il {{date}}?",
     "removeTitle": "Rimuovi look pianificato",
     "removeMessage": "Rimuovere il look pianificato per questo giorno?",
     "cancel": "Annulla",
-    "remove": "Rimuovi"
+    "remove": "Rimuovi",
+    "heroBadge": "Questa settimana",
+    "heroTitle": "{{count}} di 7 giorni pianificati",
+    "heroCaption": "Aggiungi un look per i giorni rimasti vuoti",
+    "heroCaptionStreak": "Serie di stile di {{count}} giorni",
+    "yourPlan": "Il tuo piano",
+    "emptyState": "Nessun look pianificato ancora. Tocca un giorno qui sopra per pianificarne uno.",
+    "plannedLook": "Look pianificato",
+    "styledByAi": "Curato dall'IA",
+    "snapOrShuffle": "Scatta o mescola"
+  },
+  "itemDetail": {
+    "wearToday": "Lo indosso oggi",
+    "wornToday": "Indossato oggi",
+    "styleThis": "Abbina questo capo",
+    "deleteTitle": "Elimina capo",
+    "deleteMessage": "Rimuovere questo capo dal tuo armadio? Questa azione non può essere annullata.",
+    "deleteCancel": "Annulla",
+    "deleteConfirm": "Elimina",
+    "deleteErrorTitle": "Impossibile eliminare il capo",
+    "editCategoryLabel": "Categoria",
+    "editColorLabel": "Colore",
+    "editSave": "Salva",
+    "editCancel": "Annulla",
+    "notFound": "Questo capo non è più nel tuo armadio."
+  },
+  "tabs": {
+    "closet": "Armadio",
+    "planner": "Piani",
+    "stylist": "Stylist",
+    "profile": "Profilo"
+  },
+  "errorBoundary": {
+    "message": "Qualcosa è andato storto.",
+    "retry": "Riprova"
+  },
+  "common": {
+    "units": {
+      "cm": "cm",
+      "kg": "kg",
+      "ft": "ft",
+      "in": "in",
+      "lbs": "lbs"
+    }
   }
 }

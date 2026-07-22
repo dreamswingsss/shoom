@@ -110,3 +110,19 @@ export function getBodyTypeOptions(gender) {
 export function filterDigits(text) {
   return text.replace(/[^0-9]/g, '');
 }
+
+// Imperial <-> metric conversions for the onboarding/profile measurements
+// step. The backend (`height_cm`/`weight_kg` columns, see useUserStore)
+// only ever stores metric — these let the UI collect ft/in + lbs while
+// still writing a single canonical cm/kg pair.
+const CM_PER_INCH = 2.54;
+const KG_PER_LB = 0.45359237;
+
+export function feetInchesToCm(feet, inches) {
+  const totalInches = (Number(feet) || 0) * 12 + (Number(inches) || 0);
+  return Math.round(totalInches * CM_PER_INCH);
+}
+
+export function lbsToKg(lbs) {
+  return Math.round((Number(lbs) || 0) * KG_PER_LB);
+}

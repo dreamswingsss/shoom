@@ -48,10 +48,8 @@ export default function Skeleton({ width = '100%', height = 16, borderRadius = r
 }
 
 const styles = StyleSheet.create({
-  // Muted grey rather than glassCard (translucent white — meant to sit on
-  // the Bento/Stylist screens' tinted premiumBackground canvas) since the
-  // screens this is built for (Catalog, Planner) still use the flatter
-  // "Quiet Luxury" surface — glassCard would read as nearly invisible
-  // against their plain white/cream background.
+  // Muted grey rather than glassCard/surface (flat white — would read as
+  // nearly invisible against the plain white/cream canvas the screens this
+  // is built for (Catalog, Planner) use).
   base: { backgroundColor: colors.borderStrong },
 });

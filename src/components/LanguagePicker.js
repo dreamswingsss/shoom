@@ -5,12 +5,20 @@ import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES, setAppLanguage } from '../i18n';
 import { colors, spacing, radius, typography } from '../theme/tokens';
 
-// Globe-icon trigger + modal language list. Selecting a language switches
-// the app instantly (useTranslation subscribes every t()-using component to
+// Trigger + modal language list. Selecting a language switches the app
+// instantly (useTranslation subscribes every t()-using component to
 // re-render) and persists the choice to AsyncStorage via setAppLanguage.
-export default function LanguagePicker() {
+// Renders its own default globe-icon trigger unless the caller supplies
+// `renderTrigger` — a render-prop taking `open` — so e.g. ProfileScreen's
+// nav-list can present this as a full row while reusing the exact same
+// modal/selection logic instead of duplicating it.
+export default function LanguagePicker({ renderTrigger }) {
   const { t, i18n } = useTranslation();
   const [visible, setVisible] = useState(false);
+
+  function open() {
+    setVisible(true);
+  }
 
   function handleSelect(code) {
     setVisible(false);
@@ -20,14 +28,18 @@ export default function LanguagePicker() {
 
   return (
     <>
-      <TouchableOpacity
-        style={styles.trigger}
-        onPress={() => setVisible(true)}
-        activeOpacity={0.7}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-      >
-        <Feather name="globe" size={20} color={colors.textPrimary} />
-      </TouchableOpacity>
+      {renderTrigger ? (
+        renderTrigger(open)
+      ) : (
+        <TouchableOpacity
+          style={styles.trigger}
+          onPress={open}
+          activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Feather name="globe" size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
+      )}
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
         <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
@@ -72,7 +84,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },

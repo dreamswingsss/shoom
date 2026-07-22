@@ -1,30 +1,44 @@
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
-import { CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolateColor } from 'react-native-reanimated';
 import WardrobeScreen from '../screens/WardrobeScreen';
 import PlannerScreen from '../screens/PlannerScreen';
 import StylistScreen from '../screens/StylistScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import { TourTarget } from '../components/AppTour';
 import { colors, spacing, radius, shadows } from '../theme/tokens';
 
 const Tab = createBottomTabNavigator();
-const CopilotView = walkthroughable(View);
 
-// Redesign v2 — each tab carries its own accent color instead of one shared
-// tint, both for the active pill fill and (implicitly, via cardTints) the
-// screen it leads to. `label` is shown next to the icon only once active.
+// Redesign v3 — each tab's active fill is that section's own accent
+// (violet=Closet, coral=Planner, sky=Stylist, sage=Profile) instead of one
+// shared violet everywhere, so the nav bar previews each section's color
+// before you even tap in. `labelKey` is resolved through t() inside
+// TabButton (not stored here as a literal string) so it re-renders in
+// whichever language is active, and is shown next to the icon only once
+// active.
 const TAB_CONFIG = {
-  Closet: { icon: 'grid', color: colors.violet, label: 'Closet' },
-  Planner: { icon: 'calendar', color: colors.coral, label: 'Planner' },
-  'AI Stylist': { icon: 'zap', color: colors.sky, label: 'Stylist' },
-  Profile: { icon: 'user', color: colors.sage, label: 'Profile' },
+  Closet: { icon: 'grid', color: colors.violet, labelKey: 'tabs.closet' },
+  Planner: { icon: 'calendar', color: colors.coral, labelKey: 'tabs.planner' },
+  'AI Stylist': { icon: 'zap', color: colors.sky, labelKey: 'tabs.stylist' },
+  Profile: { icon: 'user', color: colors.sage, labelKey: 'tabs.profile' },
 };
 
 const PILL_TRANSITION_MS = 200;
+
+// Which TourTarget id (if any) wraps a given tab's button — read by
+// FloatingTabBar below. Closet's App Tour (see WardrobeScreen's
+// tourSteps) spotlights AI Stylist ("here's how you get an outfit put
+// together for you") and Profile ("set up Color DNA here") as its last two
+// steps.
+const TOUR_TARGET_BY_TAB = {
+  'AI Stylist': 'stylistTab',
+  Profile: 'profileTab',
+};
 
 // One tab button — a 44x44 transparent circle (icon only) when inactive,
 // a filled capsule (icon + label, in the tab's own color) when active.
@@ -33,6 +47,7 @@ const PILL_TRANSITION_MS = 200;
 // size change itself is instant, matching the mockup's plain CSS
 // `transition: background .2s ease` (no width transition specified there).
 function TabButton({ route, isFocused, onPress }) {
+  const { t } = useTranslation();
   const config = TAB_CONFIG[route.name];
   const progress = useSharedValue(isFocused ? 1 : 0);
 
@@ -44,28 +59,16 @@ function TabButton({ route, isFocused, onPress }) {
     backgroundColor: interpolateColor(progress.value, [0, 1], ['transparent', config.color]),
   }));
 
-  const iconColor = isFocused ? colors.inverseText : 'rgba(255,255,255,0.54)';
+  const iconColor = isFocused ? colors.inverseText : colors.navInactiveIcon;
 
-  const button = (
+  return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.tabBtn}>
       <Animated.View style={[isFocused ? styles.pill : styles.circle, animatedFillStyle]}>
-        <Feather name={config.icon} size={18} color={iconColor} />
-        {isFocused && <Text style={styles.tabLabel}>{config.label}</Text>}
+        <Feather name={config.icon} size={22} color={iconColor} />
+        {isFocused && <Text style={styles.tabLabel}>{t(config.labelKey)}</Text>}
       </Animated.View>
     </TouchableOpacity>
   );
-
-  // Guided-tour target — kept exactly as it was on the old default tab bar
-  // so AppTour's existing "stylistTab" step still finds this button.
-  if (route.name === 'AI Stylist') {
-    return (
-      <CopilotStep text="Need ideas? Ask your personal AI stylist" order={3} name="stylistTab">
-        <CopilotView>{button}</CopilotView>
-      </CopilotStep>
-    );
-  }
-
-  return button;
 }
 
 // Custom floating pill tab bar, replacing React Navigation's default bar.
@@ -95,7 +98,22 @@ function FloatingTabBar({ state, navigation }) {
             }
           }
 
-          return <TabButton key={route.key} route={route} isFocused={isFocused} onPress={onPress} />;
+          const tabButton = <TabButton route={route} isFocused={isFocused} onPress={onPress} />;
+
+          // Closet's App Tour points two of its later steps at specific
+          // tabs (see WardrobeScreen's tourSteps) — wrapping only those
+          // routes here, not every one, keeps the other tabs' layout
+          // output byte-for-byte identical to before.
+          const tourTargetId = TOUR_TARGET_BY_TAB[route.name];
+          if (tourTargetId) {
+            return (
+              <TourTarget id={tourTargetId} key={route.key} borderRadius={radius.pill}>
+                {tabButton}
+              </TourTarget>
+            );
+          }
+
+          return <Fragment key={route.key}>{tabButton}</Fragment>;
         })}
       </View>
     </View>
@@ -105,7 +123,7 @@ function FloatingTabBar({ state, navigation }) {
 export default function TabNavigator() {
   return (
     <Tab.Navigator
-      initialRouteName="Profile"
+      initialRouteName="Closet"
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <FloatingTabBar {...props} />}
     >
@@ -126,19 +144,16 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   bar: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 18,
+    justifyContent: 'space-between',
+    gap: spacing.navGap,
     backgroundColor: colors.inverseBackground,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    ...shadows.md,
-    shadowOpacity: 0.28,
-    shadowRadius: 32,
-    shadowOffset: { width: 0, height: 16 },
-    elevation: 10,
+    paddingHorizontal: spacing.navBarH,
+    paddingVertical: spacing.navBarV,
+    ...shadows.navBar,
   },
   tabBtn: { flex: 0 },
   circle: {

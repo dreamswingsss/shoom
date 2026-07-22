@@ -6,7 +6,9 @@
 // WardrobeScreen, ItemDetailScreen, StylistScreen, and WeeklyPlanner.
 import { create } from 'zustand';
 import * as Crypto from 'expo-crypto';
+import { decode as decodeBase64 } from 'base64-arraybuffer';
 import { supabase } from '../services/supabaseClient';
+import { readImageAsBase64 } from '../utils/imageBase64';
 // Local calendar-day key ("YYYY-MM-DD") — reused rather than reimplemented
 // here so the "once per day" rule below and the Planner's own day-keying
 // (Style Streak, scheduled outfits) can never drift apart on what "today"
@@ -15,9 +17,28 @@ import { supabase } from '../services/supabaseClient';
 import { toDateKey } from './usePlannerStore';
 
 const CLOTHES_BUCKET = 'clothes-photos';
+// The Storage upload and the `clothes` insert below are the two network
+// calls between "client taps Save" and either a saved item or a caught
+// error — on a stalled connection (weak signal mid-scan is the realistic
+// case, not a clean rejection) a bare `await` on either can hang
+// indefinitely, since neither the fetch client Supabase uses nor the
+// supabase-js call itself times out on its own. Racing against a plain
+// timer is what turns that into an actual rejection ScanSheet's own
+// try/catch can show, instead of a save button stuck spinning forever with
+// nothing left for the client to do but force-quit.
+const NETWORK_TIMEOUT_MS = 20000;
 
 function toPublicImageUrl(imagePath) {
   return supabase.storage.from(CLOTHES_BUCKET).getPublicUrl(imagePath).data.publicUrl;
+}
+
+function withTimeout(promise, message) {
+  return Promise.race([
+    promise,
+    new Promise((_resolve, reject) => {
+      setTimeout(() => reject(new Error(message)), NETWORK_TIMEOUT_MS);
+    }),
+  ]);
 }
 
 // clothes row (snake_case, DB shape) -> wardrobe item (camelCase, the exact
@@ -37,10 +58,33 @@ function fromRow(row) {
   };
 }
 
+const INSPIRATIONS_TABLE = 'inspirations';
+
+// inspirations row (snake_case, DB shape) -> Lookbook entry (camelCase) —
+// same one-place-so-fetch-and-insert-never-drift-apart reasoning as
+// fromRow above.
+function inspirationFromRow(row) {
+  return {
+    id: row.id,
+    baseItemId: row.base_item_id,
+    aiText: row.ai_text,
+    generatedItems: row.generated_items || [],
+    createdAt: row.created_at,
+  };
+}
+
 export const useWardrobeStore = create((set, get) => ({
   items: [],
   loading: false,
   error: null,
+
+  // Lookbook — saved AI Stylist looks (see StylistScreen's Save
+  // Inspiration button). Separate loading flag from `loading` above: the
+  // Closet tab's two sections (Items / Inspirations) fetch independently,
+  // so switching to Inspirations before Items has resolved (or vice versa)
+  // never shows a false "still loading" spinner on the wrong section.
+  inspirations: [],
+  inspirationsLoading: false,
 
   // Called from WardrobeScreen's mount effect — Closet is a lazy tab (only
   // mounts on first visit), so fetching there rather than at app boot means
@@ -70,9 +114,21 @@ export const useWardrobeStore = create((set, get) => ({
   // `pendingItem` is exactly WardrobeScreen's scan-confirm shape:
   // { imageUri, category, subcategory, color, style, description }.
   addItem: async (pendingItem) => {
+    // Timed like the upload/insert calls below it — this specific call was
+    // the one actually missing that protection. `isLoggedIn` in the store
+    // can be stale-true (zustand's `user-storage` persists it with no
+    // `partialize`, so it survives past a session that's since gone invalid
+    // — e.g. useSupabaseAuthSync's own getSession() failing offline at cold
+    // start and silently leaving the old persisted value in place rather
+    // than crashing), so a caller that only checked that flag can still
+    // reach here with no real session underneath. On a dead connection,
+    // `getUser()` itself can validate/refresh against Supabase and never
+    // resolve on its own — exactly the "loader hangs forever, guest never
+    // sees the sign-in prompt" bug ScanSheet's own guard couldn't fully
+    // prevent by itself.
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await withTimeout(supabase.auth.getUser(), 'Request timed out checking your session.');
     if (!user) throw new Error('Not signed in.');
 
     const extension = pendingItem.imageUri.split('.').pop()?.split('?')[0] || 'jpg';
@@ -82,29 +138,39 @@ export const useWardrobeStore = create((set, get) => ({
     const imagePath = `${user.id}/${Crypto.randomUUID()}.${extension}`;
 
     // The scanned photo is a local file:// URI at this point (expo-image-
-    // picker) — fetch() + blob() is the standard RN way to turn that into
-    // upload-able bytes.
-    const fileResponse = await fetch(pendingItem.imageUri);
-    const fileBlob = await fileResponse.blob();
+    // picker, pre-compressed to JPEG by ScanSheet's compressImage). fetch()
+    // + .blob() looks like the natural way to turn that into upload-able
+    // bytes, but React Native's Blob polyfill doesn't reliably carry the
+    // full byte payload through to supabase-js's upload() — the request can
+    // "succeed" with a truncated/empty object (the photo then renders as a
+    // blank white square) or hang until the timeout below fires. Reading
+    // the file as base64 and decoding it to a real ArrayBuffer is the
+    // byte-for-byte reliable path Supabase's own React Native docs
+    // recommend, used here instead.
+    const base64Image = await readImageAsBase64(pendingItem.imageUri);
 
-    const { error: uploadError } = await supabase.storage
-      .from(CLOTHES_BUCKET)
-      .upload(imagePath, fileBlob, { contentType: fileBlob.type || 'image/jpeg' });
+    const { error: uploadError } = await withTimeout(
+      supabase.storage.from(CLOTHES_BUCKET).upload(imagePath, decodeBase64(base64Image), { contentType: 'image/jpeg' }),
+      'Request timed out uploading the photo.'
+    );
     if (uploadError) throw uploadError;
 
-    const { data: row, error: insertError } = await supabase
-      .from('clothes')
-      .insert({
-        user_id: user.id,
-        image_path: imagePath,
-        category: pendingItem.category,
-        subcategory: pendingItem.subcategory,
-        color: pendingItem.color,
-        style: pendingItem.style,
-        description: pendingItem.description,
-      })
-      .select()
-      .single();
+    const { data: row, error: insertError } = await withTimeout(
+      supabase
+        .from('clothes')
+        .insert({
+          user_id: user.id,
+          image_path: imagePath,
+          category: pendingItem.category,
+          subcategory: pendingItem.subcategory,
+          color: pendingItem.color,
+          style: pendingItem.style,
+          description: pendingItem.description,
+        })
+        .select()
+        .single(),
+      'Request timed out saving the item.'
+    );
 
     if (insertError) {
       // Don't leave an orphaned file in Storage for a row that never landed.
@@ -193,8 +259,74 @@ export const useWardrobeStore = create((set, get) => ({
     }
   },
 
+  // Called from WardrobeScreen's mount effect alongside fetchWardrobe/
+  // fetchOutfits — Closet is a lazy TAB (mounted on first visit only), so
+  // this still never runs for a session that never opens it; it just
+  // doesn't wait for the client to specifically switch to the
+  // Inspirations section within an already-open tab.
+  fetchInspirations: async () => {
+    set({ inspirationsLoading: true, error: null });
+
+    const { data, error } = await supabase
+      .from(INSPIRATIONS_TABLE)
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      set({ inspirationsLoading: false, error: error.message });
+      return;
+    }
+
+    set({ inspirationsLoading: false, inspirations: data.map(inspirationFromRow) });
+  },
+
+  // StylistScreen's Save Inspiration button. `generatedItems` is a
+  // self-contained snapshot — every thumbnail the Lookbook card will ever
+  // need — built by the caller from whatever mix of real wardrobe items
+  // and AI-suggested new pieces that particular look actually had; this
+  // store doesn't know or care which. `baseItemId` is null for a look that
+  // didn't start from a specific "Style this item" tap. Same timeout
+  // reasoning as addItem above: a stalled connection shouldn't leave the
+  // button spinning forever with nothing the client can do about it.
+  saveInspiration: async ({ baseItemId = null, aiText, generatedItems }) => {
+    // See addItem's own comment on why this specific call needs the same
+    // timeout the insert below it already has.
+    const {
+      data: { user },
+    } = await withTimeout(supabase.auth.getUser(), 'Request timed out checking your session.');
+    if (!user) throw new Error('Not signed in.');
+
+    const { data: row, error } = await withTimeout(
+      supabase
+        .from(INSPIRATIONS_TABLE)
+        .insert({
+          user_id: user.id,
+          base_item_id: baseItemId,
+          ai_text: aiText,
+          generated_items: generatedItems,
+        })
+        .select()
+        .single(),
+      'Request timed out saving this look.'
+    );
+
+    if (error) throw error;
+
+    const inspiration = inspirationFromRow(row);
+    set((state) => ({ inspirations: [inspiration, ...state.inspirations] }));
+    return inspiration;
+  },
+
+  removeInspiration: async (inspirationId) => {
+    const previousInspirations = get().inspirations;
+    set({ inspirations: previousInspirations.filter((i) => i.id !== inspirationId) });
+
+    const { error } = await supabase.from(INSPIRATIONS_TABLE).delete().eq('id', inspirationId);
+    if (error) set({ inspirations: previousInspirations, error: error.message });
+  },
+
   // Called on sign-out / account deletion (see accountService.js) so a
   // second account signing into the same device never sees a flash of the
-  // previous user's closet before fetchWardrobe() resolves.
-  reset: () => set({ items: [], loading: false, error: null }),
+  // previous user's closet (or Lookbook) before the next fetch resolves.
+  reset: () => set({ items: [], loading: false, error: null, inspirations: [], inspirationsLoading: false }),
 }));

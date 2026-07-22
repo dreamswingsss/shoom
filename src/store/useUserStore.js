@@ -76,6 +76,25 @@ export const useUserStore = create(
       user: null,
       isLoggedIn: false,
 
+      // Device-scoped, not account-scoped — flips true the instant the
+      // client taps "Get Started" on WelcomeScreen's splash, no session and
+      // no profile field required. This (not `gender`) is what App.js's
+      // `needsOnboarding` gate checks: WelcomeScreen no longer collects
+      // ANY parameters (gender included — that moved into RegistrationFlow,
+      // asked only once, the first time a guest tries to save a scanned
+      // item), so nothing about the initial splash can ever set `gender`
+      // itself anymore. Gating on `gender` after that change would strand
+      // every guest on WelcomeScreen forever, re-showing it on every app
+      // restart since there'd be no field left for "Get Started" to set.
+      hasCompletedWelcome: false,
+
+      // Device-scoped, not account-scoped (deliberately absent from
+      // logout()'s reset below) — WardrobeScreen's App Tour is a one-time
+      // "orient a new person on this device" nudge, not part of the client's
+      // saved profile, so it isn't cleared by a sign-out/sign-back-in on the
+      // same phone.
+      hasSeenAppTour: false,
+
       gender: null,
       hairColor: null,
       eyeColor: null,
@@ -122,6 +141,25 @@ export const useUserStore = create(
       // ordering is what fixes the "always sent to Onboarding after
       // logout -> log back in" bug.
       login: (userData) => set({ user: userData, isLoggedIn: true }),
+
+      // WelcomeScreen's one write path (see src/screens/WelcomeScreen.js) —
+      // the ONLY thing tapping "Get Started" does. No profile field is set
+      // here on purpose (see `hasCompletedWelcome`'s own comment) — this is
+      // purely "the client has seen the splash and wants to go in", nothing
+      // about who they are yet.
+      completeWelcome: () => set({ hasCompletedWelcome: true }),
+
+      // Fires once, the moment the client dismisses (Finish OR Skip, same
+      // outcome) the Closet's App Tour. WardrobeScreen gates the tour behind
+      // `!hasSeenAppTour && isEmptyCloset` — this is the one write that
+      // makes that gate permanently false going forward, on this device.
+      completeAppTour: () => set({ hasSeenAppTour: true }),
+
+      // TEMPORARY — dev-only escape hatch (ProfileScreen's __DEV__-gated
+      // "Reset App Tour" button) so the tour can be re-tested by reopening
+      // Closet instead of reinstalling the app every time. Remove alongside
+      // that button once the tour itself no longer needs active testing.
+      resetAppTour: () => set({ hasSeenAppTour: false }),
 
       logout: () =>
         set({
@@ -216,6 +254,33 @@ export const useUserStore = create(
         supabase
           .from('users')
           .update({ expo_push_token: token })
+          .eq('id', userId)
+          .then(({ error }) => {
+            if (error) set({ profileSyncError: error.message });
+          });
+      },
+
+      // Progressive Profiling — ColorDnaCalibrationSheet's one write path.
+      // Unlike setHairColor/setEyeColor/setSkinTone below (local-only, part
+      // of the gated completeOnboarding/updateProfile flows), this commits
+      // immediately: same "no Save gate" shape as toggleStyleVibe, since the
+      // calibration sheet's own Continue button is already the deliberate
+      // commit action, one step removed. Writes to Supabase only if a
+      // session exists (get().user?.id) — a guest who calibrates before
+      // ever signing in still gets the local value (Color DNA renders
+      // immediately), just no DB row to write it to yet; ScanSheet's own
+      // sign-in flow doesn't re-push these fields, so a guest who signs in
+      // afterwards without re-opening Color DNA keeps whatever's already
+      // local until they do.
+      updateColorDna: (data) => {
+        set({ hairColor: data.hairColor, eyeColor: data.eyeColor, skinTone: data.skinTone });
+
+        const userId = get().user?.id;
+        if (!userId) return;
+
+        return supabase
+          .from('users')
+          .update({ hair_color: data.hairColor, eye_color: data.eyeColor, skin_tone: data.skinTone })
           .eq('id', userId)
           .then(({ error }) => {
             if (error) set({ profileSyncError: error.message });

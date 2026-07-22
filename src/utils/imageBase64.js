@@ -1,5 +1,10 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+// SDK 54's `expo-file-system` default export dropped the old
+// `readAsStringAsync`/`EncodingType` API in favor of a new File/Directory
+// class-based one — the old API still exists, but only under this
+// `/legacy` subpath now. Importing from bare `expo-file-system` left
+// `FileSystem.EncodingType` (and `.readAsStringAsync`) silently `undefined`.
+import * as FileSystem from 'expo-file-system/legacy';
 
 function stripBase64Prefix(base64) {
   return base64.replace(/^data:.*;base64,/, '');

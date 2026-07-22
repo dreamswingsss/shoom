@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.card,
     padding: spacing.sm,
   },
   column: { flex: 1, alignItems: 'center' },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -25,9 +23,7 @@ import Reanimated, {
   useAnimatedStyle,
   withTiming,
   withSequence,
-  interpolateColor,
 } from 'react-native-reanimated';
-import { scanClothingItem } from '../services/aiScanner';
 import { analyzeShoppingItem } from '../services/aiShoppingCopilot';
 import { readImageAsBase64 } from '../utils/imageBase64';
 import { getPalette } from '../utils/colorDna';
@@ -41,30 +37,26 @@ import { useChatStore } from '../store/useChatStore';
 import { usePlannerStore, toDateKey, getStyleStreak } from '../store/usePlannerStore';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useWeather } from '../hooks/useWeather';
-import { colors, cardTints, spacing, radius, hairline, shadows, opacity, buttons, typography } from '../theme/tokens';
-import { CATEGORIES, COLOR_OPTIONS } from '../constants/wardrobeOptions';
-import { ChipPicker } from '../components/ChipPicker';
+import { colors, cardTints, spacing, radius, hairline, shadows, opacity, typography, withAlpha } from '../theme/tokens';
 import WardrobeCatalogScreen from './WardrobeCatalogScreen';
+import ScreenContainer from '../components/ScreenContainer';
 import { FadeInView } from '../components/AnimatedPressable';
+import HorizontalFadeScroll from '../components/HorizontalFadeScroll';
+import GeneratedItemThumb from '../components/GeneratedItemThumb';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useConfirm } from '../hooks/useConfirm';
+import ScanSheet from '../components/ScanSheet';
+import LockableTile from '../components/LockableTile';
+import Toast from '../components/Toast';
+import Skeleton from '../components/Skeleton';
+import { TourTarget, useAppTour } from '../components/AppTour';
+import ColorDnaCalibrationSheet from '../components/ColorDnaCalibrationSheet';
 import { triggerHaptic } from '../utils/haptics';
-
-const CopilotTouchable = walkthroughable(TouchableOpacity);
-const CopilotView = walkthroughable(View);
 
 // Radius for icon chips. The Hub's own cards use `radius.card` (redesign
 // v2) — this constant lives on for the pieces that didn't move (icon chips,
 // the confirm-scan flow).
 const BENTO_RADIUS = 20;
-
-// Border tint per section color — a touch darker/saturated than the card
-// fill itself (`cardTints`), matching the redesign's "1px solid, ~15-20%
-// alpha of the saturated color" card-border rule.
-const TINT_BORDERS = {
-  violet: 'rgba(108,77,246,0.18)',
-  coral: 'rgba(255,122,89,0.18)',
-  sky: 'rgba(47,143,224,0.18)',
-  sage: 'rgba(62,143,99,0.2)',
-};
 
 // "Style Inspiration" strip — mood-only placeholder cards (no saved-board
 // backend exists), replacing the old standalone Inspiration tab's full
@@ -80,39 +72,70 @@ const INSPIRATION_TAGS = [
 export default function WardrobeScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
   const wardrobe = useWardrobeStore((state) => state.items);
   const wardrobeLoading = useWardrobeStore((state) => state.loading);
   const wardrobeError = useWardrobeStore((state) => state.error);
   const fetchWardrobe = useWardrobeStore((state) => state.fetchWardrobe);
   const addItem = useWardrobeStore((state) => state.addItem);
+  const inspirations = useWardrobeStore((state) => state.inspirations);
+  const inspirationsLoading = useWardrobeStore((state) => state.inspirationsLoading);
+  const fetchInspirations = useWardrobeStore((state) => state.fetchInspirations);
   const fetchOutfits = usePlannerStore((state) => state.fetchOutfits);
   const skinTone = useUserStore((state) => state.skinTone);
   const hairColor = useUserStore((state) => state.hairColor);
   const eyeColor = useUserStore((state) => state.eyeColor);
   const styleVibes = useUserStore((state) => state.styleVibes);
+  const hasSeenAppTour = useUserStore((state) => state.hasSeenAppTour);
+  const completeAppTour = useUserStore((state) => state.completeAppTour);
   const fadeOpacity = useFadeOnFocus();
+  const tour = useAppTour();
 
   // 'hub' is the landing view (title/description + the two actions below);
   // 'catalog' drills into the category-grouped item browser. Kept as local
-  // state rather than a nav stack — this tab has no other navigation depth,
-  // and the scan/confirm flow already uses the same plain-state-machine
-  // pattern below. Weekly Planner used to be a third nested view here too —
-  // it's now its own `Planner` tab (see TabNavigator.js/PlannerScreen.js).
+  // state rather than a nav stack — this tab has no other navigation depth.
+  // Weekly Planner used to be a third nested view here too — it's now its
+  // own `Planner` tab (see TabNavigator.js/PlannerScreen.js). The scan flow
+  // itself (photo -> AI analysis -> save) no longer lives here as a state
+  // machine — it's ScanSheet's own self-contained bottom sheet, opened via
+  // `scanSheetVisible` below.
   const [view, setView] = useState('hub');
-  const [pendingItem, setPendingItem] = useState(null);
-  const [editingField, setEditingField] = useState(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState(null);
+  // Top-level split of the hub itself — 'items' is everything the hub
+  // already showed (Bento dashboard); 'inspirations' swaps that for the
+  // saved-look grid (see useWardrobeStore's inspirations/saveInspiration).
+  // Independent of `view` above: the catalog drill-down is reached FROM
+  // the 'items' section specifically, not a sibling of this split.
+  const [section, setSection] = useState('items');
+  const [scanSheetVisible, setScanSheetVisible] = useState(false);
   const [copilotAnalyzing, setCopilotAnalyzing] = useState(false);
   const [colorDnaModalVisible, setColorDnaModalVisible] = useState(false);
+  // `toastKey` forces Toast to remount (and replay its animation) even when
+  // the client taps the same locked tile twice in a row with the exact same
+  // message — see Toast's own comment for why keying off `message` alone
+  // isn't enough.
+  const [toastMessage, setToastMessage] = useState(null);
+  const [toastKey, setToastKey] = useState(0);
 
   const palette = useMemo(() => getPalette(skinTone, hairColor, eyeColor), [skinTone, hairColor, eyeColor]);
+  // Progressive Profiling gate — Deferred Registration stopped collecting
+  // these three at Onboarding, so `getPalette` above would otherwise run on
+  // silent null-input defaults the first time any client (guest or not)
+  // opens Color DNA. ColorDnaTile's onPress below opens
+  // ColorDnaCalibrationSheet instead of ColorDnaModal while this is true;
+  // once the sheet's Continue saves all three, this flips false on its own
+  // (reactive selectors above) and the very next render swaps to the real
+  // results, no separate "done" callback needed.
+  const needsColorDnaCalibration = !hairColor || !eyeColor || !skinTone;
   const cohesionScore = useMemo(() => calculateCohesionScore(wardrobe), [wardrobe]);
   const ecoScore = useMemo(() => calculateEcoScore(wardrobe), [wardrobe]);
   const lifecycle = useMemo(() => calculateWardrobeLifecycle(wardrobe), [wardrobe]);
+  // Gated on !wardrobeLoading too — otherwise the very first render (before
+  // the fetch resolves, `wardrobe` still `[]`) would flash the empty-state
+  // hero even for a client who actually has items, right before the real
+  // list snaps in.
+  const isEmptyCloset = !wardrobeLoading && wardrobe.length === 0;
+
+  const hubScrollRef = useRef(null);
 
   // Closet is a lazy tab (React Navigation only mounts it on first visit),
   // so this only fires once per session, right when the client actually
@@ -121,52 +144,168 @@ export default function WardrobeScreen() {
   // too, and Closet is often the first tab opened in a session (before the
   // Planner tab itself, which also fetches on its own mount).
   useEffect(() => {
-    fetchWardrobe();
-    fetchOutfits();
+    fetchWardrobe().then(fetchOutfits);
+    fetchInspirations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleScan() {
-    triggerHaptic();
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(t('closet.scan.permissionTitle'), t('closet.scan.permissionMessage'));
-      return;
-    }
+  // App Tour auto-start — the nav-orientation walkthrough for a brand new,
+  // still-empty Closet (gender is Onboarding's only remaining question, see
+  // WelcomeScreen.js; this is where the client actually gets shown around).
+  //
+  // Local steps (header/plannerCard/catalogWidget) spotlight content on
+  // THIS screen's own ScrollView — `scrollViewRef` below is what lets
+  // AppTourProvider auto-center it via measureLayout when it's below the
+  // fold (see AppTour.js's own prepareStep effect) instead of requiring
+  // everything fit on one screen.
+  //
+  // `plannerWeekOverview` and `stylistHeader` are real navigation, not just
+  // a tab-bar icon spotlight: each one's `onEnter` switches tabs BEFORE
+  // that step measures anything, landing the spotlight on real content
+  // over on PlannerScreen/StylistScreen (their own `plannerWeekOverview`/
+  // `stylistHeader` TourTargets) — AppTour.js's waitForTargetRegistration
+  // is what makes this safe even the very first time either tab mounts.
+  // No Profile step anymore — Profile setup (Color DNA, Fit Profile) isn't
+  // part of this walkthrough; the tour stays scoped to Closet, Planner,
+  // and AI Stylist.
+  //
+  // Depends on `tour?.startTour` (the one stable function this actually
+  // calls), NOT on `tour` itself — this used to be a real, shipped
+  // infinite loop: `tour` (AppTourProvider's own context value) is
+  // deliberately reactive now (see that file's own `isTourActive`/
+  // `activeStepId` comment), changing identity on every step transition.
+  // With `tour` in this array, every time a step finished preparing and
+  // flipped `stepReady` true, this effect saw "a dependency changed" and
+  // re-ran — calling `startTour([...brand-new step objects...])` AGAIN for
+  // a tour that was already active, which reset the auto-scroll effect
+  // (new `currentStep` object, even at the same `stepIndex`/id), which
+  // re-measured and re-scrolled to the SAME target, which flipped
+  // `stepReady` again, which changed `tour`'s identity again — forever.
+  // Visually: the spotlight flickering on/off, and any manual scroll
+  // attempt getting immediately overridden by the next iteration's
+  // scrollTo. `tour?.startTour` is useCallback([])-stable for the entire
+  // AppTourProvider's lifetime, so this effect now only ever runs for the
+  // reasons its OTHER two deps describe — the tour hasn't been seen yet,
+  // and the closet just became (or already was) empty.
+  useEffect(() => {
+    if (hasSeenAppTour || !isEmptyCloset || !tour?.startTour) return;
 
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-
-    if (pickerResult.canceled) return;
-
-    const uri = pickerResult.assets[0].uri;
-    setError(null);
-    setAnalyzing(true);
-
-    try {
-      const base64Image = await readImageAsBase64(uri);
-      const scanResult = await scanClothingItem(base64Image);
-      if (scanResult.error) {
-        setError(scanResult.message);
-        return;
+    tour.startTour(
+      [
+        { id: 'header', text: t('closet.tour.step1'), skipLabel: t('closet.tour.skip'), nextLabel: t('closet.tour.next') },
+        // Re-targets the SAME "Plan Ahead" bento tile plannerCard always
+        // pointed at, now with copy specifically about the Weekly Planner
+        // feature that tile opens, instead of the old generic "unlock the
+        // magic" pitch for locked tiles in general. Doesn't navigate
+        // anywhere itself — it's the teaser for the CARD, still on Closet;
+        // `plannerWeekOverview` right after is the one that actually goes
+        // in and shows the real feature.
+        { id: 'plannerCard', text: t('closet.tour.stepPlanner'), skipLabel: t('closet.tour.skip'), nextLabel: t('closet.tour.next') },
+        {
+          // Leaves Closet entirely — spotlights PlannerScreen's own hero
+          // card + day-of-week strip (its own `plannerWeekOverview`
+          // TourTarget, see that screen's own comment) so the client sees
+          // the actual Weekly Planner, not just the teaser card that opens
+          // it. `catalogWidget` right after is what navigates back to
+          // Closet — see ITS OWN onEnter below.
+          id: 'plannerWeekOverview',
+          text: t('closet.tour.stepPlannerWeek'),
+          skipLabel: t('closet.tour.skip'),
+          nextLabel: t('closet.tour.next'),
+          onEnter: () => navigation.navigate('Planner'),
+        },
+        {
+          id: 'catalogWidget',
+          text: t('closet.tour.step4'),
+          skipLabel: t('closet.tour.skip'),
+          nextLabel: t('closet.tour.next'),
+          // The previous step (`plannerWeekOverview`) left the client on
+          // the Planner tab — every other same-screen step in this tour
+          // can skip `onEnter` entirely because Closet was already
+          // showing, but this one specifically has to navigate BACK since
+          // it's the first Closet-side step after a detour to another tab.
+          onEnter: () => navigation.navigate('Closet'),
+        },
+        {
+          id: 'stylistHeader',
+          text: t('closet.tour.step5'),
+          skipLabel: t('closet.tour.skip'),
+          nextLabel: t('closet.tour.next'),
+          onEnter: () => navigation.navigate('AI Stylist'),
+        },
+        {
+          // `hideActions` — this step's tooltip shows text only, no Skip/
+          // Finish row: the floating "Add Item" pill below is the thing the
+          // client is meant to tap, not an in-tooltip substitute for it.
+          // `handleScan`'s own `tour.completeStepIfActive('scanCta')` call
+          // is what actually finishes the tour once it's tapped — see
+          // AppTourProvider's own comment on that function for why this
+          // needed a dedicated API rather than reusing Next.
+          //
+          // `hideSpotlightCutout` + `floatingAction` — no dimmed-backdrop
+          // hole at all for this step (not even the ring-free, zero-padding
+          // one `hideSpotlightRing` alone gives — see TourSpotlight's own
+          // `hideCutout` comment for why): the real button still pulses
+          // (see WardrobeScreen's addItemTile below) and AppTour only
+          // measures a step's target once, so a hole cut to that one-time
+          // rect used to get clipped crooked every time the real button's
+          // own pulse scaled it past the static cutout. `floatingAction`
+          // instead draws a same-styled duplicate pill directly on the now
+          // fully opaque backdrop, at that same rect, pulsing on its own —
+          // see TourFloatingAction in AppTour.js.
+          id: 'scanCta',
+          text: t('closet.tour.step3'),
+          hideActions: true,
+          hideSpotlightCutout: true,
+          floatingAction: {
+            icon: 'plus',
+            label: t('closet.hubActions.addItem'),
+            onPress: handleScan,
+          },
+          onEnter: () => navigation.navigate('Closet'),
+        },
+      ],
+      {
+        scrollViewRef: hubScrollRef,
+        onFinish: handleTourFinish,
       }
-      setPendingItem({
-        imageUri: uri,
-        category: scanResult.category,
-        subcategory: scanResult.subcategory,
-        color: scanResult.color,
-        // Not shown/editable on the confirm screen, but still saved on
-        // Confirm — the AI stylist prompt uses these for better advice.
-        style: scanResult.style,
-        description: scanResult.description,
-      });
-    } catch (err) {
-      setError(err.message || t('closet.scan.genericError'));
-    } finally {
-      setAnalyzing(false);
-    }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSeenAppTour, isEmptyCloset, tour?.startTour]);
+
+  // Both a genuine completion (the `scanCta` step's real Add Item button
+  // tapped — see `handleScan` below) and an early Skip from an earlier step
+  // land here; either way this just marks the tour seen and lands back on
+  // Closet. It does NOT open the scanner itself anymore: the `scanCta` step
+  // has no tooltip button left to drive that (see its own `hideActions`
+  // comment above) — the ONLY way this callback ever fires with
+  // `completed: true` is because `handleScan` below already opened the
+  // scanner and THEN told the tour it was done, so doing it again here
+  // would double-fire (a second `setScanSheetVisible(true)` is harmless,
+  // but a second `triggerHaptic()` isn't).
+  function handleTourFinish() {
+    completeAppTour();
+    navigation.navigate('Closet');
+  }
+
+  function handleScan() {
+    triggerHaptic();
+    // No-op unless the tour is actively showing the `scanCta` step (see
+    // AppTourProvider's own comment on `completeStepIfActive`) — safe to
+    // call unconditionally, so this button works identically whether or
+    // not a tour happens to be running.
+    tour?.completeStepIfActive('scanCta');
+    setScanSheetVisible(true);
+  }
+
+  // Fires when the client taps a tile that's locked (see isEmptyCloset +
+  // LockableTile below) — a soft nudge rather than a hard wall, so tapping
+  // Planner/Color DNA/Shopping Co-pilot/Inspiration with zero items still
+  // feels responsive instead of dead.
+  function handleLockedTilePress() {
+    triggerHaptic();
+    setToastMessage(t('closet.hub.lockedTile.message'));
+    setToastKey((key) => key + 1);
   }
 
   // Snaps a candidate purchase in-store and asks the AI for a quick "Buy or
@@ -198,124 +337,61 @@ export default function WardrobeScreen() {
     }
   }
 
-  async function handleConfirm() {
-    if (isUploading) return;
-
-    setError(null);
-    setIsUploading(true);
-    try {
-      // addItem uploads the photo to Storage then inserts the `clothes`
-      // row — a real network round-trip now, unlike the old synchronous
-      // local-only addWardrobeItem, so this can genuinely fail (offline,
-      // upload rejected, etc.) and needs to surface that instead of
-      // silently discarding the client's scan.
-      await addItem(pendingItem);
-      setPendingItem(null);
-      setEditingField(null);
-    } catch (err) {
-      setError(err.message || t('closet.scan.genericError'));
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
-  function handleDiscard() {
-    if (isUploading) return;
-    setPendingItem(null);
-    setEditingField(null);
-  }
-
-  function updatePendingField(field, value) {
-    setPendingItem((prev) => ({ ...prev, [field]: value }));
-    setEditingField(null);
-  }
-
-  // ---- Confirmation step (after a scan) ----
-  if (pendingItem) {
-    return (
-      <Animated.View style={[styles.container, { opacity: fadeOpacity }]}>
-        <ScrollView contentContainerStyle={styles.confirmScroll}>
-          <Image source={{ uri: pendingItem.imageUri }} style={styles.confirmImage} />
-
-          <View style={styles.confirmBody}>
-            <Text style={styles.confirmTitle}>{t('closet.confirm.title')}</Text>
-
-            <EditableRow
-              label={t('closet.confirm.category')}
-              value={t(`closet.categories.${pendingItem.category}`)}
-              expanded={editingField === 'category'}
-              onPress={() => setEditingField(editingField === 'category' ? null : 'category')}
-            >
-              <ChipPicker
-                options={CATEGORIES}
-                value={pendingItem.category}
-                onSelect={(value) => updatePendingField('category', value)}
-                getLabel={(option) => t(`closet.categories.${option}`)}
-              />
-            </EditableRow>
-
-            <EditableRow
-              label={t('closet.confirm.color')}
-              value={t(`closet.colors.${pendingItem.color}`)}
-              expanded={editingField === 'color'}
-              onPress={() => setEditingField(editingField === 'color' ? null : 'color')}
-            >
-              <ChipPicker
-                options={COLOR_OPTIONS}
-                value={pendingItem.color}
-                onSelect={(value) => updatePendingField('color', value)}
-                getLabel={(option) => t(`closet.colors.${option}`)}
-              />
-            </EditableRow>
-          </View>
-        </ScrollView>
-
-        {error && (
-          <View style={styles.confirmErrorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        <View style={styles.confirmActions}>
-          <TouchableOpacity
-            style={[styles.discardBtn, isUploading && styles.confirmActionDisabled]}
-            onPress={handleDiscard}
-            disabled={isUploading}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.discardBtnText}>{t('closet.confirm.discard')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.confirmBtn, isUploading && styles.confirmActionDisabled]}
-            onPress={handleConfirm}
-            disabled={isUploading}
-            activeOpacity={0.85}
-          >
-            {isUploading ? (
-              <ActivityIndicator size="small" color={colors.inverseText} />
-            ) : (
-              <Text style={styles.confirmBtnText}>{t('closet.confirm.confirm')}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-    );
-  }
-
   // ---- Category browser ----
+  // `ScanSheet` is rendered here too (not just from the Hub branch below) —
+  // it used to live ONLY in the Hub's own JSX tree, which is why
+  // `onAddItem` had to `setView('hub')` before `handleScan()`: without that,
+  // the sheet had nowhere to mount and silently did nothing. Rendering it
+  // as a sibling here lets Catalog open the exact same bottom sheet
+  // in-place, no view switch, no redirect back to the Hub underneath it.
   if (view === 'catalog') {
     return (
-      <WardrobeCatalogScreen wardrobe={wardrobe} loading={wardrobeLoading} onBack={() => setView('hub')} />
+      <>
+        <WardrobeCatalogScreen
+          wardrobe={wardrobe}
+          loading={wardrobeLoading}
+          onBack={() => setView('hub')}
+          onAddItem={handleScan}
+        />
+        <ScanSheet
+          visible={scanSheetVisible}
+          onClose={() => setScanSheetVisible(false)}
+          onSave={addItem}
+          palette={palette}
+        />
+      </>
     );
   }
 
   // ---- Wardrobe Hub (default landing view) ----
+  // scroll=false — this screen's own ScrollView (ref + onScroll + the
+  // fade-opacity Animated.View wrapping it) can't collapse into
+  // ScreenContainer's built-in one, so ScreenContainer only contributes the
+  // safe-area shell here; contentStyle zeroes its own 16px margin out since
+  // `hubScroll` below already carries that same spacing.screenH padding on
+  // the real scrollable content, one layer in.
   return (
-    <Animated.View style={[styles.container, styles.hubContainer, { opacity: fadeOpacity }]}>
-      <ScrollView contentContainerStyle={[styles.hubScroll, { paddingTop: insets.top + spacing.sm }]}>
-        <View style={styles.headerRow}>
+    <ScreenContainer edges={['top']} scroll={false} style={styles.hubContainer} contentStyle={styles.zeroHPadding}>
+      <Animated.View style={[styles.flexFill, { opacity: fadeOpacity }]}>
+      <ScrollView
+        ref={hubScrollRef}
+        // Locked out for the duration of a tour — the tour's own auto-
+        // center-on-target scrollTo (AppTour.js's prepareStep effect) and a
+        // client's own scroll gesture fighting over this same ScrollView's
+        // position at once is exactly what the flicker/force-scroll-back
+        // bug looked like. `tour?.isTourActive` is reactive (flips at the
+        // start and end of a tour), which is fine to read here in the
+        // render body — the bug that reactivity caused was specifically
+        // about EFFECT dependency arrays, not renders (see this screen's
+        // own tour-launch effect comment for the full postmortem). The
+        // client navigates screen-to-screen only via the tooltip's own
+        // Next button while a tour is running.
+        scrollEnabled={!tour?.isTourActive}
+        contentContainerStyle={[styles.hubScroll, { paddingTop: spacing.sm }]}
+      >
+        <TourTarget id="header" style={styles.headerRow}>
           <LinearGradient
-            colors={[colors.violet, '#9B87FF']}
+            colors={[colors.violet, colors.violetLight]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.avatar}
@@ -330,8 +406,14 @@ export default function WardrobeScreen() {
               {formatWeekdayShortWithDate(new Date(), i18n.language)}
             </Text>
           </View>
-        </View>
+        </TourTarget>
 
+        <SectionSwitcher section={section} onChange={setSection} />
+
+        {section === 'inspirations' ? (
+          <LookbookSection inspirations={inspirations} loading={inspirationsLoading} />
+        ) : (
+        <>
         <View style={styles.bentoGrid}>
           <FadeInView delay={0}>
             <WeatherWidget />
@@ -374,166 +456,213 @@ export default function WardrobeScreen() {
             </FadeInView>
           </View>
 
-          <Text style={styles.sectionLabel}>{t('closet.hub.planAheadLabel')}</Text>
-          <FadeInView delay={180}>
-            <CopilotStep text={t('closet.tour.plannerCard')} order={2} name="plannerCard">
-              <CopilotView>
-                <BentoTile
-                  wide
-                  tint="sage"
-                  icon={<Feather name="calendar" size={19} color={colors.textPrimary} />}
-                  title={t('closet.hub.planner.title')}
-                  subtitle={t('closet.hub.planner.subtitle')}
-                  onPress={() => navigation.navigate('Planner')}
-                />
-              </CopilotView>
-            </CopilotStep>
-          </FadeInView>
+          {/* `gap` here replaces the spacing bentoGrid's own `gap` would
+              otherwise provide between these sections — was previously a
+              single TourTarget wrapping this whole block (Planner card +
+              catalog/copilot row + Color DNA card together), which made the
+              `plannerCard` tour step spotlight this ENTIRE section instead
+              of just the one card it was meant to point at. Plain View now
+              — `plannerCard` below wraps only the actual Planner card. */}
+          <View style={{ gap: spacing.sm }}>
+            <Text style={styles.sectionLabel}>{t('closet.hub.planAheadLabel')}</Text>
+            {/* Locked (not hidden) while the closet is empty — see Block 3.5:
+                the client should see Planner exists, not have it vanish.
+                TourTarget is the OUTERMOST wrapper here (not nested inside
+                FadeInView) specifically so its measured box is exactly this
+                card's own rendered bounds — neither FadeInView nor
+                LockableTile's own wrapper style carries any margin, so
+                nothing inflates the spotlight beyond the card itself. */}
+            <TourTarget id="plannerCard" borderRadius={radius.card}>
+              <FadeInView delay={180}>
+                <LockableTile locked={isEmptyCloset} onLockedPress={handleLockedTilePress}>
+                  <BentoTile
+                    wide
+                    icon={<Feather name="calendar" size={19} color={colors.textPrimary} />}
+                    title={t('closet.hub.planner.title')}
+                    subtitle={t('closet.hub.planner.subtitle')}
+                    onPress={() => navigation.navigate('Planner')}
+                  />
+                </LockableTile>
+              </FadeInView>
+            </TourTarget>
 
-          <Text style={styles.sectionLabel}>{t('closet.hub.shopYourClosetLabel')}</Text>
-          <View style={styles.bentoRow}>
-            <FadeInView delay={220} style={styles.bentoRowItem}>
-              <BentoTile
-                square
-                icon={<MaterialCommunityIcons name="hanger" size={20} color={colors.accent} />}
-                title={t('closet.hub.catalogWidget.title')}
-                subtitle={t('closet.hub.catalogWidget.subtitle', { count: wardrobe.length })}
-                onPress={() => setView('catalog')}
-              />
-            </FadeInView>
+            <Text style={styles.sectionLabel}>{t('closet.hub.shopYourClosetLabel')}</Text>
+            <View style={styles.bentoRow}>
+              {/* App Tour's `catalogWidget` step — always mounted (unlike
+                  `scanCta`, this tile isn't gated on isEmptyCloset), so its
+                  rect is already registered by the time the tour auto-
+                  advances into it right after the first scan. */}
+              <TourTarget id="catalogWidget" style={styles.bentoRowItem}>
+                <FadeInView delay={220}>
+                  <BentoTile
+                    square
+                    icon={<MaterialCommunityIcons name="hanger" size={20} color={colors.accent} />}
+                    title={t('closet.hub.catalogWidget.title')}
+                    subtitle={t('closet.hub.catalogWidget.subtitle', { count: wardrobe.length })}
+                    onPress={() => setView('catalog')}
+                  />
+                </FadeInView>
+              </TourTarget>
 
-            <FadeInView delay={260} style={styles.bentoRowItem}>
-              <BentoTile
-                square
-                icon={
-                  copilotAnalyzing ? (
-                    <ActivityIndicator size="small" color={colors.accent} />
-                  ) : (
-                    <Feather name="search" size={20} color={colors.accent} />
-                  )
-                }
-                title={t('closet.hub.shoppingCopilot.title')}
-                subtitle={t('closet.hub.shoppingCopilot.subtitle')}
-                onPress={handleShoppingCopilot}
-              />
+              <FadeInView delay={260} style={styles.bentoRowItem}>
+                <LockableTile locked={isEmptyCloset} onLockedPress={handleLockedTilePress}>
+                  <BentoTile
+                    square
+                    icon={
+                      copilotAnalyzing ? (
+                        <ActivityIndicator size="small" color={colors.accent} />
+                      ) : (
+                        <Feather name="search" size={20} color={colors.accent} />
+                      )
+                    }
+                    title={t('closet.hub.shoppingCopilot.title')}
+                    subtitle={t('closet.hub.shoppingCopilot.subtitle')}
+                    onPress={handleShoppingCopilot}
+                  />
+                </LockableTile>
+              </FadeInView>
+            </View>
+
+            <Text style={styles.sectionLabel}>{t('closet.hub.colorDna.title')}</Text>
+            <FadeInView delay={300}>
+              <LockableTile locked={isEmptyCloset} onLockedPress={handleLockedTilePress}>
+                <ColorDnaTile palette={palette} onPress={() => setColorDnaModalVisible(true)} />
+              </LockableTile>
             </FadeInView>
           </View>
-
-          <Text style={styles.sectionLabel}>{t('closet.hub.colorDna.title')}</Text>
-          <FadeInView delay={300}>
-            <ColorDnaTile palette={palette} onPress={() => setColorDnaModalVisible(true)} />
-          </FadeInView>
 
           <FadeInView delay={340}>
             <View style={styles.impactSection}>
               <Text style={styles.sectionLabel}>{t('closet.hub.impact.title')}</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
+              <HorizontalFadeScroll
+                fadeColor={colors.background}
+                style={styles.carouselBleed}
                 contentContainerStyle={styles.impactScroll}
               >
                 <ImpactMiniCard
                   icon="award"
-                  value={`${ecoScore}`}
+                  // An empty (or not-yet-loaded) closet scoring "0" reads as
+                  // "this wardrobe is bad" rather than "there's nothing to
+                  // score yet" — an em dash reads as neither loading nor a
+                  // real zero.
+                  value={wardrobe.length === 0 ? '—' : `${ecoScore}`}
                   label={t('closet.hub.impact.ecoScore')}
                 />
                 <ImpactMiniCard
                   icon="refresh-cw"
-                  value={`${lifecycle.activePercent}%`}
+                  value={wardrobe.length === 0 ? '—' : `${lifecycle.activePercent}%`}
                   label={t('closet.hub.impact.inRotation')}
                 />
-              </ScrollView>
+              </HorizontalFadeScroll>
             </View>
           </FadeInView>
 
-          {(error || wardrobeError) && (
+          {wardrobeError && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error || wardrobeError}</Text>
+              <Text style={styles.errorText}>{wardrobeError}</Text>
             </View>
           )}
         </View>
 
         <FadeInView delay={400}>
-          <View style={styles.inspirationSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionLabel}>{t('closet.hub.inspiration.title')}</Text>
-              <Text style={styles.sectionHeaderNote}>{t('closet.hub.inspiration.comingSoon')}</Text>
+          <LockableTile locked={isEmptyCloset} onLockedPress={handleLockedTilePress}>
+            <View style={styles.inspirationSection}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionLabel}>{t('closet.hub.inspiration.title')}</Text>
+                <Text style={styles.sectionHeaderNote}>{t('closet.hub.inspiration.comingSoon')}</Text>
+              </View>
+              <HorizontalFadeScroll
+                fadeColor={colors.background}
+                style={styles.carouselBleed}
+                contentContainerStyle={styles.inspirationScroll}
+              >
+                {INSPIRATION_TAGS.map((tag) => (
+                  <InspirationMiniCard
+                    key={tag.id}
+                    icon={tag.icon}
+                    label={t(`closet.hub.inspiration.tags.${tag.id}`)}
+                  />
+                ))}
+              </HorizontalFadeScroll>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.inspirationScroll}
-            >
-              {INSPIRATION_TAGS.map((tag) => (
-                <InspirationMiniCard
-                  key={tag.id}
-                  icon={tag.icon}
-                  label={t(`closet.hub.inspiration.tags.${tag.id}`)}
-                />
-              ))}
-            </ScrollView>
-          </View>
+          </LockableTile>
         </FadeInView>
+        </>
+        )}
       </ScrollView>
 
-      <ColorDnaModal
-        visible={colorDnaModalVisible}
+      {needsColorDnaCalibration ? (
+        <ColorDnaCalibrationSheet
+          visible={colorDnaModalVisible}
+          onClose={() => setColorDnaModalVisible(false)}
+        />
+      ) : (
+        <ColorDnaModal
+          visible={colorDnaModalVisible}
+          palette={palette}
+          onClose={() => setColorDnaModalVisible(false)}
+        />
+      )}
+
+      {/* `addItemFloating` (plain View, not the TourTarget) owns the
+          absolute floating position — it sets BOTH `left` and `right`, so
+          if IT were the TourTarget its measured box would be the full
+          width strip between those edges, not the pill button's own
+          (narrower, centered) bounds. TourTarget now wraps only the
+          TouchableOpacity itself, so the spotlight matches the button
+          exactly, `radius.pill` corners included. `alignSelf: 'center'`
+          on the TourTarget itself is a second, belt-and-suspenders layer
+          on top of addItemFloating's own `alignItems: 'center'` — makes
+          the shrink-to-content sizing explicit on the TourTarget's own
+          style rather than relying only on inherited parent behavior. */}
+      <View style={styles.addItemFloating}>
+        <FadeInView delay={360}>
+          <TourTarget id="scanCta" borderRadius={radius.pill} style={styles.scanCtaTarget}>
+            <TouchableOpacity style={styles.addItemTile} onPress={handleScan} activeOpacity={0.85}>
+              <Feather name="plus" size={18} color={colors.inverseText} />
+              <Text style={styles.addItemTitle}>{t('closet.hubActions.addItem')}</Text>
+            </TouchableOpacity>
+          </TourTarget>
+        </FadeInView>
+      </View>
+
+      <ScanSheet
+        visible={scanSheetVisible}
+        onClose={() => setScanSheetVisible(false)}
+        onSave={addItem}
         palette={palette}
-        onClose={() => setColorDnaModalVisible(false)}
       />
 
-      <FadeInView delay={360} style={styles.addItemFloating}>
-        <CopilotStep text={t('closet.tour.scanButton')} order={1} name="scanButton">
-          <CopilotTouchable
-            style={styles.addItemTile}
-            onPress={handleScan}
-            disabled={analyzing}
-            activeOpacity={0.85}
-          >
-            {analyzing ? (
-              <ActivityIndicator size="small" color={colors.inverseText} />
-            ) : (
-              <Feather name="plus" size={18} color={colors.inverseText} />
-            )}
-            <Text style={styles.addItemTitle}>{t('closet.hubActions.addItem')}</Text>
-          </CopilotTouchable>
-        </CopilotStep>
-      </FadeInView>
-    </Animated.View>
+      <Toast key={toastKey} message={toastMessage} />
+      </Animated.View>
+    </ScreenContainer>
   );
 }
 
-// `tint` (one of 'violet'|'coral'|'sky'|'sage') swaps the default glass fill
-// + soft shadow for a solid pastel `cardTints` fill + matching-hue border,
-// no shadow — the redesign's "one confident color per section" tile
-// (Style Streak, Capsule Score, Weekly Planner link). Left unset, the tile
-// keeps the original white/glass treatment (Catalog, Shopping Copilot,
-// Color DNA — the brief explicitly keeps those "white/glass").
-function BentoTile({ wide, square, tint, icon, title, subtitle, badge, onPress }) {
+// Neutral white/glass tile — every Hub tile shares the same plain fill, so
+// the one accent color (violet) stands out on the CTA/hero elements around
+// it instead of competing with a different hue on every card.
+// `tint` ('coral' | 'sky') swaps the tile from the neutral white/glass
+// surface to a solid section-accent tint (redesign v3's 2x2 stat grid —
+// Style Streak is coral, Capsule Score is sky) and drops the glass shadow
+// in favor of the tint's own hairline border; the icon wrap becomes a
+// translucent white circle instead of the violet-tinted chip so it still
+// reads against the colored tile.
+function BentoTile({ wide, square, icon, title, subtitle, badge, onPress, tint }) {
   function handlePress() {
     triggerHaptic();
     onPress?.();
   }
 
-  // Explicitly zeroes out `styles.bentoTile`'s shadow (rather than just
-  // omitting these keys) since RN merges style objects left-to-right —
-  // leaving them out would let the base tile's shadow show through
-  // underneath the solid tint, which the brief's flat tinted tiles don't
-  // have.
-  const tintStyle = tint
-    ? {
-        backgroundColor: cardTints[tint],
-        borderWidth: 1,
-        borderColor: TINT_BORDERS[tint],
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        elevation: 0,
-      }
-    : null;
-
   return (
     <TouchableOpacity
-      style={[styles.bentoTile, wide && styles.bentoWide, square && styles.bentoSquare, tintStyle]}
+      style={[
+        styles.bentoTile,
+        wide && styles.bentoWide,
+        square && styles.bentoSquare,
+        tint === 'coral' && styles.bentoTileCoral,
+        tint === 'sky' && styles.bentoTileSky,
+      ]}
       onPress={handlePress}
       activeOpacity={0.85}
     >
@@ -585,6 +714,201 @@ function InspirationMiniCard({ icon, label }) {
   );
 }
 
+// Top-of-hub Items/Inspirations toggle — the one thing rendered above both
+// sections' own content, so it's always reachable regardless of which one
+// is showing. Plain local component (not extracted to src/components) since
+// nothing else in the app needs a two-state segmented control yet.
+function SectionSwitcher({ section, onChange }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.sectionSwitcher}>
+      <TouchableOpacity
+        style={[styles.sectionSwitcherBtn, section === 'items' && styles.sectionSwitcherBtnActive]}
+        onPress={() => onChange('items')}
+        activeOpacity={0.8}
+      >
+        <Feather name="grid" size={14} color={section === 'items' ? colors.inverseText : colors.textSecondary} />
+        <Text style={[styles.sectionSwitcherText, section === 'items' && styles.sectionSwitcherTextActive]}>
+          {t('closet.sections.items')}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.sectionSwitcherBtn, section === 'inspirations' && styles.sectionSwitcherBtnActive]}
+        onPress={() => onChange('inspirations')}
+        activeOpacity={0.8}
+      >
+        <Feather
+          name="bookmark"
+          size={14}
+          color={section === 'inspirations' ? colors.inverseText : colors.textSecondary}
+        />
+        <Text
+          style={[styles.sectionSwitcherText, section === 'inspirations' && styles.sectionSwitcherTextActive]}
+        >
+          {t('closet.sections.inspirations')}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// Lookbook grid — saved AI Stylist looks (StylistScreen's Save Inspiration
+// button via useWardrobeStore's saveInspiration/inspirations). Named
+// "Lookbook*" rather than "Inspiration*" throughout to keep it visually and
+// textually distinct in this file from the unrelated "Style Inspiration"
+// mood-board strip above (InspirationMiniCard/INSPIRATION_TAGS) — same
+// English word, two different features that happen to share a screen.
+const LOOKBOOK_SKELETON_COUNT = 4;
+const LOOKBOOK_THUMB_LIMIT = 4;
+
+// The card's own large hero image: the base item's real photo when we have
+// one and it's still present in this exact snapshot (a wardrobe item can be
+// edited/deleted after the look was saved — the snapshot just won't have an
+// entry for it anymore, not a broken reference), else the first generated
+// item — a look always has at least one, since the Save button only shows
+// once there's something to save.
+function getLookbookHero(inspiration) {
+  const items = inspiration.generatedItems || [];
+  if (inspiration.baseItemId) {
+    const match = items.find((entry) => entry.type === 'wardrobe' && entry.id === inspiration.baseItemId);
+    if (match) return match;
+  }
+  return items[0] || null;
+}
+
+// Whole card navigates to InspirationDetail (registered on the root Stack —
+// see App.js, same pattern WardrobeCatalogScreen's grid card uses for
+// ItemDetail). Both `inspirationId` (the param the detail screen actually
+// keys its live store lookup off) and the full `inspiration` snapshot ride
+// along — the id is authoritative, the snapshot just lets the detail
+// screen's first render show something before that lookup resolves, same
+// as ItemDetailScreen's own `routeItem` fallback.
+//
+// The trash button is its own nested TouchableOpacity (stopPropagation via
+// simply not bubbling a synthetic RN touch — there's no real DOM bubbling
+// to fight here) so a client can delete straight from the grid without
+// opening the look first; delete-from-inside-the-detail-screen is the other
+// path (see InspirationDetailScreen).
+function LookbookCard({ inspiration, onDelete }) {
+  const { t } = useTranslation();
+  const navigation = useNavigation();
+  const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
+  const items = inspiration.generatedItems || [];
+  const hero = getLookbookHero(inspiration);
+  const thumbs = items.filter((entry) => entry !== hero).slice(0, LOOKBOOK_THUMB_LIMIT);
+  const overflowCount = items.length - 1 - thumbs.length;
+
+  function handlePress() {
+    navigation.navigate('InspirationDetail', { inspirationId: inspiration.id, inspiration });
+  }
+
+  function handleDeletePress() {
+    confirm({
+      title: t('closet.inspirations.deleteTitle'),
+      message: t('closet.inspirations.deleteMessage'),
+      cancelLabel: t('itemDetail.deleteCancel'),
+      confirmLabel: t('itemDetail.deleteConfirm'),
+      onConfirm: () => onDelete(inspiration.id),
+    });
+  }
+
+  return (
+    <TouchableOpacity style={styles.lookbookCard} onPress={handlePress} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.lookbookDeleteBtn}
+        onPress={handleDeletePress}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        activeOpacity={0.8}
+      >
+        <Feather name="trash-2" size={13} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      {dialogProps && (
+        <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
+      )}
+
+      {hero ? (
+        <GeneratedItemThumb
+          uri={hero.imageUrl}
+          name={hero.name}
+          style={[styles.lookbookHeroImage, { borderRadius: radius.sm }]}
+        />
+      ) : (
+        <View style={[styles.lookbookHeroImage, styles.lookbookHeroPlaceholder]}>
+          <Feather name="image" size={22} color={colors.textMuted} />
+        </View>
+      )}
+
+      {thumbs.length > 0 && (
+        <View style={styles.lookbookThumbRow}>
+          {thumbs.map((entry, index) => (
+            <GeneratedItemThumb
+              key={index}
+              uri={entry.imageUrl}
+              name={entry.name}
+              style={[styles.lookbookThumb, { borderRadius: 8 }]}
+            />
+          ))}
+          {overflowCount > 0 && (
+            <View style={styles.lookbookThumbOverflow}>
+              <Text style={styles.lookbookThumbOverflowText}>+{overflowCount}</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      <Text style={styles.lookbookCardCaption} numberOfLines={2}>
+        {inspiration.aiText}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function LookbookSkeletonCard() {
+  return (
+    <View style={styles.lookbookCard}>
+      <Skeleton style={styles.lookbookHeroImage} borderRadius={radius.card} />
+      <Skeleton width="55%" height={11} style={{ marginTop: spacing.xs }} />
+      <Skeleton width="80%" height={11} style={{ marginTop: 4 }} />
+    </View>
+  );
+}
+
+function LookbookSection({ inspirations, loading }) {
+  const { t } = useTranslation();
+  const removeInspiration = useWardrobeStore((state) => state.removeInspiration);
+  const showLoading = loading && inspirations.length === 0;
+
+  if (showLoading) {
+    return (
+      <View style={styles.lookbookGrid}>
+        {Array.from({ length: LOOKBOOK_SKELETON_COUNT }).map((_, index) => (
+          <LookbookSkeletonCard key={index} />
+        ))}
+      </View>
+    );
+  }
+
+  if (inspirations.length === 0) {
+    return (
+      <View style={styles.lookbookEmptyCard}>
+        <View style={styles.emptyStateIconWrap}>
+          <Feather name="bookmark" size={26} color={colors.textMuted} />
+        </View>
+        <Text style={styles.lookbookEmptyText}>{t('closet.inspirations.empty')}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.lookbookGrid}>
+      {inspirations.map((inspiration) => (
+        <LookbookCard key={inspiration.id} inspiration={inspiration} onDelete={removeInspiration} />
+      ))}
+    </View>
+  );
+}
+
 // Gamification: consecutive days the client planned a look (via Save to
 // Planner in the AI Stylist chat). Purely a read of usePlannerStore's
 // scheduledOutfits through getStyleStreak() — no separate counter to keep
@@ -621,11 +945,21 @@ function StyleStreakTile() {
 //
 // Completion is a plain dateKey -> true map in usePlannerStore
 // (toggleChallenge), independent of *what* the target is — that's what makes
-// it survive an app restart on the same day. Tapping the tile is the "mark
-// done" action; the background/text/icon transition is driven by Reanimated
-// (`progress` 0->1) rather than the RN Animated API the rest of this file
-// uses, so the color cross-fade runs smoothly on the UI thread.
-const CHALLENGE_TRANSITION_MS = 320;
+// it survive an app restart on the same day.
+//
+// The done/not-done card, icon-wrap, title and caption colors used to
+// cross-fade via Reanimated's `interpolateColor` — diagnostic bisection
+// traced the app's native Closet crash to that exact call (interpolating
+// toward/between `withAlpha()`-generated `rgba(...)` strings, several of
+// them mixed with plain hex, is what was taking Fabric down on real
+// devices; the same code never crashed on web, where Reanimated silently
+// falls back to JS-thread animation instead of exercising the native
+// worklet path at all). Those four colors are now a plain conditional
+// (`isDone ? doneColor : color`) — an instant swap instead of an animated
+// crossfade, no Reanimated color interpolation anywhere in this component.
+// The tap "pop" (scale bounce) stays on Reanimated — it's a pure numeric
+// transform with no color work involved, the same shape of animation
+// TabNavigator's tab-bar buttons already do safely on every screen.
 
 function DailyChallengeTile() {
   const { t } = useTranslation();
@@ -644,28 +978,9 @@ function DailyChallengeTile() {
   );
   const isDone = Boolean(completedChallenges[todayKey]);
 
-  const progress = useSharedValue(isDone ? 1 : 0);
   const bounce = useSharedValue(1);
-
-  useEffect(() => {
-    progress.value = withTiming(isDone ? 1 : 0, { duration: CHALLENGE_TRANSITION_MS });
-  }, [isDone]);
-
-  // Card flips from a light violet tint to the solid, saturated violet
-  // accent when done — title/caption need to cross-fade from ink to white
-  // alongside it to stay legible on both. The badge itself doesn't (its
-  // white pill fill never changes, only its text content does).
-  const animatedCardStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.value, [0, 1], [cardTints.violet, colors.accent]),
-  }));
-  const animatedIconWrapStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.value, [0, 1], ['rgba(108,77,246,0.12)', 'rgba(255,255,255,0.2)']),
-  }));
-  const animatedTitleStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(progress.value, [0, 1], [colors.textPrimary, colors.inverseText]),
-  }));
-  const animatedCaptionStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(progress.value, [0, 1], [colors.textSecondary, 'rgba(255,255,255,0.8)']),
+  const animatedBounceStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bounce.value }],
   }));
 
   function handlePress() {
@@ -674,8 +989,13 @@ function DailyChallengeTile() {
     toggleChallenge(todayKey);
   }
 
+  const cardBackground = isDone ? colors.accent : cardTints.violet;
+  const iconWrapBackground = isDone ? withAlpha(colors.inverseText, 0.2) : withAlpha(colors.violet, 0.12);
+  const titleColor = isDone ? colors.inverseText : colors.textPrimary;
+  const captionColor = isDone ? withAlpha(colors.inverseText, 0.8) : colors.textSecondary;
+
   return (
-    <Reanimated.View style={[styles.heroCard, animatedCardStyle, { transform: [{ scale: bounce.value }] }]}>
+    <Reanimated.View style={[styles.heroCard, { backgroundColor: cardBackground }, animatedBounceStyle]}>
       <View style={styles.heroBlob} />
       <TouchableOpacity style={styles.heroTouchable} onPress={handlePress} activeOpacity={0.9}>
         <View style={styles.heroBadge}>
@@ -683,16 +1003,16 @@ function DailyChallengeTile() {
             {isDone ? t('closet.hub.dailyChallenge.doneBadge') : t('closet.hub.dailyChallenge.badge')}
           </Text>
         </View>
-        <Reanimated.Text style={[styles.heroTitle, animatedTitleStyle]} numberOfLines={2}>
+        <Text style={[styles.heroTitle, { color: titleColor }]} numberOfLines={2}>
           {challenge.title}
-        </Reanimated.Text>
+        </Text>
         <View style={styles.heroFooterRow}>
-          <Reanimated.View style={[styles.heroIconWrap, animatedIconWrapStyle]}>
+          <View style={[styles.heroIconWrap, { backgroundColor: iconWrapBackground }]}>
             <Feather name={isDone ? 'check' : challenge.icon} size={14} color={isDone ? colors.inverseText : colors.violet} />
-          </Reanimated.View>
-          <Reanimated.Text style={[styles.heroCaption, animatedCaptionStyle]} numberOfLines={1}>
+          </View>
+          <Text style={[styles.heroCaption, { color: captionColor }]} numberOfLines={1}>
             {isDone ? t('closet.hub.dailyChallenge.doneSubtitle') : t('closet.hub.dailyChallenge.subtitle')}
-          </Reanimated.Text>
+          </Text>
         </View>
       </TouchableOpacity>
     </Reanimated.View>
@@ -949,33 +1269,20 @@ function ColorDnaModal({ visible, palette, onClose }) {
   );
 }
 
-function EditableRow({ label, value, expanded, onPress, children }) {
-  return (
-    <View style={styles.editableRow}>
-      <TouchableOpacity style={styles.editableRowHeader} onPress={onPress} activeOpacity={0.7}>
-        <Text style={styles.editableLabel}>{label}</Text>
-        <View style={styles.editableValueWrap}>
-          <Text style={styles.editableValue}>{value}</Text>
-          <Feather
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={16}
-            color={colors.textSecondary}
-          />
-        </View>
-      </TouchableOpacity>
-      {expanded && children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  // ScreenContainer's own `safeArea` style already covers flex:1 + the
+  // default background — this only overrides the color for this screen.
   hubContainer: { backgroundColor: colors.premiumBackground },
+  // Cancels ScreenContainer's own 16px horizontal padding at the shell
+  // level — `hubScroll` below applies that same padding one layer in, on
+  // the actual scrollable content, so it isn't doubled to 32px.
+  zeroHPadding: { paddingHorizontal: 0 },
+  flexFill: { flex: 1 },
 
   // Wardrobe Hub — Bento dashboard
   hubScroll: {
     flexGrow: 1,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.screenH,
     // paddingTop set inline above, from real safe-area top inset — not a
     // fixed guess, so it clears the notch/status bar on any device.
     // Extra room at the bottom so the last row can scroll clear of the
@@ -984,7 +1291,7 @@ const styles = StyleSheet.create({
   },
 
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 10, marginBottom: 22 },
-  avatar: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 38, height: 38, borderRadius: radius.avatarSm, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.inverseText, fontSize: 13, fontWeight: '800' },
   headerTextWrap: { flex: 1, minWidth: 0 },
   headerGreeting: { fontFamily: typography.title.fontFamily, fontWeight: '800', fontSize: 16, color: colors.textPrimary },
@@ -997,18 +1304,19 @@ const styles = StyleSheet.create({
   bentoGrid: {
     gap: spacing.sm,
   },
+  // v6 — grid gap tightened to the spec's 12px (was spacing.sm's 16px).
   bentoRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.gridGap,
   },
   // Lets FadeInView's wrapping Animated.View pass through the `flex: 1` that
   // `bentoSquare` needs to sit side-by-side in a row (see bentoSquare below).
   bentoRowItem: { flex: 1 },
 
-  // Glassmorphism: translucent white over the cream canvas, soft diffuse
-  // shadow instead of a hard border — used by tiles that stay "white/glass"
-  // per the brief (Catalog, Shopping Copilot, Color DNA). Tinted tiles
-  // (`tint` prop on BentoTile) override backgroundColor and drop the shadow.
+  // Flat white surface (spec: "Surface / glass tile" = `#FFFFFF`) with a
+  // soft diffuse shadow instead of a hard border — used by tiles that stay
+  // neutral (Catalog, Shopping Copilot, Color DNA). Tinted tiles (`tint`
+  // prop on BentoTile) override backgroundColor and drop the shadow.
   bentoTile: {
     backgroundColor: colors.glassCard,
     borderRadius: radius.card,
@@ -1020,20 +1328,42 @@ const styles = StyleSheet.create({
   // `flex: 1` (not a `%` width) so two tiles plus the row's `gap` always sum
   // to exactly the row's width — a percentage width would overflow once the
   // gap is added and wrap to its own line instead of sitting side by side.
-  bentoSquare: { flex: 1, aspectRatio: 1 },
+  // v7: fixed 158px height (`statTileBase` in the mockup), not an
+  // aspect-ratio square — applies uniformly to the stat row AND the
+  // catalog/shopping-copilot row below (`catalogTileStyle` shares the same
+  // `statTileBase`).
+  bentoSquare: { flex: 1, height: 158 },
 
-  // Accent-tinted icon chip (violet, low opacity) for white/glass tiles.
+  // v7 — icon chip on a white/glass tile is a flat pale-blue fill
+  // (`tileIconWrapWhiteStyle`'s literal `#D9E6EE`, same hex as
+  // `cardTints.violet`), not an alpha tint of the accent color.
   bentoIconWrap: {
     width: 40,
     height: 40,
     borderRadius: BENTO_RADIUS - 6,
-    backgroundColor: 'rgba(108, 77, 246, 0.08)',
+    backgroundColor: cardTints.violet,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // On a tinted tile, the icon chip sits on top of a solid pastel fill —
-  // a plain white chip reads better there than the violet-tinted one above.
-  bentoIconWrapOnTint: { backgroundColor: 'rgba(255,255,255,0.6)' },
+  // Translucent white circle for icon wraps sitting on a tinted (not
+  // white/glass) tile — see `BentoTile`'s `tint` prop.
+  bentoIconWrapOnTint: {
+    backgroundColor: withAlpha(colors.inverseText, 0.6),
+  },
+  bentoTileCoral: {
+    backgroundColor: cardTints.coral,
+    borderWidth: 1,
+    borderColor: cardTints.coralBorder,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  bentoTileSky: {
+    backgroundColor: cardTints.sky,
+    borderWidth: 1,
+    borderColor: cardTints.skyBorder,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   // PRO lock badge — top-right corner of a gated tile. Monochrome so it
   // never reads as a second primary action.
   proBadge: {
@@ -1063,6 +1393,8 @@ const styles = StyleSheet.create({
   // flat semi-transparent circle — a reasonable simplification of the
   // mockup's radial glow at this fidelity.
   heroCard: {
+    borderWidth: 1,
+    borderColor: cardTints.violetBorder,
     borderRadius: radius.cardLg,
     padding: spacing.md,
     overflow: 'hidden',
@@ -1075,12 +1407,12 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(108,77,246,0.18)',
+    backgroundColor: cardTints.violetBlob,
   },
   heroTouchable: { gap: 10 },
   heroBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.pill,
     paddingHorizontal: 11,
     paddingVertical: 5,
@@ -1093,29 +1425,48 @@ const styles = StyleSheet.create({
 
   // "Wardrobe Impact" — Eco-Score + Lifecycle mini cards (ex-ImpactScreen).
   impactSection: { width: '100%' },
-  impactScroll: { gap: spacing.xs, paddingRight: spacing.md },
+  // Pulls the ScrollView back out to the true screen edge, canceling the
+  // 16px margin ScreenContainer applies at the shell level, so the row can
+  // scroll flush-edge-to-edge on both sides instead of stopping dead at an
+  // invisible wall 16px in — the same fix applies to inspirationScroll
+  // below. `impactScroll`/`inspirationScroll` re-apply that 16px as
+  // `paddingHorizontal` on the CONTENT instead, so cards still start at the
+  // same visual inset at rest.
+  carouselBleed: { marginHorizontal: -spacing.screenH },
+  impactScroll: { gap: spacing.xs, paddingHorizontal: spacing.screenH },
   impactMiniCard: {
     width: 132,
     backgroundColor: colors.glassCard,
     borderRadius: radius.card,
     padding: spacing.sm,
+    gap: 6,
     ...shadows.soft,
   },
   impactMiniIconWrap: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(62, 143, 99, 0.1)',
+    backgroundColor: withAlpha(colors.sage, 0.1),
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
   },
-  impactMiniValue: { ...typography.title, fontSize: 26, fontWeight: 'bold', color: colors.textPrimary },
-  impactMiniLabel: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
+  // `typography.title` isn't spread here (its lineHeight:21 is tuned for a
+  // 17px title — reusing it at fontSize:26 without overriding lineHeight
+  // left this number's own glyph box taller than its line box, so it
+  // visually clipped into the icon above and the label below).
+  impactMiniValue: {
+    fontFamily: typography.title.fontFamily,
+    fontWeight: '800',
+    fontSize: 26,
+    lineHeight: 31,
+    letterSpacing: -0.3,
+    color: colors.textPrimary,
+  },
+  impactMiniLabel: { fontSize: 10, color: colors.textMuted },
 
   // "Style Inspiration" — mood-board taster strip (ex-Inspiration tab).
   inspirationSection: { marginTop: spacing.lg },
-  inspirationScroll: { gap: spacing.xs, paddingRight: spacing.md, paddingBottom: spacing.xs },
+  inspirationScroll: { gap: spacing.xs, paddingHorizontal: spacing.screenH, paddingBottom: spacing.xs },
   inspirationMiniCard: {
     width: 104,
     height: 128,
@@ -1135,8 +1486,117 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inspirationMiniLabel: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
+
+  // Items/Inspirations segmented control — see SectionSwitcher.
+  sectionSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    padding: 4,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  sectionSwitcherBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+  },
+  sectionSwitcherBtnActive: { backgroundColor: colors.violet },
+  sectionSwitcherText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+  sectionSwitcherTextActive: { color: colors.inverseText },
+
+  // Lookbook grid — see LookbookSection/LookbookCard.
+  lookbookGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  lookbookCard: {
+    width: '47%',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    padding: spacing.xs,
+    position: 'relative',
+    ...shadows.soft,
+  },
+  // Floats over the hero image's top-right corner — `zIndex` so it stays
+  // above the image on Android (elevation ordering isn't purely paint-order
+  // there the way iOS's default z-stacking is).
+  lookbookDeleteBtn: {
+    position: 'absolute',
+    top: spacing.xs + 6,
+    right: spacing.xs + 6,
+    zIndex: 2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: withAlpha('#000000', 0.45),
+  },
+  lookbookHeroImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radius.sm,
+    backgroundColor: colors.background,
+  },
+  lookbookHeroPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  lookbookThumbRow: { flexDirection: 'row', gap: 4, marginTop: spacing.xs },
+  lookbookThumb: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+  },
+  lookbookThumbOverflow: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: colors.inverseBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lookbookThumbOverflowText: { fontSize: 11, fontWeight: '800', color: colors.inverseText },
+  lookbookCardCaption: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+
+  // Zero-looks state — same glassCard + icon-chip + caption convention as
+  // WardrobeCatalogScreen's CategoryEmptyState / PlannerScreen's own
+  // plannerEmptyStateCard, so this reads as the same "nothing here yet"
+  // language every other tab already uses.
+  lookbookEmptyCard: {
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.card,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyStateIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  lookbookEmptyText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+
   bentoTextWrap: { marginTop: spacing.sm },
-  bentoTitle: { ...typography.title, fontSize: 16, fontWeight: '700' },
+  bentoTitle: { ...typography.title, fontSize: 16 },
   bentoSubtitle: { ...typography.bodySecondary, fontSize: 13, marginTop: 2, fontWeight: '500' },
 
   // Weather widget — a horizontal status bar (icon + text + action), not a
@@ -1171,7 +1631,7 @@ const styles = StyleSheet.create({
 
   cityModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
@@ -1230,7 +1690,7 @@ const styles = StyleSheet.create({
   },
   colorDnaBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
@@ -1264,19 +1724,20 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
     ...shadows.accent,
   },
   // Floats above the ScrollView as a fixed footer, centered like the
   // mockup's "+ Add item" pill (not a full-width bar anymore).
   addItemFloating: {
     position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
+    left: spacing.screenH,
+    right: spacing.screenH,
     bottom: 20,
     alignItems: 'center',
   },
+  scanCtaTarget: { alignSelf: 'center' },
   addItemTitle: { color: colors.inverseText, fontWeight: '800', fontSize: 14.5 },
 
   errorBox: {
@@ -1287,40 +1748,4 @@ const styles = StyleSheet.create({
     ...shadows.soft,
   },
   errorText: { color: colors.danger, fontSize: 13, lineHeight: 18 },
-
-  // Confirmation step (unchanged scanning flow)
-  confirmScroll: { paddingBottom: spacing.md },
-  confirmImage: { width: '100%', height: 340, backgroundColor: colors.surface },
-  confirmBody: { padding: spacing.md },
-  confirmTitle: { ...typography.title, marginBottom: spacing.xs },
-  editableRow: { ...hairline, paddingVertical: spacing.sm },
-  editableRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  editableLabel: { ...typography.label },
-  editableValueWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  editableValue: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
-
-  confirmErrorBox: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-    padding: spacing.sm,
-    backgroundColor: colors.glassCard,
-    borderRadius: radius.card,
-    ...shadows.soft,
-  },
-  confirmActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  discardBtn: { ...buttons.secondary, flex: 1 },
-  discardBtnText: { ...buttons.secondaryText, fontSize: 15 },
-  confirmBtn: { ...buttons.primary, flex: 1, alignItems: 'center', justifyContent: 'center' },
-  confirmBtnText: { ...buttons.primaryText, fontSize: 15 },
-  confirmActionDisabled: { opacity: opacity.disabled },
 });

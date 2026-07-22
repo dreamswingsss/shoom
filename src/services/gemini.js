@@ -29,6 +29,21 @@ export class GeminiRateLimitError extends Error {
   }
 }
 
+// Thrown when Gemini rejects a request with its own "User location is not
+// supported for the API use." error — a geo-restriction on the API
+// key/account tied to the request's originating IP (observed to flicker on
+// and off e.g. behind a VPN), not a per-model quota issue. Distinct from
+// GeminiRateLimitError so callers can degrade instead of cycling
+// FALLBACK_MODELS for it (see isLocationRestrictedError below — every model
+// shares the same account-level restriction, so retrying the next one in
+// the chain would just fail identically).
+export class GeminiLocationRestrictedError extends Error {
+  constructor() {
+    super('User location is not supported for the API use.');
+    this.name = 'GeminiLocationRestrictedError';
+  }
+}
+
 function buildGeminiEndpoint(model) {
   return `${GEMINI_API_BASE}/${model}:generateContent`;
 }
@@ -43,6 +58,13 @@ function isRateLimitError(err) {
   return (
     haystack.includes('resource_exhausted') || haystack.includes('quota') || haystack.includes('rate limit')
   );
+}
+
+// Matches Gemini's own "User location is not supported for the API use."
+// error text (usually a 400 with geminiStatus FAILED_PRECONDITION).
+function isLocationRestrictedError(err) {
+  const haystack = `${err?.message || ''}`.toLowerCase();
+  return haystack.includes('user location is not supported');
 }
 
 async function callGemini(model, requestBody) {
@@ -102,6 +124,12 @@ export async function fetchWithFallback(requestBody, systemInstruction) {
     try {
       return await callGemini(model, body);
     } catch (err) {
+      if (isLocationRestrictedError(err)) {
+        // Account/API-key-level restriction, not a per-model quota — every
+        // other model in the chain would fail with the exact same error, so
+        // there's nothing to gain from cycling through them.
+        throw new GeminiLocationRestrictedError();
+      }
       if (!isRateLimitError(err)) {
         throw err;
       }

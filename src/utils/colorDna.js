@@ -37,3 +37,36 @@ const DEEP_PALETTE = {
 export function getPalette(skinTone, hairColor, eyeColor) {
   return LIGHT_SKIN_TONES.includes(skinTone) ? LIGHT_PALETTE : DEEP_PALETTE;
 }
+
+// Stable (not random) 0-999 hash so the same color name always lands on the
+// same match% within its bucket below — re-scanning an identical item gives
+// a consistent-feeling result instead of a different number every time.
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) % 1000;
+  }
+  return hash;
+}
+
+// Same "fast, deterministic placeholder" spirit as getPalette above (see
+// file header) — extended to score a scanned item's free-text color against
+// the client's best/avoid lists, for the scan sheet's inline "Matches your
+// Color DNA by X%" verdict. Real per-item colorimetric distance is a later
+// refinement; this gives an honest, stable number today rather than a
+// literal random/fabricated one.
+export function calculateColorDnaMatch(itemColor, palette) {
+  const normalized = itemColor?.trim().toLowerCase();
+  if (!normalized || !palette) return null;
+
+  const matchesAny = (list) =>
+    list.some((c) => {
+      const name = c.name.toLowerCase();
+      return normalized.includes(name) || name.includes(normalized);
+    });
+
+  const hash = hashString(normalized);
+  if (matchesAny(palette.best)) return 84 + (hash % 12); // 84-95
+  if (matchesAny(palette.avoid)) return 30 + (hash % 11); // 30-40
+  return 62 + (hash % 14); // 62-75 — not explicitly in either list
+}

@@ -3,7 +3,6 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { usePlannerStore, toDateKey, getStyleStreak } from '../store/usePlannerStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
@@ -11,12 +10,18 @@ import { useChatStore } from '../store/useChatStore';
 import { useUserStore } from '../store/useUserStore';
 import { formatWeekdayShort, formatWeekdayLong, formatWeekdayShortWithDate } from '../utils/dateFormat';
 import { getInitials } from '../utils/getInitials';
-import { colors, cardTints, spacing, radius, typography } from '../theme/tokens';
+import { colors, cardTints, spacing, radius, typography, withAlpha } from '../theme/tokens';
 import Skeleton from '../components/Skeleton';
+import ScreenContainer from '../components/ScreenContainer';
+import { TourTarget } from '../components/AppTour';
 
 const DAY_COUNT = 7;
-// Cycles through the redesign's three "plan card" tints in a fixed order —
-// real scheduled entries, not the mockup's 3 fixed placeholder categories.
+// v7 — restores the mockup's per-card tint cycling (`planCardCoralStyle`/
+// `planCardSkyStyle`/`planCardVioletStyle`), removed in an earlier pass
+// that flattened every plan card to plain white/glass. Confirmed by
+// clicking through the actual mockup: "Business"=coral, "Casual"=sky,
+// "Date Night"/further cards continue the same 3-color rotation, not a
+// fixed per-category mapping.
 const PLAN_CARD_TINTS = ['coral', 'sky', 'violet'];
 
 function buildWeekDays() {
@@ -43,8 +48,8 @@ function summarizeOutfit(scheduled, wardrobeById) {
 export default function PlannerScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
   const plannerLoading = usePlannerStore((state) => state.loading);
   const fetchOutfits = usePlannerStore((state) => state.fetchOutfits);
@@ -66,16 +71,29 @@ export default function PlannerScreen() {
   const scheduledCount = days.filter((date) => scheduledOutfits[toDateKey(date)]).length;
   const streak = useMemo(() => getStyleStreak(scheduledOutfits), [scheduledOutfits]);
 
-  // Same "only the true first-load has nothing yet" gate WeeklyPlanner used.
-  const showLoading = plannerLoading && Object.keys(scheduledOutfits).length === 0;
+  // Same "only the true first-load has nothing yet" gate WeeklyPlanner used
+  // — `isLoggedIn` guards it too now (see the effect below): a guest never
+  // sets `plannerLoading` true in the first place, so this can never get
+  // stuck showing the skeleton row forever for someone with no session.
+  const showLoading = isLoggedIn && plannerLoading && Object.keys(scheduledOutfits).length === 0;
 
   // Redundant with WardrobeScreen's own fetchOutfits() — deliberate, same
   // reasoning as the old WeeklyPlanner component: whichever tab is opened
   // first gets fresh data without waiting on the other.
+  //
+  // Gated on `isLoggedIn` — a guest (no Supabase session) has nothing to
+  // fetch: `outfits` is RLS-scoped to `auth.uid()`, so this call would
+  // either come back empty or error for them anyway, and either outcome
+  // used to leave the week's day-of-week row hostage to a network round
+  // trip it never actually needed. Skipping the call entirely means a guest
+  // (or a signed-in client with a genuinely empty plan) sees the full
+  // 7-day structure immediately, with empty slots, instead of a skeleton
+  // that either resolves late or — on a slow/failed request — never
+  // resolves at all.
   useEffect(() => {
-    fetchOutfits();
+    if (isLoggedIn) fetchOutfits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isLoggedIn]);
 
   const scheduledEntries = useMemo(() => {
     return days
@@ -115,13 +133,9 @@ export default function PlannerScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScreenContainer edges={['top']} contentStyle={[styles.content, { paddingTop: spacing.sm }]}>
       <View style={styles.headerRow}>
-        <LinearGradient colors={[colors.violet, '#9B87FF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
+        <LinearGradient colors={[colors.violet, colors.violetLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
           <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
         </LinearGradient>
         <View style={styles.headerTextWrap}>
@@ -134,64 +148,101 @@ export default function PlannerScreen() {
         </View>
       </View>
 
-      <View style={styles.heroCard}>
-        <View style={styles.heroBlob} />
-        <View style={styles.heroBadge}>
-          <Text style={styles.heroBadgeText}>{t('planner.heroBadge')}</Text>
-        </View>
-        <Text style={styles.heroTitle}>{t('planner.heroTitle', { count: scheduledCount })}</Text>
-        <Text style={styles.heroCaption}>
-          {streak > 0 ? t('planner.heroCaptionStreak', { count: streak }) : t('planner.heroCaption')}
-        </Text>
-      </View>
-
-      {showLoading ? (
-        <View style={styles.dayRow}>
-          {days.map((date) => (
-            <View key={toDateKey(date)} style={styles.dayPillSkeleton}>
-              <Skeleton width={28} height={10} />
-              <Skeleton width={18} height={15} style={{ marginTop: 6 }} />
+      {/* App Tour's `plannerWeekOverview` step — WardrobeScreen's tour
+          navigates here (navigation.navigate('Planner')) before
+          spotlighting this, same as StylistScreen's own `stylistHeader`.
+          Wraps the hero card ("N of 7 days planned") together with the
+          day-of-week strip right below it as ONE spotlighted block, since
+          together they ARE "the weekly planner" the tooltip's copy refers
+          to — spotlighting just one half would leave the other reading as
+          an unexplained, un-dimmed gap next to it.
+          TourTarget wraps a plain, unstyled View — NOT `heroCard` or the
+          day-row directly — deliberately: `heroCard` carries its own
+          `marginBottom`, and the day-row's ScrollView carries its own
+          negative `marginHorizontal` (`carouselBleed`, bleeding it to the
+          true screen edges). Per the established rule (see AppTour.js's
+          own TourTarget comment), a DIRECT child's margin inflates an
+          auto-sized TourTarget's own measured box — putting an unstyled
+          wrapper between them means those margins only ever affect ITS
+          box (correctly — the gap between hero and day-row, and the
+          day-row's real bled-to-edge width, both genuinely belong inside
+          this spotlighted group), never bleed past the group into
+          `planLabel`/the plan grid below. */}
+      <TourTarget id="plannerWeekOverview" borderRadius={radius.cardLg}>
+        <View>
+          <View style={styles.heroCard}>
+            <View style={styles.heroBlob} />
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>{t('planner.heroBadge')}</Text>
             </View>
-          ))}
+            <Text style={styles.heroTitle}>{t('planner.heroTitle', { count: scheduledCount })}</Text>
+            <Text style={styles.heroCaption}>
+              {streak > 0 ? t('planner.heroCaptionStreak', { count: streak }) : t('planner.heroCaption')}
+            </Text>
+          </View>
+
+          {showLoading ? (
+            <View style={styles.dayRow}>
+              {days.map((date) => (
+                <View key={toDateKey(date)} style={styles.dayPillSkeleton}>
+                  <Skeleton width={28} height={10} />
+                  <Skeleton width={18} height={15} style={{ marginTop: 6 }} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.carouselBleed}
+              contentContainerStyle={styles.dayRow}
+            >
+              {days.map((date) => {
+                const dateKey = toDateKey(date);
+                const isSelected = dateKey === selectedKey;
+                return (
+                  <TouchableOpacity
+                    key={dateKey}
+                    style={[styles.dayPill, isSelected && styles.dayPillSelected]}
+                    onPress={() => handleSelectDay(date)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.dayPillLabel, isSelected && styles.dayPillLabelSelected]}>
+                      {dateKey === todayKey ? t('planner.today') : formatWeekdayShort(date, i18n.language)}
+                    </Text>
+                    <Text style={[styles.dayPillDate, isSelected && styles.dayPillLabelSelected]}>
+                      {date.getDate()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.dayRow}
-        >
-          {days.map((date) => {
-            const dateKey = toDateKey(date);
-            const isSelected = dateKey === selectedKey;
-            return (
-              <TouchableOpacity
-                key={dateKey}
-                style={[styles.dayPill, isSelected && styles.dayPillSelected]}
-                onPress={() => handleSelectDay(date)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.dayPillLabel, isSelected && styles.dayPillLabelSelected]}>
-                  {dateKey === todayKey ? t('planner.today') : formatWeekdayShort(date, i18n.language)}
-                </Text>
-                <Text style={[styles.dayPillDate, isSelected && styles.dayPillLabelSelected]}>
-                  {date.getDate()}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+      </TourTarget>
 
       <Text style={styles.planLabel}>{t('planner.yourPlan')}</Text>
 
       <View style={styles.grid}>
+        {!showLoading && scheduledEntries.length === 0 && (
+          <View style={styles.plannerEmptyStateCard}>
+            <View style={styles.emptyStateIconWrap}>
+              <Feather name="calendar" size={26} color={colors.textMuted} />
+            </View>
+            <Text style={styles.emptyStateText}>{t('planner.emptyState')}</Text>
+          </View>
+        )}
+
         {scheduledEntries.map(({ date, dateKey, scheduled }, index) => {
-          const tintKey = PLAN_CARD_TINTS[index % PLAN_CARD_TINTS.length];
           const summary = summarizeOutfit(scheduled, wardrobeById);
+          const tintKey = PLAN_CARD_TINTS[index % PLAN_CARD_TINTS.length];
           return (
             <TouchableOpacity
               key={dateKey}
-              style={[styles.planCard, { backgroundColor: cardTints[tintKey] }]}
+              style={[
+                styles.planCard,
+                { backgroundColor: cardTints[tintKey], borderColor: cardTints[`${tintKey}Border`] },
+              ]}
               onLongPress={() => handleRemove(dateKey)}
               activeOpacity={0.85}
             >
@@ -233,14 +284,15 @@ export default function PlannerScreen() {
           <Text style={styles.quickActionsCaption}>{t('planner.snapOrShuffle')}</Text>
         </View>
       </View>
-    </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  // paddingTop set inline above, from real safe-area top inset.
-  content: { paddingHorizontal: spacing.sm, paddingBottom: spacing.xl },
+  // ScreenContainer already handles flex:1, background, safe-area top
+  // inset, and the strict 16px horizontal margin. paddingTop is set inline
+  // above, from a fixed post-safe-area gap.
+  content: { paddingBottom: spacing.xl },
 
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 22 },
   avatar: {
@@ -255,8 +307,13 @@ const styles = StyleSheet.create({
   headerTitle: { fontFamily: typography.title.fontFamily, fontWeight: '800', fontSize: 16, color: colors.textPrimary },
   headerSubtitle: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 1 },
 
+  // Coral, not violet — matches the per-tab accent (violet=Closet,
+  // coral=Planner, sky=Stylist, sage=Profile) the redesign gives each
+  // section, so the Planner hero reads as "this tab's own color."
   heroCard: {
     backgroundColor: cardTints.coral,
+    borderWidth: 1,
+    borderColor: cardTints.coralBorder,
     borderRadius: radius.cardLg,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -270,21 +327,29 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(255,122,89,0.3)',
+    backgroundColor: cardTints.coralBlob,
   },
   heroBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.pill,
     paddingHorizontal: 11,
     paddingVertical: 5,
     marginBottom: spacing.xs,
   },
-  heroBadgeText: { fontSize: 10.5, fontWeight: '700', color: colors.coral },
+  heroBadgeText: { fontSize: 10.5, fontWeight: '700', color: cardTints.coralInk },
   heroTitle: { fontSize: 22, fontWeight: '800', color: colors.textPrimary, marginBottom: 4, maxWidth: '78%' },
   heroCaption: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
 
-  dayRow: { gap: spacing.xs, paddingBottom: spacing.sm },
+  // Bleeds the real (non-loading) row to the true screen edge on scroll —
+  // see WardrobeScreen's carouselBleed comment for the full mechanic.
+  // `flexDirection: 'row'` matters for the OTHER use of this style too: the
+  // loading branch reuses it as a plain View's own style, not a
+  // ScrollView's contentContainerStyle — a bare View defaults to column, so
+  // without this the skeleton day pills stacked vertically instead of
+  // matching the real horizontal row.
+  carouselBleed: { marginHorizontal: -spacing.screenH },
+  dayRow: { flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.screenH, paddingBottom: spacing.sm },
   dayPill: {
     width: 52,
     height: 64,
@@ -308,13 +373,19 @@ const styles = StyleSheet.create({
   planCard: {
     width: '47%',
     minHeight: 172,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.card,
     padding: spacing.sm,
     justifyContent: 'space-between',
   },
+  // v7 — badge bg matches the mockup's `heroBadgeStyleSmall`
+  // (`rgba(255,255,255,0.75)`), not the flat paper background — a
+  // translucent white reads consistently across all three tint colors.
   planCardBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: withAlpha(colors.surface, 0.75),
     borderRadius: radius.pill,
     paddingHorizontal: 9,
     paddingVertical: 4,
@@ -323,6 +394,36 @@ const styles = StyleSheet.create({
   planCardTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, marginBottom: 4, lineHeight: 19 },
   planCardCaption: { fontSize: 11, fontWeight: '600', color: colors.textPrimary, opacity: 0.7 },
   planCardFooter: { fontSize: 11, fontWeight: '700', color: colors.textPrimary, opacity: 0.55 },
+
+  // Zero-plans state — full width (not a 47% grid tile like planCard) so it
+  // reads as its own message rather than a lone half-width card floating
+  // next to quickActionsCard. Same icon-chip + caption pattern as
+  // WardrobeCatalogScreen's CategoryEmptyState, for a consistent "nothing
+  // here yet" language across tabs.
+  plannerEmptyStateCard: {
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.card,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  emptyStateIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
 
   quickActionsCard: {
     width: '47%',
@@ -339,7 +440,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: withAlpha(colors.inverseText, 0.15),
     alignItems: 'center',
     justifyContent: 'center',
   },
