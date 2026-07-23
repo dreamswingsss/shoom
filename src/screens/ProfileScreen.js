@@ -42,6 +42,8 @@ export default function ProfileScreen({ navigation, route }) {
   const stylePreferences = useUserStore((state) => state.stylePreferences);
   const styleVibes = useUserStore((state) => state.styleVibes);
   const resetAppTour = useUserStore((state) => state.resetAppTour);
+  const isPro = useUserStore((state) => state.isPro);
+  const setIsPro = useUserStore((state) => state.setIsPro);
   const fadeOpacity = useFadeOnFocus();
 
   const wardrobe = useWardrobeStore((state) => state.items);
@@ -121,6 +123,16 @@ export default function ProfileScreen({ navigation, route }) {
     requestAnimationFrame(() => {
       resetAppTour();
     });
+  }
+
+  // TEMPORARY — dev-only escape hatch, same reasoning as
+  // handleResetAppTour above: there's no real subscription/IAP flow yet to
+  // flip `isPro` through, so this is the only way to exercise the free-tier
+  // paywalls (wardrobe/chat caps, Shopping Copilot, Capsule Score detail,
+  // calendar integrations, Planner day-locking) as a Pro user during
+  // testing. Remove once a real purchase flow sets this instead.
+  function handleTogglePro() {
+    setIsPro(!isPro);
   }
 
   async function performDeleteAccount() {
@@ -219,6 +231,24 @@ export default function ProfileScreen({ navigation, route }) {
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* TEMPORARY — dev-only Pro toggle, moved up here (was a plain
+            underlined text link buried below Delete Account, at the very
+            bottom of the scroll) so real-device Pro QA doesn't need to
+            scroll past the entire profile to find it every time. Same
+            handler/state as before (see handleTogglePro's own comment on
+            useUserStore's `isPro` and why this exists at all) — just a more
+            visible banner instead of a link, right under the header where
+            it's the first thing on screen. */}
+        {__DEV__ && (
+          <TouchableOpacity style={styles.devProBanner} onPress={handleTogglePro} activeOpacity={0.8}>
+            <View style={[styles.devProBannerDot, isPro ? styles.devProBannerDotOn : styles.devProBannerDotOff]} />
+            <Text style={styles.devProBannerText}>
+              {t(isPro ? 'profile.devTogglePro.on' : 'profile.devTogglePro.off')}
+            </Text>
+            <Feather name="chevron-right" size={14} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
 
         {/* The one CTA every other guest-facing entry point (ScanSheet's
             Save-to-Closet gate, Color DNA's calibration sheet) eventually
@@ -685,6 +715,25 @@ const styles = StyleSheet.create({
     color: colors.danger,
     textDecorationLine: 'underline',
   },
+  // Dev-only Pro toggle banner — see the render's own comment on why this
+  // moved up here instead of staying a buried text link at the bottom.
+  // Full-width row (not centered/small like devResetTourBtn) so it reads as
+  // a real status indicator, not an easy-to-miss dev footnote.
+  devProBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+  devProBannerDot: { width: 8, height: 8, borderRadius: 4 },
+  devProBannerDotOn: { backgroundColor: colors.success },
+  devProBannerDotOff: { backgroundColor: colors.textMuted },
+  devProBannerText: { flex: 1, fontSize: 12.5, fontWeight: '700', color: colors.textPrimary },
   devResetTourBtn: {
     alignSelf: 'center',
     marginTop: spacing.md,

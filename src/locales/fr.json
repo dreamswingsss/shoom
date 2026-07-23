@@ -84,7 +84,13 @@
       "heightWeight": "Taille et poids",
       "bodyMeasurements": "Mensurations",
       "styleVibes": "Styles préférés",
-      "stylePreferences": "Préférences de style"
+      "stylePreferences": "Préférences de style",
+      "integrations": "Intégrations"
+    },
+    "integrations": {
+      "helper": "Synchronisez votre agenda pour des suggestions de tenues adaptées au contexte.",
+      "appleCalendar": "Calendrier Apple",
+      "googleCalendar": "Google Agenda"
     },
     "fields": {
       "gender": "Genre",
@@ -197,7 +203,13 @@
       "notFound": "Ce look n'est plus enregistré.",
       "itemsHeading": "Articles de ce look",
       "fromCloset": "De votre dressing",
-      "suggested": "Suggéré"
+      "suggested": "Suggéré",
+      "exportToCalendar": "Exporter vers l'agenda",
+      "exportModalTitle": "Ajouter à l'agenda",
+      "exportSuccess": "Enregistré dans l'agenda !",
+      "exportPermissionDenied": "L'accès à l'agenda est nécessaire — activez-le pour Shoom dans les réglages de votre téléphone.",
+      "exportWebUnavailable": "L'export vers l'agenda n'est pas disponible sur le Web — essayez depuis votre téléphone.",
+      "exportGenericError": "Impossible d'exporter vers l'agenda. Veuillez réessayer."
     },
     "hub": {
       "title": "Votre dressing numérique",
@@ -270,8 +282,7 @@
       "capsuleScore": {
         "subtitle": "Cohérence du dressing",
         "proBadge": "PRO",
-        "premiumAlertTitle": "Fonctionnalité Premium",
-        "premiumAlertMessage": "Passez à la version supérieure pour débloquer les analyses avancées de la garde-robe"
+        "premiumAlertMessage": "Débloquez des analyses détaillées de votre garde-robe avec Pro."
       },
       "shoppingCopilot": {
         "title": "Shopping Copilot",
@@ -533,6 +544,10 @@
     "heroCaptionStreak": "Série de style de {{count}} jours en cours",
     "yourPlan": "Votre plan",
     "emptyState": "Aucun look planifié pour l'instant. Touchez un jour ci-dessus pour en planifier un.",
+    "emptyStateForDay": "Rien de prévu pour {{date}} pour l'instant.",
+    "planOutfitCta": "Planifier une tenue",
+    "surpriseMeCta": "Surprenez-moi plutôt",
+    "exportToCalendar": "Exporter vers l'agenda",
     "plannedLook": "Tenue planifiée",
     "styledByAi": "Stylisé par l'IA",
     "snapOrShuffle": "Photo ou mélange"
@@ -570,5 +585,16 @@
       "in": "in",
       "lbs": "lbs"
     }
+  },
+  "paywall": {
+    "title": "Fonctionnalité Pro",
+    "upgrade": "Passer à Pro",
+    "later": "Peut-être plus tard",
+    "wardrobeLimitMessage": "Limite de garde-robe atteinte. Passez à Pro pour ajouter des pièces illimitées et débloquer le scan en lot.",
+    "chatLimitMessage": "Vous avez atteint votre limite gratuite de stylisme IA. Passez à Pro pour un chat illimité.",
+    "shoppingCopilotMessage": "Disponible avec Pro : obtenez des conseils IA instantanés en cabine d'essayage.",
+    "calendarSyncMessage": "Synchronisez votre agenda pour des tenues adaptées au contexte avec Pro.",
+    "calendarExportMessage": "Exportez vos tenues vers votre agenda Apple ou Google avec Pro.",
+    "plannerDaysLimitMessage": "Vous avez atteint votre limite gratuite de 2 jours planifiés. Passez à Pro pour planifier toute votre semaine."
   }
 }

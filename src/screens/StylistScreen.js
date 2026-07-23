@@ -25,10 +25,11 @@ import { sendChatMessage } from '../services/aiChatEngine';
 import { useUserStore } from '../store/useUserStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { useChatStore } from '../store/useChatStore';
-import { usePlannerStore, toDateKey } from '../store/usePlannerStore';
+import { usePlannerStore, toDateKey, getPlannedDaysCount } from '../store/usePlannerStore';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 import { useToast } from '../hooks/useToast';
+import { usePaywall } from '../hooks/usePaywall';
 import { formatWeekdayLong, formatWeekdayShortWithDate } from '../utils/dateFormat';
 import { colors, cardTints, spacing, radius, typography, shadows, buttons, opacity } from '../theme/tokens';
 import ScreenContainer from '../components/ScreenContainer';
@@ -37,7 +38,9 @@ import { TourTarget } from '../components/AppTour';
 import { FadeInView } from '../components/AnimatedPressable';
 import FullScreenImageViewer from '../components/FullScreenImageViewer';
 import Toast from '../components/Toast';
+import PaywallModal from '../components/PaywallModal';
 import { triggerHaptic } from '../utils/haptics';
+import { FREE_CHAT_MESSAGE_LIMIT, FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
 
 // Injected as a hidden ("sender: 'user'", not rendered) turn once the
 // client confirms — buildContents() in aiChatEngine replays chat history
@@ -51,8 +54,9 @@ const PROFILE_CONFIRMED_SYSTEM_NOTE =
   'The user has confirmed new profile parameters. From now on, use this new profile data for all outfit recommendations.';
 
 
-// Quick Prompts — a horizontal row of one-tap starters above the input bar.
-// Each `prompt` is the literal text sent to the stylist (translated, since
+// Quick Prompts — a horizontal row of one-tap starters, shown only at the
+// very start of a conversation (see DynamicQuickReplies below). Each
+// `prompt` is the literal text sent to the stylist (translated, since
 // unlike aiChatEngine's system-prompt copy this IS something a human reads —
 // as their own outgoing chat bubble).
 const QUICK_PROMPTS = [
@@ -63,11 +67,24 @@ const QUICK_PROMPTS = [
   { id: 'surpriseMe', promptKey: 'stylist.quickPrompts.surpriseMe' },
 ];
 
-// Quick Actions — shown under the most recent AI turn (once it's actually
-// replied, not the bare welcome greeting), letting the client iterate on the
-// last suggestion in one tap instead of typing a follow-up. The emoji lives
-// in the translated label itself (not a separate icon glyph) — it's the
-// whole visual marker for these chips.
+// Context Prompts — shown instead of QUICK_PROMPTS when the stylist's last
+// reply was a clarifying question (RULE #0 in aiChatEngine.js's system
+// prompt: a turn with no occasion/mood/style signal to go on gets a
+// question back, not an outfit) rather than an opening greeting. A subset
+// of QUICK_PROMPTS' own occasion-style entries — each one directly answers
+// "what's the occasion/vibe?" in one tap.
+const CONTEXT_PROMPTS = [
+  { id: 'officeLook', promptKey: 'stylist.quickPrompts.officeLook' },
+  { id: 'dateNight', promptKey: 'stylist.quickPrompts.dateNight' },
+  { id: 'casualWeekend', promptKey: 'stylist.quickPrompts.casualWeekend' },
+  { id: 'rainyDay', promptKey: 'stylist.quickPrompts.rainyDay' },
+];
+
+// Quick Actions — shown (via DynamicQuickReplies below) once the stylist's
+// last reply actually delivered an outfit, letting the client iterate on
+// the last suggestion in one tap instead of typing a follow-up. The emoji
+// lives in the translated label itself (not a separate icon glyph) — it's
+// the whole visual marker for these chips.
 const QUICK_ACTIONS = [
   { id: 'swapTop', labelKey: 'stylist.quickActions.swapTop', promptKey: 'stylist.quickActions.swapTopPrompt' },
   { id: 'warmer', labelKey: 'stylist.quickActions.warmer', promptKey: 'stylist.quickActions.warmerPrompt' },
@@ -79,10 +96,11 @@ const QUICK_ACTIONS = [
   },
 ];
 
-// Feedback Actions — a second, emotional-reaction row under the same last-AI
-// turn as Quick Actions above. Where Quick Actions iterate on the outfit
-// itself (swap/warmer/cooler/formal), these react to it, still via the same
-// canned-prompt-through-handleSend mechanism.
+// Feedback Actions — a second, emotional-reaction row alongside Quick
+// Actions above (same "an outfit was actually delivered" gate). Where Quick
+// Actions iterate on the outfit itself (swap/warmer/cooler/formal), these
+// react to it, still via the same canned-prompt-through-handleSend
+// mechanism.
 const FEEDBACK_ACTIONS = [
   { id: 'loveIt', labelKey: 'stylist.feedbackActions.loveIt', promptKey: 'stylist.feedbackActions.loveItPrompt' },
   {
@@ -122,13 +140,20 @@ export default function StylistScreen() {
   const isProfileStale = useUserStore((state) => state.isProfileStale);
   const confirmProfileUpdate = useUserStore((state) => state.confirmProfileUpdate);
   const dismissProfileStale = useUserStore((state) => state.dismissProfileStale);
+  const isPro = useUserStore((state) => state.isPro);
   const messages = useChatStore((state) => state.messages);
   const addMessage = useChatStore((state) => state.addMessage);
   const updateMessage = useChatStore((state) => state.updateMessage);
   const pendingPrompt = useChatStore((state) => state.pendingPrompt);
   const clearPendingPrompt = useChatStore((state) => state.clearPendingPrompt);
   const upsertProfileStalePrompt = useChatStore((state) => state.upsertProfileStalePrompt);
+  const freeMessagesUsed = useChatStore((state) => state.freeMessagesUsed);
   const fadeOpacity = useFadeOnFocus();
+
+  // Freemium chat cap — once hit, the input bar itself is replaced by an
+  // upgrade prompt (see the render below), not just disabled in place, per
+  // the monetization spec. `isPro` always wins regardless of count.
+  const chatLimitReached = !isPro && freeMessagesUsed >= FREE_CHAT_MESSAGE_LIMIT;
 
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
@@ -138,6 +163,7 @@ export default function StylistScreen() {
   // image can be open at a time regardless of which bubble it came from.
   const [viewerUri, setViewerUri] = useState(null);
   const { toastMessage, toastKey, toastHoldMs, showToast } = useToast();
+  const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
   const listRef = useRef(null);
   // Synchronous companion to the `sending` state guard in handleSend below.
@@ -238,6 +264,12 @@ export default function StylistScreen() {
   async function handleSend(overrideText, { baseItemId = null } = {}) {
     const text = (overrideText ?? inputText).trim();
     if (!text || sendingRef.current) return;
+    // Defense in depth — the render below already replaces the entire
+    // input bar (including every quick-prompt chip) with an upgrade prompt
+    // once `chatLimitReached`, so there's no live UI path left that calls
+    // this, but a stale pendingPrompt hand-off (see the effect above) could
+    // still fire on a screen that mounted before the limit was hit.
+    if (chatLimitReached) return;
     sendingRef.current = true;
 
     triggerHaptic();
@@ -352,16 +384,13 @@ export default function StylistScreen() {
         data={visibleMessages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContent}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <FadeInView duration={250}>
             <MessageBubble
               item={item}
               wardrobeById={wardrobeById}
-              isLastMessage={index === visibleMessages.length - 1}
-              sending={sending}
               onConfirmProfileUpdate={handleProfileUpdateConfirm}
               onDismissProfileUpdate={handleProfileUpdateDismiss}
-              onQuickAction={(prompt) => handleSend(prompt)}
               onImagePress={setViewerUri}
               onAddItems={handleAddItems}
               showToast={showToast}
@@ -384,49 +413,74 @@ export default function StylistScreen() {
         </View>
       )}
 
-      <KeyboardAvoidingView
-        behavior={Platform.select({ ios: 'padding', android: 'height', default: undefined })}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <QuickPromptsRow onSelect={(prompt) => handleSend(prompt)} disabled={sending} />
-
-        <View style={styles.inputBar}>
-          <View style={styles.cameraBtnContainer}>
-            <TouchableOpacity
-              style={styles.rateMyFitBtn}
-              onPress={handleCameraPress}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              activeOpacity={0.8}
-            >
-              <Feather name="camera" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder={
-              wardrobe.length === 0 ? t('stylist.inputPlaceholderShopping') : t('stylist.inputPlaceholder')
-            }
-            placeholderTextColor={colors.textMuted}
-            onSubmitEditing={() => handleSend()}
-            returnKeyType="send"
-            editable={!sending}
-          />
+      {chatLimitReached ? (
+        // Freemium chat cap — the input bar (quick prompts, camera button,
+        // text field, send button) is fully replaced by this, not just
+        // disabled in place, per the monetization spec: "the input should
+        // be blocked, and a button/message should appear instead of it."
+        <View style={styles.chatLimitBar}>
+          <Text style={styles.chatLimitText}>{t('paywall.chatLimitMessage')}</Text>
           <TouchableOpacity
-            style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
-            onPress={() => handleSend()}
-            disabled={!inputText.trim() || sending}
-            activeOpacity={0.8}
+            style={styles.chatLimitBtn}
+            onPress={() => showPaywall(t('paywall.chatLimitMessage'))}
+            activeOpacity={0.85}
           >
-            <Feather name="arrow-up" size={20} color={colors.inverseText} />
+            <Feather name="zap" size={15} color={colors.inverseText} />
+            <Text style={styles.chatLimitBtnText}>{t('paywall.upgrade')}</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.select({ ios: 'padding', android: 'height', default: undefined })}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+          {!sending && (
+            <DynamicQuickReplies
+              lastMessage={visibleMessages[visibleMessages.length - 1]}
+              isConversationStart={visibleMessages.length <= 1}
+              onSelect={(prompt) => handleSend(prompt)}
+            />
+          )}
+
+          <View style={styles.inputBar}>
+            <View style={styles.cameraBtnContainer}>
+              <TouchableOpacity
+                style={styles.rateMyFitBtn}
+                onPress={handleCameraPress}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.8}
+              >
+                <Feather name="camera" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder={
+                wardrobe.length === 0 ? t('stylist.inputPlaceholderShopping') : t('stylist.inputPlaceholder')
+              }
+              placeholderTextColor={colors.textMuted}
+              onSubmitEditing={() => handleSend()}
+              returnKeyType="send"
+              editable={!sending}
+            />
+            <TouchableOpacity
+              style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
+              onPress={() => handleSend()}
+              disabled={!inputText.trim() || sending}
+              activeOpacity={0.8}
+            >
+              <Feather name="arrow-up" size={20} color={colors.inverseText} />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      )}
       </Animated.View>
 
       <FullScreenImageViewer visible={!!viewerUri} imageUri={viewerUri} onClose={() => setViewerUri(null)} />
       <Toast key={toastKey} message={toastMessage} holdMs={toastHoldMs} />
+      <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
     </ScreenContainer>
   );
 }
@@ -434,11 +488,8 @@ export default function StylistScreen() {
 function MessageBubble({
   item,
   wardrobeById,
-  isLastMessage,
-  sending,
   onConfirmProfileUpdate,
   onDismissProfileUpdate,
-  onQuickAction,
   onImagePress,
   onAddItems,
   showToast,
@@ -446,15 +497,9 @@ function MessageBubble({
   const { t } = useTranslation();
   const isUser = item.sender === 'user';
 
-  // Refine-this-look + reaction rows — only under the most recent AI turn,
-  // once it's actually replied (not the bare welcome greeting) and not
-  // while the next reply is still streaming in.
-  const showResponseActions = !isUser && isLastMessage && !sending && item.id !== 'welcome';
-
   // Wardrobe-Only Guard's own card — see handleSend's own comment in the
-  // parent screen. No SaveInspirationButton or response-action rows here
-  // (see showResponseActions above) — there's no outfit to save or react
-  // to, just a dead end with one way out: go add something to the closet.
+  // parent screen. No SaveInspirationButton here — there's no outfit to
+  // save, just a dead end with one way out: go add something to the closet.
   if (item.type === 'closetEmpty') {
     return (
       <View style={styles.messageRowAi}>
@@ -566,13 +611,6 @@ function MessageBubble({
           </>
         )}
       </View>
-
-      {showResponseActions && (
-        <>
-          <QuickActionsRow onSelect={onQuickAction} />
-          <FeedbackActionsRow onSelect={onQuickAction} />
-        </>
-      )}
     </View>
   );
 }
@@ -784,9 +822,12 @@ function EmptyStateCard({ onSurpriseMe }) {
   );
 }
 
-// Horizontal, scrollable one-tap starters pinned above the input bar. Text
-// is sent verbatim as the outgoing message — `onSelect` is `handleSend`.
-function QuickPromptsRow({ onSelect, disabled }) {
+// Horizontal, scrollable one-tap chip row — shared shell for both
+// QUICK_PROMPTS (conversation start) and CONTEXT_PROMPTS (a clarifying-
+// question reply), the two cases DynamicQuickReplies below renders as a
+// plain prompt list rather than the outfit-feedback combo. Text is sent
+// verbatim as the outgoing message — `onSelect` is `handleSend`.
+function PromptChipsRow({ prompts, onSelect }) {
   const { t } = useTranslation();
   return (
     <ScrollView
@@ -795,12 +836,11 @@ function QuickPromptsRow({ onSelect, disabled }) {
       contentContainerStyle={styles.quickPromptsRow}
       keyboardShouldPersistTaps="handled"
     >
-      {QUICK_PROMPTS.map((prompt) => (
+      {prompts.map((prompt) => (
         <TouchableOpacity
           key={prompt.id}
           style={styles.quickPromptChip}
           onPress={() => onSelect(t(prompt.promptKey))}
-          disabled={disabled}
           activeOpacity={0.8}
         >
           <Text style={styles.quickPromptChipText}>{t(prompt.promptKey)}</Text>
@@ -810,14 +850,70 @@ function QuickPromptsRow({ onSelect, disabled }) {
   );
 }
 
+// The one place that decides what the reply-chip row above the input bar
+// shows, based on the actual state of the conversation instead of a fixed
+// row that stays put no matter what the stylist just said:
+//   - Fresh conversation (nothing but the welcome bubble) -> QUICK_PROMPTS,
+//     generic occasion starters.
+//   - Last reply delivered a real outfit (RULE #0 in aiChatEngine.js
+//     guarantees non-empty "suggested_outfit_ids" only when it actually
+//     built a look) -> QuickActionsRow + FeedbackActionsRow, so the client
+//     can iterate on or react to THAT look.
+//   - Last reply was a clarifying question instead (RULE #0's other case —
+//     no outfit, the stylist asked for occasion/mood/vibe) -> CONTEXT_PROMPTS,
+//     direct one-tap answers to that question.
+//   - Anything else (a special card with its own dedicated CTA already —
+//     closetEmpty/profileStaleConfirm — or the last message is the client's
+//     own, meaning a reply is still in flight) -> nothing; the typing
+//     indicator or that card's own button already covers it.
+// Driven by `outfitIds` presence rather than sniffing the reply text for
+// English words like "vibe"/"occasion" — aiChatEngine's own LANGUAGE rule
+// writes that text in whatever language the app is set to, so a keyword
+// match would silently stop working for every non-English client. This is
+// reliable specifically because aiChatEngine.js's own parsing now forces
+// `outfitIds` to `[]` whenever Gemini's "is_clarifying_question" flag is
+// true, even if "suggested_outfit_ids" itself came back non-empty (e.g. a
+// mid-conversation follow-up like "what about tomorrow?" echoing ids from
+// an earlier turn while still asking a new clarifying question) — so a
+// clarifying-question turn can never fall through to the outfit-feedback
+// branch below by accident.
+function DynamicQuickReplies({ lastMessage, isConversationStart, onSelect }) {
+  if (isConversationStart) {
+    return <PromptChipsRow prompts={QUICK_PROMPTS} onSelect={onSelect} />;
+  }
+
+  if (!lastMessage || lastMessage.sender !== 'ai') return null;
+
+  const hasOutfit = (lastMessage.outfitIds || []).length > 0;
+  if (hasOutfit) {
+    return (
+      <View style={styles.dynamicRepliesWrap}>
+        <QuickActionsRow onSelect={onSelect} />
+        <FeedbackActionsRow onSelect={onSelect} />
+      </View>
+    );
+  }
+
+  if (lastMessage.type === 'closetEmpty' || lastMessage.type === 'profileStaleConfirm') return null;
+
+  return <PromptChipsRow prompts={CONTEXT_PROMPTS} onSelect={onSelect} />;
+}
+
 // Lets the client pin this exact generated look (wardrobe item ids + any
 // suggested-to-buy items) to a day on the WeeklyPlanner without leaving the
 // chat. Picks from the same 7-day window WeeklyPlanner shows.
 function SaveToPlannerButton({ outfitIds }) {
   const { t, i18n } = useTranslation();
   const scheduleOutfit = usePlannerStore((state) => state.scheduleOutfit);
+  const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
+  const isPro = useUserStore((state) => state.isPro);
   const [modalVisible, setModalVisible] = useState(false);
   const [savedLabel, setSavedLabel] = useState(null);
+  // Own PaywallModal instance, same as SaveInspirationButton right above
+  // owning its own BottomSheet rather than reaching up into the screen's
+  // state — this button already manages its own day-picker Modal locally,
+  // so its freemium gate stays local too.
+  const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
   const days = useMemo(() => {
     const today = new Date();
@@ -828,9 +924,30 @@ function SaveToPlannerButton({ outfitIds }) {
     });
   }, []);
 
-  function handleSelectDay(date) {
+  async function handleSelectDay(date) {
     triggerHaptic();
-    scheduleOutfit(toDateKey(date), { outfitIds });
+    const dateKey = toDateKey(date);
+    // Freemium day-count cap — pre-checked here for the common case (avoids
+    // a round trip to the store's own backstop, which exists specifically
+    // because THIS picker offers every one of the next 7 days with no
+    // per-pill lock of its own, unlike PlannerScreen's day row). Replacing
+    // an already-planned day never counts against the cap.
+    if (!isPro && !scheduledOutfits[dateKey] && getPlannedDaysCount(scheduledOutfits) >= FREE_PLANNED_DAYS_LIMIT) {
+      setModalVisible(false);
+      showPaywall(t('paywall.plannerDaysLimitMessage'));
+      return;
+    }
+    try {
+      await scheduleOutfit(dateKey, { outfitIds });
+    } catch (err) {
+      // scheduleOutfit's own backstop threw — the pre-check above should
+      // already have caught this in practice, but a second device planning
+      // a day concurrently is exactly the race that backstop exists for.
+      console.error('[StylistScreen] Save to Planner failed:', err);
+      setModalVisible(false);
+      showPaywall(t('paywall.plannerDaysLimitMessage'));
+      return;
+    }
     setModalVisible(false);
     setSavedLabel(formatWeekdayShortWithDate(date, i18n.language));
   }
@@ -871,6 +988,8 @@ function SaveToPlannerButton({ outfitIds }) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
     </>
   );
 }
@@ -1159,6 +1278,14 @@ const styles = StyleSheet.create({
   },
   authPromptCancelBtnText: { fontSize: 14.5, fontWeight: '600', color: colors.textSecondary },
 
+  // DynamicQuickReplies' outfit-feedback case — stacks QuickActionsRow +
+  // FeedbackActionsRow above the input bar. Horizontal padding lives here
+  // (not on the two rows themselves): they used to sit inside the already-
+  // padded `aiCard`, but now render in the zero-inset shell alongside
+  // `quickPromptsRow`/`inputBar`, which carry this same `spacing.screenH`
+  // padding independently for the same reason.
+  dynamicRepliesWrap: { paddingHorizontal: spacing.screenH, paddingBottom: spacing.xs, gap: spacing.xs },
+
   // Quick Actions — one-tap outfit iterations under a suggestion turn.
   quickActionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
   quickActionChip: {
@@ -1307,6 +1434,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.premiumBackground,
     ...shadows.soft,
   },
+  // Freemium chat cap — replaces the entire input bar once the free tier's
+  // message count is spent. Same horizontal padding/background as
+  // `inputBar` above so it reads as "the same slot, different content"
+  // rather than a jarring layout shift.
+  chatLimitBar: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.screenH,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.premiumBackground,
+    ...shadows.soft,
+  },
+  chatLimitText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  chatLimitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  chatLimitBtnText: { color: colors.inverseText, fontSize: 14, fontWeight: '700' },
   // Fixed-width slot for the camera button — pins its hit area to exactly
   // 44px regardless of what the flex siblings around it do, and `zIndex`
   // guarantees it always wins hit-testing over the adjacent TextInput.

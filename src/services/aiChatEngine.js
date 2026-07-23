@@ -59,7 +59,7 @@ ${describeWardrobe(wardrobe)}
 
 HARD RULES — these override normal conversational instinct whenever they conflict with it:
 
-RULE #0 — Conversational Gating (read this before any other rule). A bare greeting, small talk, or any message that gives you no occasion/weather/mood/plans/specific ask to style around is NOT a request to build an outfit — it's the start of a conversation. In that case, respond like a real stylist meeting a client, not a form to fill out: greet them back naturally and ask ONE short question to get the context you're missing (e.g. "What's the occasion?", "Where are you headed?", "What's the vibe you're going for?"). Leave "suggested_outfit_ids" as "[]" — never guess an outfit out of nothing. Only move to actually building an outfit once the client has given you enough to work with (an occasion, event, mood, weather, or a specific item/color) OR has explicitly asked you to build/suggest/surprise them with a look. Quick-action/canned prompts (swap a piece, warmer/cooler, more formal, a named occasion, "surprise me") already carry enough intent on their own — treat those as a request to style, never as small talk. RULE #2's terse, zero-fluff tone still applies to a conversational reply — a genuine clarifying question isn't "hype filler" — but this is the one turn type where an empty "suggested_outfit_ids" is the correct answer, not a failure to style.
+RULE #0 — Conversational Gating (read this before any other rule). A bare greeting, small talk, or any message that gives you no occasion/weather/mood/plans/specific ask to style around is NOT a request to build an outfit — it's the start of a conversation. In that case, respond like a real stylist meeting a client, not a form to fill out: greet them back naturally and ask ONE short question to get the context you're missing (e.g. "What's the occasion?", "Where are you headed?", "What's the vibe you're going for?"). Leave "suggested_outfit_ids" as "[]" AND set "is_clarifying_question" to "true" — never guess an outfit out of nothing. This applies just as much mid-conversation (e.g. "what about tomorrow?" with no occasion given for that day) as it does at the very start — a later turn asking its own follow-up question is exactly as much a clarifying question as the first one, and must NOT carry over "suggested_outfit_ids" from whatever you suggested earlier in the conversation; a fresh clarifying question always gets a fresh "[]". Only move to actually building an outfit once the client has given you enough to work with (an occasion, event, mood, weather, or a specific item/color) OR has explicitly asked you to build/suggest/surprise them with a look. Quick-action/canned prompts (swap a piece, warmer/cooler, more formal, a named occasion, "surprise me") already carry enough intent on their own — treat those as a request to style, never as small talk. RULE #2's terse, zero-fluff tone still applies to a conversational reply — a genuine clarifying question isn't "hype filler" — but this is the one turn type where an empty "suggested_outfit_ids" is the correct answer, not a failure to style.
 
 RULE #1 — Style Preferences Constraint. The client's stated style preferences above are non-negotiable, not a soft hint. If they've said they dislike, avoid, or "hate" a category, fit, or color (e.g. "hate oversized clothes"), NEVER put anything matching that in "suggested_outfit_ids" — no matter what the occasion or the rest of this prompt might otherwise call for. If nothing in the wardrobe satisfies both the request and this constraint, say so honestly rather than violating it.
 
@@ -90,9 +90,40 @@ RULE: OUTFIT ARCHITECTURE, WARDROBE-BOUND. Aim for a complete outfit (Top, Botto
 Respond with ONLY a raw, valid JSON object — no markdown fences, no text outside the JSON. Exact shape:
 {
   "text_response": "terse reply, opening with RULE #7's profile-grounded clause",
-  "suggested_outfit_ids": ["<wardrobe item id>", "..."]
+  "suggested_outfit_ids": ["<wardrobe item id>", "..."],
+  "is_clarifying_question": false
 }
-"suggested_outfit_ids" must be "[]" when there's nothing to recommend this turn.`;
+"suggested_outfit_ids" must be "[]" when there's nothing to recommend this turn. "is_clarifying_question" must be "true" for exactly RULE #0's turn type (asking the client for occasion/mood/vibe instead of styling) and "false" the moment you're actually recommending or iterating on an outfit — the two fields must always agree with each other.`;
+}
+
+// Stands in for a "Rate My Fit" camera turn (StylistScreen's
+// handleCameraPress — `{ sender: 'user', type: 'image', uri }`, no `text`
+// field at all) when it's replayed as history. That photo was never
+// actually sent to Gemini in the first place — handleCameraPress only adds
+// the chat bubble, it never calls sendChatMessage — so re-uploading/
+// base64-encoding the local `uri` here just to represent it in history
+// would spend real tokens on an image Gemini has never seen and can't
+// usefully reason about. A short fixed placeholder is what actually fixes
+// the bug this replaces: `{ text: turn.text }` on an image turn had
+// `turn.text` as `undefined`, which JSON.stringify silently drops, so the
+// wire payload for that part was `{}` — and Gemini's Part message requires
+// exactly one of its oneof fields (`text`/`inlineData`/...) set, so an
+// empty part 400s with "required oneof field 'data' must have one
+// initialized field" on the very next real request that replays it.
+// Deliberately not translated/localized — same reasoning as
+// PROFILE_CONFIRMED_SYSTEM_NOTE above: this is context for Gemini, never
+// rendered as a chat bubble a client reads.
+const IMAGE_TURN_PLACEHOLDER = '[Client shared a photo of their outfit in the chat, with no caption.]';
+
+// Builds one valid `parts` entry for a plain-text turn, or `null` for
+// anything that wouldn't produce a real, non-empty "text" field — the one
+// thing every content entry below actually needs to avoid the empty-`{}`-
+// part bug IMAGE_TURN_PLACEHOLDER's own comment describes. Centralizing it
+// here (rather than trusting each call site to already have a valid
+// string) is the "hard filtering" backstop: even a future turn shape that
+// forgets to fall back to a placeholder can't produce an invalid part.
+function textPart(text) {
+  return typeof text === 'string' && text.trim() ? { text } : null;
 }
 
 function buildContents(message, profile, wardrobe, history) {
@@ -116,6 +147,10 @@ function buildContents(message, profile, wardrobe, history) {
 
   history.forEach((turn) => {
     if (turn.sender === 'ai') {
+      // AI turns always carry a real `text_response` string by the time
+      // they reach the chat store (sendChatMessage's own parsing already
+      // guarantees that below), so this JSON.stringify's own "text" field
+      // is never empty — no textPart() filtering needed on this branch.
       contents.push({
         role: 'model',
         parts: [
@@ -127,12 +162,25 @@ function buildContents(message, profile, wardrobe, history) {
           },
         ],
       });
-    } else {
-      contents.push({ role: 'user', parts: [{ text: turn.text }] });
+      return;
     }
+
+    // User turn — text-only replay. A caption-less photo turn (`turn.text`
+    // is `undefined`) falls back to IMAGE_TURN_PLACEHOLDER instead of
+    // producing an invalid empty part; textPart() rejects anything else
+    // that isn't a real string (a blank/whitespace-only turn, say), and a
+    // turn that still has nothing valid to say is simply skipped rather
+    // than sent to Gemini as a content entry with a broken/empty `parts`.
+    const part = textPart(turn.text) ?? (turn.type === 'image' ? textPart(IMAGE_TURN_PLACEHOLDER) : null);
+    if (part) contents.push({ role: 'user', parts: [part] });
   });
 
-  contents.push({ role: 'user', parts: [{ text: message }] });
+  // `message` is already guaranteed non-empty by sendChatMessage's own
+  // guard below, but routing it through textPart() too keeps every content
+  // entry in this array built by the exact same "no empty parts, ever" rule
+  // rather than trusting one call site to be the sole exception to it.
+  const finalPart = textPart(message);
+  if (finalPart) contents.push({ role: 'user', parts: [finalPart] });
 
   return contents;
 }
@@ -161,8 +209,13 @@ export async function sendChatMessage({ message, wardrobe = [], history = [] }) 
     payload = await fetchWithFallback(requestBody);
   } catch (err) {
     if (err instanceof GeminiRateLimitError) {
-      // Every model in the fallback chain is rate-limited right now —
-      // degrade gracefully instead of throwing and breaking the chat UI.
+      // Every model in the fallback chain is rate-limited or overloaded
+      // right now (see gemini.js's isRateLimitError — a Gemini "high
+      // demand"/"overloaded" 503 counts the same as a 429 here) — degrade
+      // gracefully instead of surfacing Gemini's own raw error text
+      // ("This model is currently experiencing high demand...") verbatim
+      // in the chat, which read as a broken/system-y message rather than
+      // something the in-character stylist would ever say.
       return { text: i18n.t('stylist.rateLimitApology'), outfitIds: [] };
     }
     if (err instanceof GeminiLocationRestrictedError) {
@@ -193,7 +246,18 @@ export async function sendChatMessage({ message, wardrobe = [], history = [] }) 
   }
 
   const wardrobeIds = new Set(wardrobe.map((item) => item.id));
-  const outfitIds = Array.isArray(parsed.suggested_outfit_ids)
+  // `is_clarifying_question` (RULE #0 in buildSystemPrompt above) wins over
+  // whatever "suggested_outfit_ids" came back — a plain "[]" instruction is
+  // easy for the model to forget to re-apply on a mid-conversation follow-up
+  // question (e.g. "what about tomorrow?" reusing ids it suggested earlier
+  // in the same turn's context), where a single boolean it has to set
+  // explicitly is a much harder instruction to silently drop. This is what
+  // actually keeps StylistScreen's DynamicQuickReplies (gated purely on
+  // `outfitIds.length`) from showing outfit-feedback chips under a clarifying
+  // question instead of the occasion/vibe chips that turn actually calls for.
+  const outfitIds = parsed.is_clarifying_question
+    ? []
+    : Array.isArray(parsed.suggested_outfit_ids)
     ? parsed.suggested_outfit_ids.filter((id) => wardrobeIds.has(id))
     : [];
 

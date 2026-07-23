@@ -133,6 +133,30 @@ export const useUserStore = create(
       // the DB quietly kept the old value.
       profileSyncError: null,
 
+      // Freemium gate — every free-tier limit (wardrobe cap, chat cap,
+      // Shopping Copilot, Capsule Score detail, calendar integrations,
+      // Planner's day cap, Export to Calendar) reads this one flag.
+      //
+      // TEMPORARY — defaulted to `true` for real-device Pro QA (every
+      // paywalled flow needs to be exercised without a real purchase to
+      // trigger it). Flip back to `false` once that pass is done, or sooner
+      // if the store's own `merge` below feels like it's fighting you: this
+      // value is also explicitly exempted from persistence there, so a
+      // device that already ran the app with the OLD `false` default can't
+      // have a stale AsyncStorage copy silently keep overriding this one on
+      // every relaunch — every launch re-derives `isPro` from THIS literal,
+      // never from disk. `setIsPro` (ProfileScreen's `__DEV__`-gated
+      // "Toggle Pro" row) still works normally for flipping to the free
+      // tier mid-session to check a specific paywall; it just won't survive
+      // an app restart while this default is `true`, by the same
+      // mechanism. There's no real IAP/subscription receipt validation
+      // wired up yet — swap this whole stub for a real entitlement check
+      // (App Store/Play receipt, RevenueCat, a `subscriptions` table row,
+      // whichever gets picked) without touching any of the call sites that
+      // already read `isPro` — they only care about the boolean, never how
+      // it got set.
+      isPro: true,
+
       // Session-only — sets isLoggedIn/user from the Supabase session.
       // Deliberately does NOT touch profile fields (gender, etc.): that's
       // fetchProfile's job. useSupabaseAuthSync always awaits fetchProfile()
@@ -180,7 +204,15 @@ export const useUserStore = create(
           isProfileStale: false,
           staleChangedFields: [],
           profileSyncError: null,
+          isPro: false,
         }),
+
+      // TEMPORARY — dev-only escape hatch (ProfileScreen's `__DEV__`-gated
+      // "Toggle Pro" row) so every paywall gate can be exercised without a
+      // real purchase flow to trigger them through. Local-only, same as
+      // `resetAppTour` — no Supabase write, since there's no real
+      // subscription table yet for this to sync to.
+      setIsPro: (isPro) => set({ isPro }),
 
       // Pulls the client's row from public.users into the store — called by
       // useSupabaseAuthSync on every restored/new session, and safe to call
@@ -446,6 +478,20 @@ export const useUserStore = create(
     {
       name: 'user-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      // `isPro` is deliberately excluded from whatever's on disk — the
+      // default zustand `persist` merge is `{ ...currentState,
+      // ...persistedState }` (persisted wins), which is exactly what would
+      // let an old, already-installed `isPro: false` sitting in AsyncStorage
+      // from before this file's own default flipped to `true` keep
+      // silently winning on every relaunch, no matter what this file says.
+      // Dropping the persisted copy of just this one key means `isPro`
+      // always comes from the fresh initial state above (or a `setIsPro`
+      // call made earlier THIS session) — every other field still merges
+      // and rehydrates exactly as before.
+      merge: (persistedState, currentState) => {
+        const { isPro: _persistedIsPro, ...rest } = persistedState || {};
+        return { ...currentState, ...rest };
+      },
     }
   )
 );

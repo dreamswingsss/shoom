@@ -9,6 +9,8 @@ import * as Crypto from 'expo-crypto';
 import { decode as decodeBase64 } from 'base64-arraybuffer';
 import { supabase } from '../services/supabaseClient';
 import { readImageAsBase64 } from '../utils/imageBase64';
+import { useUserStore } from './useUserStore';
+import { FREE_WARDROBE_LIMIT } from '../constants/monetization';
 // Local calendar-day key ("YYYY-MM-DD") — reused rather than reimplemented
 // here so the "once per day" rule below and the Planner's own day-keying
 // (Style Streak, scheduled outfits) can never drift apart on what "today"
@@ -114,6 +116,20 @@ export const useWardrobeStore = create((set, get) => ({
   // `pendingItem` is exactly WardrobeScreen's scan-confirm shape:
   // { imageUri, category, subcategory, color, style, description }.
   addItem: async (pendingItem) => {
+    // Freemium wardrobe cap — WardrobeScreen's own `handleScan` already
+    // blocks opening the scanner at all once the free tier is full (the
+    // primary UX path, see that screen's own comment), but a client can
+    // still reach this far if the sheet was already open when the 30th item
+    // landed (e.g. a second device adding items concurrently), so this is
+    // the real backstop: no write happens past the cap regardless of how
+    // the call got here. Checked against the CURRENT store count, not
+    // whatever `handleScan` saw when it opened the sheet.
+    if (!useUserStore.getState().isPro && get().items.length >= FREE_WARDROBE_LIMIT) {
+      throw new Error(
+        'Wardrobe limit reached. Upgrade to Pro to add unlimited items and unlock bulk scanning.'
+      );
+    }
+
     // Timed like the upload/insert calls below it — this specific call was
     // the one actually missing that protection. `isLoggedIn` in the store
     // can be stale-true (zustand's `user-storage` persists it with no

@@ -84,7 +84,13 @@
       "heightWeight": "Height & Weight",
       "bodyMeasurements": "Body Measurements",
       "styleVibes": "Style Vibes",
-      "stylePreferences": "Style Preferences"
+      "stylePreferences": "Style Preferences",
+      "integrations": "Integrations"
+    },
+    "integrations": {
+      "helper": "Sync your calendar for context-aware outfit suggestions.",
+      "appleCalendar": "Apple Calendar",
+      "googleCalendar": "Google Calendar"
     },
     "fields": {
       "gender": "Gender",
@@ -181,7 +187,11 @@
       "confirm": "Delete",
       "errorTitle": "Error"
     },
-    "devResetAppTour": "Reset App Tour (dev)"
+    "devResetAppTour": "Reset App Tour (dev)",
+    "devTogglePro": {
+      "on": "Disable Pro (dev)",
+      "off": "Enable Pro (dev)"
+    }
   },
   "closet": {
     "sections": {
@@ -198,7 +208,13 @@
       "notFound": "This look is no longer saved.",
       "itemsHeading": "Items in this look",
       "fromCloset": "From your closet",
-      "suggested": "Suggested"
+      "suggested": "Suggested",
+      "exportToCalendar": "Export to Calendar",
+      "exportModalTitle": "Add to calendar",
+      "exportSuccess": "Saved to calendar!",
+      "exportPermissionDenied": "Calendar access is needed — enable it for Shoom in your phone's Settings.",
+      "exportWebUnavailable": "Calendar export isn't available on Web — try this on your phone.",
+      "exportGenericError": "Couldn't export to calendar. Please try again."
     },
     "hub": {
       "title": "Your Digital Closet",
@@ -271,8 +287,7 @@
       "capsuleScore": {
         "subtitle": "Wardrobe cohesion",
         "proBadge": "PRO",
-        "premiumAlertTitle": "Premium Feature",
-        "premiumAlertMessage": "Upgrade to unlock advanced wardrobe analytics"
+        "premiumAlertMessage": "Unlock detailed wardrobe insights with Pro."
       },
       "shoppingCopilot": {
         "title": "Shopping Copilot",
@@ -540,6 +555,10 @@
     "heroCaptionStreak": "{{count}}-day style streak going",
     "yourPlan": "Your plan",
   "emptyState": "No looks planned yet. Tap a day above to plan one.",
+    "emptyStateForDay": "Nothing planned for {{date}} yet.",
+    "planOutfitCta": "Plan outfit",
+    "surpriseMeCta": "Surprise me instead",
+    "exportToCalendar": "Export to Calendar",
     "plannedLook": "Planned look",
     "styledByAi": "Styled by AI",
     "snapOrShuffle": "Snap or shuffle"
@@ -577,5 +596,16 @@
       "in": "in",
       "lbs": "lbs"
     }
+  },
+  "paywall": {
+    "title": "Pro Feature",
+    "upgrade": "Upgrade to Pro",
+    "later": "Maybe Later",
+    "wardrobeLimitMessage": "Wardrobe Limit Reached. Upgrade to Pro to add unlimited items and unlock bulk scanning.",
+    "chatLimitMessage": "You've reached your free AI styling limit. Upgrade to Pro for unlimited chat.",
+    "shoppingCopilotMessage": "Available in Pro: Get instant AI advice in fitting rooms.",
+    "calendarSyncMessage": "Sync your schedule for context-aware outfits with Pro.",
+    "calendarExportMessage": "Export outfits to your Apple or Google Calendar with Pro.",
+    "plannerDaysLimitMessage": "You've reached your free limit of 2 planned days. Upgrade to Pro to plan your whole week."
   }
 }

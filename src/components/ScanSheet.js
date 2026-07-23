@@ -276,10 +276,20 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
       // actually hangs (not a Supabase error at all, just a promise that
       // never settles) rather than being merely hard to notice.
       const isTimeoutError = /timed out/i.test(err.message || '');
+      // Matches the exact string useWardrobeStore's own addItem throws for
+      // its freemium-cap backstop (see that function's own comment) — same
+      // "fixed English string in the store, localized message picked here"
+      // pattern as isAuthError/isTimeoutError above, so a client who somehow
+      // reaches this backstop (see that comment for how) gets the same
+      // translated paywall copy WardrobeScreen's primary check shows,
+      // instead of a raw untranslated English string.
+      const isWardrobeLimitError = /wardrobe limit reached/i.test(err.message || '');
       const message = isAuthError
         ? t('closet.scan.notSignedInError')
         : isTimeoutError
         ? t('closet.scan.timeoutError')
+        : isWardrobeLimitError
+        ? t('paywall.wardrobeLimitMessage')
         : err.message || t('closet.scan.genericError');
 
       // Logged for us to diagnose (the raw Supabase/Postgrest error — code,

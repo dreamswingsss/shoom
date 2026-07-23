@@ -84,7 +84,13 @@
       "heightWeight": "Рост и вес",
       "bodyMeasurements": "Параметры тела",
       "styleVibes": "Стилевые вайбы",
-      "stylePreferences": "Стилевые предпочтения"
+      "stylePreferences": "Стилевые предпочтения",
+      "integrations": "Интеграции"
+    },
+    "integrations": {
+      "helper": "Синхронизируйте календарь для подбора образов с учётом контекста.",
+      "appleCalendar": "Apple Календарь",
+      "googleCalendar": "Google Календарь"
     },
     "fields": {
       "gender": "Пол",
@@ -197,7 +203,13 @@
       "notFound": "Этот образ больше не сохранён.",
       "itemsHeading": "Вещи в этом образе",
       "fromCloset": "Из вашего гардероба",
-      "suggested": "Предложено ИИ"
+      "suggested": "Предложено ИИ",
+      "exportToCalendar": "Экспорт в календарь",
+      "exportModalTitle": "Добавить в календарь",
+      "exportSuccess": "Сохранено в календаре!",
+      "exportPermissionDenied": "Нужен доступ к календарю — включите его для Shoom в настройках телефона.",
+      "exportWebUnavailable": "Экспорт в календарь недоступен в веб-версии — попробуйте на телефоне.",
+      "exportGenericError": "Не удалось экспортировать в календарь. Попробуйте ещё раз."
     },
     "hub": {
       "title": "Ваш цифровой гардероб",
@@ -276,8 +288,7 @@
       "capsuleScore": {
         "subtitle": "Гармоничность гардероба",
         "proBadge": "PRO",
-        "premiumAlertTitle": "Премиум-функция",
-        "premiumAlertMessage": "Оформите подписку, чтобы открыть расширенную аналитику гардероба"
+        "premiumAlertMessage": "Откройте подробную аналитику гардероба с Pro."
       },
       "shoppingCopilot": {
         "title": "Помощник покупок",
@@ -547,6 +558,10 @@
     "heroCaptionStreak": "Стрик стиля — {{count}} дн.",
     "yourPlan": "Ваш план",
     "emptyState": "Пока нет запланированных образов. Нажмите на день выше, чтобы запланировать.",
+    "emptyStateForDay": "На {{date}} пока ничего не запланировано.",
+    "planOutfitCta": "Запланировать образ",
+    "surpriseMeCta": "Удиви меня вместо этого",
+    "exportToCalendar": "Экспорт в календарь",
     "plannedLook": "Запланированный образ",
     "styledByAi": "Подобрано AI",
     "snapOrShuffle": "Снять фото или перемешать"
@@ -584,5 +599,16 @@
       "in": "in",
       "lbs": "lbs"
     }
+  },
+  "paywall": {
+    "title": "Функция Pro",
+    "upgrade": "Перейти на Pro",
+    "later": "Может быть позже",
+    "wardrobeLimitMessage": "Достигнут лимит гардероба. Перейдите на Pro, чтобы добавлять неограниченное количество вещей и разблокировать пакетное сканирование.",
+    "chatLimitMessage": "Вы достигли бесплатного лимита ИИ-стилизации. Перейдите на Pro для безлимитного чата.",
+    "shoppingCopilotMessage": "Доступно в Pro: мгновенные советы ИИ в примерочной.",
+    "calendarSyncMessage": "Синхронизируйте расписание для образов с учётом контекста с Pro.",
+    "calendarExportMessage": "Экспортируйте образы в Apple или Google Календарь с Pro.",
+    "plannerDaysLimitMessage": "Вы достигли бесплатного лимита в 2 запланированных дня. Перейдите на Pro, чтобы планировать всю неделю."
   }
 }

@@ -36,6 +36,12 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to attach outfit pictures in chat."
         }
       ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow $(PRODUCT_NAME) to access your calendar to export your saved looks as events."
+        }
+      ],
       "expo-notifications",
       "expo-web-browser",
       "expo-localization"

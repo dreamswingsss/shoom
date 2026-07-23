@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, radius, withAlpha } from '../theme/tokens';
+import { colors, withAlpha } from '../theme/tokens';
 import { inferItemCategory } from '../utils/inferItemCategory';
 
 // Lightens (positive percent) or darkens (negative percent) a hex color —
@@ -74,7 +74,15 @@ export default function GeneratedItemThumb({ uri, name = '', searchQuery = '', s
   const [failed, setFailed] = useState(false);
 
   if (uri && !failed) {
-    return <Image source={{ uri }} style={[styles.image, style]} onError={() => setFailed(true)} />;
+    // `resizeMode="cover"` (not RN's platform-inconsistent default) is what
+    // actually crops a source photo of arbitrary proportions to fill this
+    // box cleanly — without it, a photo whose aspect ratio doesn't match
+    // the box (almost always, e.g. a Lookbook card's own aspectRatio:1)
+    // stretches/distorts to fit instead of cropping, which is exactly the
+    // "warped photo" bug this fixes.
+    return (
+      <Image source={{ uri }} style={[styles.image, style]} resizeMode="cover" onError={() => setFailed(true)} />
+    );
   }
 
   const key = name || searchQuery || 'item';

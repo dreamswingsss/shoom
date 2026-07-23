@@ -1,17 +1,36 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useWardrobeStore } from '../store/useWardrobeStore';
+import { useUserStore } from '../store/useUserStore';
+import { toDateKey } from '../store/usePlannerStore';
+import { formatWeekdayLong } from '../utils/dateFormat';
 import { triggerHaptic } from '../utils/haptics';
 import { colors, cardTints, spacing, radius, shadows, typography } from '../theme/tokens';
 import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import ConfirmDialog from '../components/ConfirmDialog';
+import PaywallModal from '../components/PaywallModal';
 import Toast from '../components/Toast';
 import ScreenContainer from '../components/ScreenContainer';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
+import { usePaywall } from '../hooks/usePaywall';
+import {
+  exportOutfitToCalendar,
+  CalendarPermissionDeniedError,
+  CalendarWebUnavailableError,
+} from '../services/calendarService';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 const THUMB_SIZE = 64;
@@ -45,10 +64,18 @@ export default function InspirationDetailScreen() {
   const wardrobe = useWardrobeStore((state) => state.items);
   const wardrobeById = useMemo(() => Object.fromEntries(wardrobe.map((item) => [item.id, item])), [wardrobe]);
   const removeInspiration = useWardrobeStore((state) => state.removeInspiration);
+  const isPro = useUserStore((state) => state.isPro);
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
   const { toastMessage, toastKey, showToast } = useToast();
+  const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
   const [isDeleting, setIsDeleting] = useState(false);
+  // Export-to-Calendar's own day-picker — separate from the delete
+  // ConfirmDialog's `dialogProps` above, since this is a plain Modal (a
+  // 7-day list, same shape StylistScreen's own Save-to-Planner button
+  // already uses), not a confirm/cancel dialog.
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function performDelete() {
     setIsDeleting(true);
@@ -110,10 +137,57 @@ export default function InspirationDetailScreen() {
 
   const items = inspiration.generatedItems || [];
 
+  // Pro-only — mirrors WardrobeScreen's Shopping Copilot gate exactly:
+  // `isPro` decides between opening the real day-picker and just showing
+  // the paywall, checked BEFORE ever touching expo-calendar (no OS
+  // permission prompt for a feature a free client can't use anyway).
+  function handleExportPress() {
+    triggerHaptic();
+    if (!isPro) {
+      showPaywall(t('paywall.calendarExportMessage'));
+      return;
+    }
+    setExportModalVisible(true);
+  }
+
+  async function handleSelectExportDay(date) {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const itemNames = items.map((entry) => entry.name).filter(Boolean);
+      await exportOutfitToCalendar({ itemNames, date });
+      setExportModalVisible(false);
+      showToast(t('closet.inspirationDetail.exportSuccess'));
+    } catch (err) {
+      // Both calendarService error classes get their own translated copy
+      // (denied-permission clients need the Settings pointer, not a raw
+      // OS error string; web clients need to know this is a phone-only
+      // feature) — anything else falls back to whatever the OS/expo-
+      // calendar actually said, same convention ScanSheet's own save-error
+      // handling already follows.
+      if (err instanceof CalendarPermissionDeniedError) {
+        showToast(t('closet.inspirationDetail.exportPermissionDenied'));
+      } else if (err instanceof CalendarWebUnavailableError) {
+        showToast(t('closet.inspirationDetail.exportWebUnavailable'));
+      } else {
+        console.error('[InspirationDetailScreen] Calendar export failed:', err);
+        showToast(err.message || t('closet.inspirationDetail.exportGenericError'));
+      }
+      setExportModalVisible(false);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <ScreenContainer edges={['bottom']} scroll={false}>
       <ScrollView style={styles.flexFill} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.aiText}>{inspiration.aiText}</Text>
+
+        <TouchableOpacity style={styles.exportBtn} onPress={handleExportPress} activeOpacity={0.8}>
+          <Feather name="calendar" size={14} color={colors.textPrimary} />
+          <Text style={styles.exportBtnText}>{t('closet.inspirationDetail.exportToCalendar')}</Text>
+        </TouchableOpacity>
 
         <Text style={styles.itemsHeading}>{t('closet.inspirationDetail.itemsHeading')}</Text>
 
@@ -170,8 +244,51 @@ export default function InspirationDetailScreen() {
       {dialogProps && (
         <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
       )}
+      <CalendarExportModal
+        visible={exportModalVisible}
+        onClose={() => setExportModalVisible(false)}
+        onSelectDay={handleSelectExportDay}
+      />
+      <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
       <Toast key={toastKey} message={toastMessage} />
     </ScreenContainer>
+  );
+}
+
+// 7-day picker for Export to Calendar — same shape as StylistScreen's own
+// Save-to-Planner modal (a plain day list, not a full native date wheel):
+// this app's exports are always "put this look on one of the next 7 days",
+// never an arbitrary future date, so that's the only range worth offering.
+function CalendarExportModal({ visible, onClose, onSelectDay }) {
+  const { t, i18n } = useTranslation();
+
+  const days = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      return date;
+    });
+  }, []);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.exportBackdrop} onPress={onClose}>
+        <Pressable style={styles.exportSheet} onPress={() => {}}>
+          <Text style={styles.exportSheetTitle}>{t('closet.inspirationDetail.exportModalTitle')}</Text>
+          {days.map((date) => (
+            <TouchableOpacity
+              key={toDateKey(date)}
+              style={styles.exportDayRow}
+              onPress={() => onSelectDay(date)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.exportDayRowText}>{formatWeekdayLong(date, i18n.language)}</Text>
+            </TouchableOpacity>
+          ))}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -183,6 +300,26 @@ const styles = StyleSheet.create({
     ...typography.body,
     marginBottom: spacing.md,
   },
+
+  // Export to Calendar — a secondary pill action (same shape/weight as
+  // StylistScreen's own saveToPlannerBtn), sitting between the AI text and
+  // the items list rather than in the header: it acts on the whole look,
+  // same altitude as the (also whole-look) delete action already in the
+  // header, but reads better as an in-content CTA than a second header icon.
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  exportBtnText: { fontSize: 12, fontWeight: '700', color: colors.textPrimary },
+
   itemsHeading: { ...typography.label, marginBottom: spacing.sm },
 
   itemRow: {
@@ -217,4 +354,29 @@ const styles = StyleSheet.create({
 
   notFoundContainer: { alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   notFoundText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+
+  // CalendarExportModal — identical shape to StylistScreen's own
+  // plannerBackdrop/plannerSheet/plannerDayRow (duplicated rather than
+  // shared, same reasoning as that screen's own authPromptWrap: a small,
+  // screen-local style block not worth a shared component for two users).
+  exportBackdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  exportSheet: {
+    backgroundColor: colors.premiumBackground,
+    borderRadius: radius.card,
+    paddingVertical: spacing.xs,
+    ...shadows.soft,
+  },
+  exportSheetTitle: {
+    ...typography.label,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  exportDayRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  exportDayRowText: { fontSize: 15, color: colors.textPrimary, fontWeight: '500' },
 });

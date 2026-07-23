@@ -84,7 +84,13 @@
       "heightWeight": "Größe & Gewicht",
       "bodyMeasurements": "Körpermaße",
       "styleVibes": "Lieblingsstile",
-      "stylePreferences": "Stilvorlieben"
+      "stylePreferences": "Stilvorlieben",
+      "integrations": "Integrationen"
+    },
+    "integrations": {
+      "helper": "Synchronisiere deinen Kalender für kontextbezogene Outfit-Vorschläge.",
+      "appleCalendar": "Apple Kalender",
+      "googleCalendar": "Google Kalender"
     },
     "fields": {
       "gender": "Geschlecht",
@@ -197,7 +203,13 @@
       "notFound": "Dieser Look ist nicht mehr gespeichert.",
       "itemsHeading": "Teile in diesem Look",
       "fromCloset": "Aus deinem Kleiderschrank",
-      "suggested": "Vorgeschlagen"
+      "suggested": "Vorgeschlagen",
+      "exportToCalendar": "In Kalender exportieren",
+      "exportModalTitle": "Zum Kalender hinzufügen",
+      "exportSuccess": "Im Kalender gespeichert!",
+      "exportPermissionDenied": "Kalenderzugriff wird benötigt — aktiviere ihn für Shoom in den Einstellungen deines Telefons.",
+      "exportWebUnavailable": "Der Kalender-Export ist im Web nicht verfügbar — versuche es auf deinem Smartphone.",
+      "exportGenericError": "Export in den Kalender fehlgeschlagen. Bitte versuche es erneut."
     },
     "hub": {
       "title": "Dein digitaler Kleiderschrank",
@@ -270,8 +282,7 @@
       "capsuleScore": {
         "subtitle": "Garderoben-Kohärenz",
         "proBadge": "PRO",
-        "premiumAlertTitle": "Premium-Funktion",
-        "premiumAlertMessage": "Führe ein Upgrade durch, um erweiterte Kleiderschrank-Analysen freizuschalten"
+        "premiumAlertMessage": "Schalte detaillierte Kleiderschrank-Einblicke mit Pro frei."
       },
       "shoppingCopilot": {
         "title": "Shopping Copilot",
@@ -533,6 +544,10 @@
     "heroCaptionStreak": "{{count}}-Tage-Style-Serie läuft",
     "yourPlan": "Dein Plan",
     "emptyState": "Noch keine Looks geplant. Tippe oben auf einen Tag, um einen zu planen.",
+    "emptyStateForDay": "Für {{date}} ist noch nichts geplant.",
+    "planOutfitCta": "Outfit planen",
+    "surpriseMeCta": "Überrasch mich stattdessen",
+    "exportToCalendar": "In Kalender exportieren",
     "plannedLook": "Geplanter Look",
     "styledByAi": "Gestylt von KI",
     "snapOrShuffle": "Foto machen oder mischen"
@@ -570,5 +585,16 @@
       "in": "in",
       "lbs": "lbs"
     }
+  },
+  "paywall": {
+    "title": "Pro-Funktion",
+    "upgrade": "Auf Pro upgraden",
+    "later": "Vielleicht später",
+    "wardrobeLimitMessage": "Kleiderschrank-Limit erreicht. Upgrade auf Pro, um unbegrenzt Teile hinzuzufügen und das Massen-Scannen freizuschalten.",
+    "chatLimitMessage": "Du hast dein kostenloses KI-Styling-Limit erreicht. Upgrade auf Pro für unbegrenzten Chat.",
+    "shoppingCopilotMessage": "Verfügbar in Pro: Erhalte sofortige KI-Beratung in der Umkleidekabine.",
+    "calendarSyncMessage": "Synchronisiere deinen Kalender für kontextbezogene Outfits mit Pro.",
+    "calendarExportMessage": "Exportiere Outfits mit Pro in deinen Apple- oder Google-Kalender.",
+    "plannerDaysLimitMessage": "Du hast dein kostenloses Limit von 2 geplanten Tagen erreicht. Upgrade auf Pro, um deine ganze Woche zu planen."
   }
 }

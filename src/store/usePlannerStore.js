@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
+import { useUserStore } from './useUserStore';
+import { FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
 
 // Local calendar-day key ("YYYY-MM-DD"). Deliberately not
 // `date.toISOString().slice(0, 10)` — that converts to UTC first, which can
@@ -87,6 +89,25 @@ export const usePlannerStore = create(
       // links. Replacing rather than diffing old vs. new outfitIds is
       // simpler and just as correct for a handful of rows per outfit.
       scheduleOutfit: async (dateKey, outfit) => {
+        // Freemium day-count cap — the real backstop. PlannerScreen's own
+        // pre-check (canPlanDay) is the primary UX path, but StylistScreen's
+        // Save-to-Planner modal offers every one of the next 7 days with no
+        // day-scoped lock of its own, so this is what actually stops a free
+        // client from exceeding the cap no matter which screen the request
+        // came from. Re-scheduling a day that's ALREADY planned (replacing
+        // its look) never counts against the cap — only creating a plan for
+        // a day that doesn't have one yet does, per getPlannedDaysCount
+        // below counting unique planned dates, not saves.
+        if (
+          !useUserStore.getState().isPro &&
+          !get().scheduledOutfits[dateKey] &&
+          getPlannedDaysCount(get().scheduledOutfits) >= FREE_PLANNED_DAYS_LIMIT
+        ) {
+          throw new Error(
+            "You've reached your free limit of 2 planned days. Upgrade to Pro to plan your whole week."
+          );
+        }
+
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -178,6 +199,18 @@ export const usePlannerStore = create(
     }
   )
 );
+
+// Freemium gate's own count — every key in `scheduledOutfits` IS a unique
+// planned date already (it's keyed by dateKey, one row per day), so this is
+// just naming that fact for the call sites that need it (PlannerScreen's own
+// pre-check, scheduleOutfit's real backstop above) rather than each of them
+// reaching for `Object.keys(...).length` directly. Same plain-function-over-
+// scheduledOutfits shape as getStyleStreak below, not a Zustand-bound
+// selector — both are pure derivations any caller can run against a
+// snapshot they already have.
+export function getPlannedDaysCount(scheduledOutfits) {
+  return Object.keys(scheduledOutfits).length;
+}
 
 // "Style Streak" — consecutive days (ending today) the client planned a
 // look via scheduleOutfit. Today gets a grace period: an unplanned "today"

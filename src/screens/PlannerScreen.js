@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { usePlannerStore, toDateKey, getStyleStreak } from '../store/usePlannerStore';
+import { usePlannerStore, toDateKey, getStyleStreak, getPlannedDaysCount } from '../store/usePlannerStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUserStore } from '../store/useUserStore';
@@ -14,8 +14,18 @@ import { colors, cardTints, spacing, radius, typography, withAlpha } from '../th
 import Skeleton from '../components/Skeleton';
 import ScreenContainer from '../components/ScreenContainer';
 import ConfirmDialog from '../components/ConfirmDialog';
+import PaywallModal from '../components/PaywallModal';
+import Toast from '../components/Toast';
 import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
+import { usePaywall } from '../hooks/usePaywall';
 import { TourTarget } from '../components/AppTour';
+import {
+  exportOutfitToCalendar,
+  CalendarPermissionDeniedError,
+  CalendarWebUnavailableError,
+} from '../services/calendarService';
+import { FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
 
 const DAY_COUNT = 7;
 // v7 — restores the mockup's per-card tint cycling (`planCardCoralStyle`/
@@ -47,11 +57,26 @@ function summarizeOutfit(scheduled, wardrobeById) {
   return scheduled.newItems?.[0]?.name || null;
 }
 
+// Every piece in a scheduled day's outfit, for Export to Calendar's own
+// event `notes` — unlike summarizeOutfit's own 2-item, subcategory-only
+// card title, the calendar event has room for the full list, so this pulls
+// color + subcategory for wardrobe pieces (a plain subcategory alone reads
+// as "Top", not "the top I meant") plus every suggested-to-buy item's name.
+function getScheduledItemNames(scheduled, wardrobeById) {
+  const wardrobeNames = (scheduled.outfitIds || [])
+    .map((id) => wardrobeById[id])
+    .filter(Boolean)
+    .map((item) => `${item.color} ${item.subcategory}`);
+  const suggestedNames = (scheduled.newItems || []).map((entry) => entry.name).filter(Boolean);
+  return [...wardrobeNames, ...suggestedNames];
+}
+
 export default function PlannerScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
   const user = useUserStore((state) => state.user);
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const isPro = useUserStore((state) => state.isPro);
   const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
   const plannerLoading = usePlannerStore((state) => state.loading);
   const fetchOutfits = usePlannerStore((state) => state.fetchOutfits);
@@ -60,7 +85,10 @@ export default function PlannerScreen() {
   const setPendingPrompt = useChatStore((state) => state.setPendingPrompt);
 
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [exporting, setExporting] = useState(false);
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
+  const { toastMessage, toastKey, showToast } = useToast();
+  const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
   const wardrobeById = useMemo(
     () => Object.fromEntries(wardrobe.map((item) => [item.id, item])),
@@ -70,8 +98,23 @@ export default function PlannerScreen() {
   const days = useMemo(buildWeekDays, []);
   const todayKey = useMemo(() => toDateKey(new Date()), []);
   const selectedKey = toDateKey(selectedDate);
+  const selectedEntry = scheduledOutfits[selectedKey] || null;
 
-  const scheduledCount = days.filter((date) => scheduledOutfits[toDateKey(date)]).length;
+  // Freemium cap's own count — every key in `scheduledOutfits` is a unique
+  // planned date already (see getPlannedDaysCount's own comment). Used for
+  // both the hero's "N of 7 days planned" badge and the gate below, so the
+  // two can never drift apart on what "planned" means.
+  const plannedDaysCount = useMemo(() => getPlannedDaysCount(scheduledOutfits), [scheduledOutfits]);
+  // Whether creating a NEW plan for the selected day is currently allowed —
+  // `isPro` always wins; a day that's already planned is always re-plannable
+  // (replacing its look doesn't add to the count, see scheduleOutfit's own
+  // comment); otherwise only true while under FREE_PLANNED_DAYS_LIMIT.
+  const canPlanSelectedDay = isPro || !!selectedEntry || plannedDaysCount < FREE_PLANNED_DAYS_LIMIT;
+  // Cycles by day-of-week rather than a fixed color — "Your plan" now shows
+  // only one card at a time (no more index to cycle tints across), so this
+  // is what keeps the card's own color changing as the client browses
+  // different days instead of it going flat/static.
+  const selectedTint = PLAN_CARD_TINTS[selectedDate.getDay() % PLAN_CARD_TINTS.length];
   const streak = useMemo(() => getStyleStreak(scheduledOutfits), [scheduledOutfits]);
 
   // Same "only the true first-load has nothing yet" gate WeeklyPlanner used
@@ -98,25 +141,14 @@ export default function PlannerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
-  const scheduledEntries = useMemo(() => {
-    return days
-      .map((date) => {
-        const dateKey = toDateKey(date);
-        const scheduled = scheduledOutfits[dateKey];
-        return scheduled ? { date, dateKey, scheduled } : null;
-      })
-      .filter(Boolean);
-  }, [days, scheduledOutfits]);
-
+  // Pure day selection now — every pill is clickable regardless of tier
+  // (see the day-row render below), and picking one only changes which
+  // day's plan "Your plan" shows. Creating a NEW plan is its own explicit
+  // action (handlePlanPress/handleShufflePress below), not an automatic
+  // side effect of tapping an empty day — that's what let a client end up
+  // in the AI Stylist chat without ever meaning to leave this screen.
   function handleSelectDay(date) {
     setSelectedDate(date);
-    const dateKey = toDateKey(date);
-    if (scheduledOutfits[dateKey]) return;
-
-    // Same hand-off WeeklyPlanner's empty-day "+" used: pre-fill, don't
-    // auto-send — the client still has to hit send on the Stylist tab.
-    const label = formatWeekdayLong(date, i18n.language);
-    navigation.navigate('AI Stylist', { initialPrompt: t('planner.askPrompt', { date: label }) });
   }
 
   function handleRemove(dateKey) {
@@ -133,13 +165,61 @@ export default function PlannerScreen() {
     });
   }
 
-  function handleCameraQuickAction() {
+  // "Plan outfit" CTA in the selected day's empty state — same hand-off
+  // WeeklyPlanner's old empty-day "+" used: pre-fill, don't auto-send, the
+  // client still has to hit send on the Stylist tab. Gated by
+  // canPlanSelectedDay first: a free client already at the 2-day cap trying
+  // to start a plan for a THIRD day gets the paywall instead of a wasted
+  // trip to the chat tab.
+  function handlePlanPress() {
+    if (!canPlanSelectedDay) {
+      showPaywall(t('paywall.plannerDaysLimitMessage'));
+      return;
+    }
+    const label = formatWeekdayLong(selectedDate, i18n.language);
+    navigation.navigate('AI Stylist', { initialPrompt: t('planner.askPrompt', { date: label }) });
+  }
+
+  function handleShufflePress() {
+    if (!canPlanSelectedDay) {
+      showPaywall(t('paywall.plannerDaysLimitMessage'));
+      return;
+    }
+    setPendingPrompt(t('stylist.quickPrompts.surpriseMe'));
     navigation.navigate('AI Stylist');
   }
 
-  function handleShuffleQuickAction() {
-    setPendingPrompt(t('stylist.quickPrompts.surpriseMe'));
-    navigation.navigate('AI Stylist');
+  // Export to Calendar — always acts on the currently selected day's own
+  // plan (unlike InspirationDetailScreen's version of this button, which
+  // needs its own day-picker since a saved Lookbook look isn't tied to any
+  // one date; here the card already IS a specific date, so exporting is a
+  // single tap with no extra picker).
+  async function handleExportPress() {
+    if (!isPro) {
+      showPaywall(t('paywall.calendarExportMessage'));
+      return;
+    }
+    if (exporting || !selectedEntry) return;
+    setExporting(true);
+    try {
+      const itemNames = getScheduledItemNames(selectedEntry, wardrobeById);
+      await exportOutfitToCalendar({ itemNames, date: selectedDate });
+      // Reuses closet.inspirationDetail's own calendar-export copy — same
+      // messages, same feature, just a different entry point onto it, not
+      // worth duplicating across 7 locales for an identical string.
+      showToast(t('closet.inspirationDetail.exportSuccess'));
+    } catch (err) {
+      if (err instanceof CalendarPermissionDeniedError) {
+        showToast(t('closet.inspirationDetail.exportPermissionDenied'));
+      } else if (err instanceof CalendarWebUnavailableError) {
+        showToast(t('closet.inspirationDetail.exportWebUnavailable'));
+      } else {
+        console.error('[PlannerScreen] Calendar export failed:', err);
+        showToast(err.message || t('closet.inspirationDetail.exportGenericError'));
+      }
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -185,7 +265,7 @@ export default function PlannerScreen() {
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeText}>{t('planner.heroBadge')}</Text>
             </View>
-            <Text style={styles.heroTitle}>{t('planner.heroTitle', { count: scheduledCount })}</Text>
+            <Text style={styles.heroTitle}>{t('planner.heroTitle', { count: plannedDaysCount })}</Text>
             <Text style={styles.heroCaption}>
               {streak > 0 ? t('planner.heroCaptionStreak', { count: streak }) : t('planner.heroCaption')}
             </Text>
@@ -210,6 +290,15 @@ export default function PlannerScreen() {
               {days.map((date) => {
                 const dateKey = toDateKey(date);
                 const isSelected = dateKey === selectedKey;
+                // Freemium cap now limits how many days can be PLANNED, not
+                // which pills can be tapped — every day is a real, open
+                // navigation target regardless of tier (see canPlanSelectedDay
+                // for where the actual limit is enforced instead). The small
+                // dot is purely informational: "this day already has a plan",
+                // not a lock — helps orient which of the 7 days to check
+                // without tapping through each one now that "Your plan" below
+                // only ever shows the ONE currently-selected day.
+                const isPlanned = !!scheduledOutfits[dateKey];
                 return (
                   <TouchableOpacity
                     key={dateKey}
@@ -223,6 +312,9 @@ export default function PlannerScreen() {
                     <Text style={[styles.dayPillDate, isSelected && styles.dayPillLabelSelected]}>
                       {date.getDate()}
                     </Text>
+                    {isPlanned && (
+                      <View style={[styles.dayPillPlannedDot, isSelected && styles.dayPillPlannedDotSelected]} />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -233,71 +325,90 @@ export default function PlannerScreen() {
 
       <Text style={styles.planLabel}>{t('planner.yourPlan')}</Text>
 
-      <View style={styles.grid}>
-        {!showLoading && scheduledEntries.length === 0 && (
-          <View style={styles.plannerEmptyStateCard}>
-            <View style={styles.emptyStateIconWrap}>
-              <Feather name="calendar" size={26} color={colors.textMuted} />
-            </View>
-            <Text style={styles.emptyStateText}>{t('planner.emptyState')}</Text>
-          </View>
-        )}
-
-        {scheduledEntries.map(({ date, dateKey, scheduled }, index) => {
-          const summary = summarizeOutfit(scheduled, wardrobeById);
-          const tintKey = PLAN_CARD_TINTS[index % PLAN_CARD_TINTS.length];
-          return (
-            <TouchableOpacity
-              key={dateKey}
-              style={[
-                styles.planCard,
-                { backgroundColor: cardTints[tintKey], borderColor: cardTints[`${tintKey}Border`] },
-              ]}
-              onLongPress={() => handleRemove(dateKey)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.planCardBadge}>
-                <Text style={styles.planCardBadgeText}>
-                  {dateKey === todayKey ? t('planner.today') : formatWeekdayShort(date, i18n.language)}
-                </Text>
-              </View>
-              <View>
-                <Text style={styles.planCardTitle} numberOfLines={2}>
-                  {summary || t('planner.plannedLook')}
-                </Text>
-                <Text style={styles.planCardCaption}>{formatWeekdayShortWithDate(date, i18n.language)}</Text>
-              </View>
-              <Text style={styles.planCardFooter}>{t('planner.styledByAi')}</Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        <View style={styles.quickActionsCard}>
-          <View style={styles.quickActionsRow}>
-            <TouchableOpacity
-              style={styles.quickActionCircle}
-              onPress={handleCameraQuickAction}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="camera" size={15} color={colors.inverseText} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickActionCircle}
-              onPress={handleShuffleQuickAction}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="shuffle" size={15} color={colors.inverseText} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.quickActionsCaption}>{t('planner.snapOrShuffle')}</Text>
+      {/* "Your plan" now shows exactly ONE card: whichever day is selected
+          above, never every planned day at once (that was the actual bug —
+          tapping a day pill visibly re-highlighted it but this section kept
+          rendering the full week's worth of cards regardless). */}
+      {showLoading ? (
+        <View style={[styles.planCardFull, styles.planCardSkeleton]}>
+          <Skeleton width={72} height={20} borderRadius={radius.pill} />
+          <Skeleton width="70%" height={18} style={{ marginTop: spacing.md }} />
+          <Skeleton width="40%" height={12} style={{ marginTop: spacing.xs }} />
         </View>
-      </View>
+      ) : selectedEntry ? (
+        <View
+          style={[
+            styles.planCardFull,
+            {
+              backgroundColor: cardTints[selectedTint],
+              borderColor: cardTints[`${selectedTint}Border`],
+            },
+          ]}
+        >
+          <View style={styles.planCardHeaderRow}>
+            <View style={styles.planCardBadge}>
+              <Text style={styles.planCardBadgeText}>
+                {selectedKey === todayKey ? t('planner.today') : formatWeekdayShort(selectedDate, i18n.language)}
+              </Text>
+            </View>
+            {/* Export to Calendar — the whole point of this redesign's 3rd
+                task: a client shouldn't have to go hunting for this, it sits
+                right on the card it acts on. */}
+            <TouchableOpacity
+              style={styles.exportBtn}
+              onPress={handleExportPress}
+              activeOpacity={0.8}
+              disabled={exporting}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="calendar" size={13} color={colors.textPrimary} />
+              <Text style={styles.exportBtnText}>{t('planner.exportToCalendar')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View>
+            <Text style={styles.planCardTitle} numberOfLines={2}>
+              {summarizeOutfit(selectedEntry, wardrobeById) || t('planner.plannedLook')}
+            </Text>
+            <Text style={styles.planCardCaption}>{formatWeekdayShortWithDate(selectedDate, i18n.language)}</Text>
+          </View>
+
+          <View style={styles.planCardFooterRow}>
+            <Text style={styles.planCardFooter}>{t('planner.styledByAi')}</Text>
+            <TouchableOpacity
+              onPress={() => handleRemove(selectedKey)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="trash-2" size={15} color={colors.textPrimary} style={styles.planCardRemoveIcon} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.plannerEmptyStateCard}>
+          <View style={styles.emptyStateIconWrap}>
+            <Feather name="calendar" size={26} color={colors.textMuted} />
+          </View>
+          <Text style={styles.emptyStateText}>
+            {t('planner.emptyStateForDay', {
+              date: selectedKey === todayKey ? t('planner.today') : formatWeekdayLong(selectedDate, i18n.language),
+            })}
+          </Text>
+          <TouchableOpacity style={styles.planOutfitBtn} onPress={handlePlanPress} activeOpacity={0.85}>
+            <Feather name="plus" size={15} color={colors.inverseText} />
+            <Text style={styles.planOutfitBtnText}>{t('planner.planOutfitCta')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.surpriseLink} onPress={handleShufflePress} activeOpacity={0.7}>
+            <Feather name="shuffle" size={13} color={colors.textSecondary} />
+            <Text style={styles.surpriseLinkText}>{t('planner.surpriseMeCta')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {dialogProps && (
         <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
       )}
+      <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
+      <Toast key={toastKey} message={toastMessage} />
     </ScreenContainer>
   );
 }
@@ -380,20 +491,43 @@ const styles = StyleSheet.create({
   dayPillDate: { fontSize: 15, fontWeight: '800', color: colors.textPrimary },
   dayPillLabelSelected: { color: colors.inverseText },
   dayPillSkeleton: { width: 52, height: 64, alignItems: 'center', justifyContent: 'center' },
+  // Purely informational "this day has a plan" marker — see the day-row's
+  // own comment on why this replaced the old lock badge.
+  dayPillPlannedDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.textSecondary },
+  dayPillPlannedDotSelected: { backgroundColor: colors.inverseText },
 
   planLabel: { fontSize: 17, fontWeight: '800', color: colors.textPrimary, marginTop: spacing.sm, marginBottom: spacing.sm },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  planCard: {
-    width: '47%',
+  // "Your plan" — full width now (was a 47% grid tile alongside a second
+  // card/quickActionsCard): there's only ever ONE of these on screen at a
+  // time, for whichever day is selected above.
+  planCardFull: {
+    width: '100%',
     minHeight: 172,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.card,
-    padding: spacing.sm,
+    padding: spacing.md,
     justifyContent: 'space-between',
   },
+  planCardSkeleton: { backgroundColor: colors.surface },
+  planCardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  planCardFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  planCardRemoveIcon: { opacity: 0.55 },
+  // Export to Calendar — sits in the plan card's own header row, right next
+  // to the day badge, so it's visible the instant a client opens a planned
+  // day instead of buried in a menu or a separate screen.
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: withAlpha(colors.surface, 0.75),
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  exportBtnText: { fontSize: 11, fontWeight: '700', color: colors.textPrimary },
   // v7 — badge bg matches the mockup's `heroBadgeStyleSmall`
   // (`rgba(255,255,255,0.75)`), not the flat paper background — a
   // translucent white reads consistently across all three tint colors.
@@ -409,11 +543,13 @@ const styles = StyleSheet.create({
   planCardCaption: { fontSize: 11, fontWeight: '600', color: colors.textPrimary, opacity: 0.7 },
   planCardFooter: { fontSize: 11, fontWeight: '700', color: colors.textPrimary, opacity: 0.55 },
 
-  // Zero-plans state — full width (not a 47% grid tile like planCard) so it
-  // reads as its own message rather than a lone half-width card floating
-  // next to quickActionsCard. Same icon-chip + caption pattern as
+  // Zero-plan-for-this-day state — same icon-chip + caption pattern as
   // WardrobeCatalogScreen's CategoryEmptyState, for a consistent "nothing
-  // here yet" language across tabs.
+  // here yet" language across tabs. Now the selected day's own empty state
+  // (was a whole-week "nothing planned at all" message before) — carries
+  // the actual "Plan outfit"/"Surprise me" entry points, since the old
+  // always-present quickActionsCard tile is gone (planning is scoped to
+  // whichever day is selected now, not a separate generic tile).
   plannerEmptyStateCard: {
     width: '100%',
     alignItems: 'center',
@@ -437,26 +573,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     textAlign: 'center',
+    marginBottom: spacing.md,
   },
-
-  quickActionsCard: {
-    width: '47%',
-    minHeight: 172,
-    borderRadius: radius.card,
-    backgroundColor: colors.inverseBackground,
+  planOutfitBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    padding: spacing.sm,
+    backgroundColor: colors.inverseBackground,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
-  quickActionsRow: { flexDirection: 'row', gap: spacing.xs },
-  quickActionCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: withAlpha(colors.inverseText, 0.15),
+  planOutfitBtnText: { fontSize: 14, fontWeight: '700', color: colors.inverseText },
+  surpriseLink: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  quickActionsCaption: { fontSize: 11, fontWeight: '700', color: colors.inverseText, opacity: 0.8 },
+  surpriseLinkText: { fontSize: 12.5, fontWeight: '600', color: colors.textSecondary },
 });

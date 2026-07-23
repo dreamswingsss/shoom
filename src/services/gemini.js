@@ -18,13 +18,14 @@ const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models
 export const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'];
 
 // Thrown by fetchWithFallback only when every model in FALLBACK_MODELS came
-// back rate-limited. Callers catch this specific error to decide their own
-// graceful-degradation response — each AI feature needs a different shape
-// (a chat message vs. a scan-result object vs. an outfit list), so that
-// decision stays in the caller rather than being baked in here.
+// back rate-limited or overloaded (see isRateLimitError above — both count).
+// Callers catch this specific error to decide their own graceful-degradation
+// response — each AI feature needs a different shape (a chat message vs. a
+// scan-result object vs. an outfit list), so that decision stays in the
+// caller rather than being baked in here.
 export class GeminiRateLimitError extends Error {
   constructor() {
-    super('All fallback models are currently rate-limited.');
+    super('All fallback models are currently rate-limited or overloaded.');
     this.name = 'GeminiRateLimitError';
   }
 }
@@ -48,15 +49,23 @@ function buildGeminiEndpoint(model) {
   return `${GEMINI_API_BASE}/${model}:generateContent`;
 }
 
-// True only for quota/rate-limit failures — the one case where trying the
-// next model in FALLBACK_MODELS can actually help. Any other error (bad
-// API key, malformed request, network outage) fails identically on every
-// model, so those propagate immediately instead of cycling the whole chain.
+// True for quota/rate-limit failures (429 RESOURCE_EXHAUSTED) AND transient
+// per-model overload (Gemini's 503 "The model is overloaded"/"is currently
+// experiencing high demand" errors) — the two cases where trying the next
+// model in FALLBACK_MODELS can actually help, since both are specific to
+// the one model that just failed, not the account/request itself. Any other
+// error (bad API key, malformed request, network outage) fails identically
+// on every model, so those propagate immediately instead of cycling the
+// whole chain.
 function isRateLimitError(err) {
-  if (err?.status === 429) return true;
+  if (err?.status === 429 || err?.status === 503) return true;
   const haystack = `${err?.geminiStatus || ''} ${err?.message || ''}`.toLowerCase();
   return (
-    haystack.includes('resource_exhausted') || haystack.includes('quota') || haystack.includes('rate limit')
+    haystack.includes('resource_exhausted') ||
+    haystack.includes('quota') ||
+    haystack.includes('rate limit') ||
+    haystack.includes('overloaded') ||
+    haystack.includes('high demand')
   );
 }
 

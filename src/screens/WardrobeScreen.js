@@ -45,13 +45,16 @@ import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
+import { usePaywall } from '../hooks/usePaywall';
 import ScanSheet from '../components/ScanSheet';
 import LockableTile from '../components/LockableTile';
 import Toast from '../components/Toast';
+import PaywallModal from '../components/PaywallModal';
 import Skeleton from '../components/Skeleton';
 import { TourTarget, useAppTour } from '../components/AppTour';
 import ColorDnaCalibrationSheet from '../components/ColorDnaCalibrationSheet';
 import { triggerHaptic } from '../utils/haptics';
+import { FREE_WARDROBE_LIMIT } from '../constants/monetization';
 
 // Radius for icon chips. The Hub's own cards use `radius.card` (redesign
 // v2) — this constant lives on for the pieces that didn't move (icon chips,
@@ -88,6 +91,7 @@ export default function WardrobeScreen() {
   const styleVibes = useUserStore((state) => state.styleVibes);
   const hasSeenAppTour = useUserStore((state) => state.hasSeenAppTour);
   const completeAppTour = useUserStore((state) => state.completeAppTour);
+  const isPro = useUserStore((state) => state.isPro);
   const fadeOpacity = useFadeOnFocus();
   const tour = useAppTour();
 
@@ -110,6 +114,7 @@ export default function WardrobeScreen() {
   const [copilotAnalyzing, setCopilotAnalyzing] = useState(false);
   const [colorDnaModalVisible, setColorDnaModalVisible] = useState(false);
   const { toastMessage, toastKey, toastHoldMs, showToast } = useToast();
+  const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
   const palette = useMemo(() => getPalette(skinTone, hairColor, eyeColor), [skinTone, hairColor, eyeColor]);
   // Progressive Profiling gate — Deferred Registration stopped collecting
@@ -285,6 +290,17 @@ export default function WardrobeScreen() {
 
   function handleScan() {
     triggerHaptic();
+
+    // Freemium wardrobe cap — blocks BEFORE the sheet ever opens (the real
+    // backstop, for any path that somehow gets here anyway, lives in
+    // useWardrobeStore's own addItem). Checked against the live `wardrobe`
+    // this component already subscribes to, so it can never go stale the
+    // way a value captured once at mount would.
+    if (!isPro && wardrobe.length >= FREE_WARDROBE_LIMIT) {
+      showPaywall(t('paywall.wardrobeLimitMessage'));
+      return;
+    }
+
     // No-op unless the tour is actively showing the `scanCta` step (see
     // AppTourProvider's own comment on `completeStepIfActive`) — safe to
     // call unconditionally, so this button works identically whether or
@@ -304,8 +320,18 @@ export default function WardrobeScreen() {
 
   // Snaps a candidate purchase in-store and asks the AI for a quick "Buy or
   // Pass" verdict against the client's capsule score + chosen style vibes.
+  // Pro-only — the tile stays visible/tappable on the free tier (per the
+  // monetization spec: "keep the entry point in the UI"), it just opens the
+  // paywall instead of the camera. Checked before even asking for camera
+  // permission, so a free client never sees an OS permission prompt for a
+  // feature they can't actually use yet.
   async function handleShoppingCopilot() {
     if (copilotAnalyzing) return;
+
+    if (!isPro) {
+      showPaywall(t('paywall.shoppingCopilotMessage'));
+      return;
+    }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -433,17 +459,29 @@ export default function WardrobeScreen() {
                 icon={<Feather name="star" size={18} color={colors.textPrimary} />}
                 title={`${cohesionScore}%`}
                 subtitle={t('closet.hub.capsuleScore.subtitle')}
+                // Was unconditional — a real Pro client tapping this still
+                // saw the lock badge and got sent to the paywall every
+                // time, since neither the badge nor onPress ever checked
+                // `isPro`. Gating both like every other Pro tile in this
+                // file (Shopping Copilot's own `handleShoppingCopilot`
+                // right below is the pattern this now matches).
                 badge={
-                  <>
-                    <Feather name="lock" size={10} color={colors.inverseText} />
-                    <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
-                  </>
+                  !isPro ? (
+                    <>
+                      <Feather name="lock" size={10} color={colors.inverseText} />
+                      <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
+                    </>
+                  ) : null
                 }
-                // Teaser only — the score itself still shows, but the detailed
-                // breakdown (ColorDnaModal's equivalent for this tile) is the
-                // paywalled part. Real paywall (subscription screen) TBD; this
-                // is the UI lock ahead of it.
-                onPress={() => showToast(t('closet.hub.capsuleScore.premiumAlertMessage'))}
+                // Teaser only — the score itself already shows above
+                // regardless of tier. There's no real detailed-breakdown
+                // screen built yet (see this tile's own history — "Real
+                // paywall (subscription screen) TBD"), so a Pro tap has
+                // nothing further to open; only a free tap does anything,
+                // same "onPress only exists for the paywalled case" shape
+                // WardrobeScreen's LookbookCard onDelete-adjacent taps use
+                // elsewhere.
+                onPress={isPro ? undefined : () => showPaywall(t('closet.hub.capsuleScore.premiumAlertMessage'))}
               />
             </FadeInView>
           </View>
@@ -626,6 +664,7 @@ export default function WardrobeScreen() {
       />
 
       <Toast key={toastKey} message={toastMessage} holdMs={toastHoldMs} />
+      <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
       </Animated.View>
     </ScreenContainer>
   );
@@ -752,6 +791,22 @@ function SectionSwitcher({ section, onChange }) {
 // English word, two different features that happen to share a screen.
 const LOOKBOOK_SKELETON_COUNT = 4;
 const LOOKBOOK_THUMB_LIMIT = 4;
+const LOOKBOOK_COLUMNS = 2;
+
+// Groups saved looks into row-sized chunks for the 2-up grid — same
+// technique WardrobeCatalogScreen's own `chunkIntoRows` uses for its item
+// grid (a local copy per this project's convention, see GeneratedItemThumb's
+// own `shadeColor` for another instance of it), rather than a flex-wrap
+// container: each row is `flexDirection: 'row'` with real siblings, so a
+// lone last-row card can't stretch to fill the row the way a `flex: 1` card
+// with no sibling would (see the `lookbookCardSpacer` render below).
+function chunkIntoRows(items, columns) {
+  const rows = [];
+  for (let i = 0; i < items.length; i += columns) {
+    rows.push(items.slice(i, i + columns));
+  }
+  return rows;
+}
 
 // The card's own large hero image: the base item's real photo when we have
 // one and it's still present in this exact snapshot (a wardrobe item can be
@@ -820,11 +875,7 @@ function LookbookCard({ inspiration, onDelete }) {
       )}
 
       {hero ? (
-        <GeneratedItemThumb
-          uri={hero.imageUrl}
-          name={hero.name}
-          style={[styles.lookbookHeroImage, { borderRadius: radius.sm }]}
-        />
+        <GeneratedItemThumb uri={hero.imageUrl} name={hero.name} style={styles.lookbookHeroImage} />
       ) : (
         <View style={[styles.lookbookHeroImage, styles.lookbookHeroPlaceholder]}>
           <Feather name="image" size={22} color={colors.textMuted} />
@@ -859,7 +910,7 @@ function LookbookCard({ inspiration, onDelete }) {
 function LookbookSkeletonCard() {
   return (
     <View style={styles.lookbookCard}>
-      <Skeleton style={styles.lookbookHeroImage} borderRadius={radius.card} />
+      <Skeleton style={styles.lookbookHeroImage} borderRadius={radius.lg} />
       <Skeleton width="55%" height={11} style={{ marginTop: spacing.xs }} />
       <Skeleton width="80%" height={11} style={{ marginTop: 4 }} />
     </View>
@@ -872,10 +923,15 @@ function LookbookSection({ inspirations, loading }) {
   const showLoading = loading && inspirations.length === 0;
 
   if (showLoading) {
+    const skeletonRows = chunkIntoRows(Array.from({ length: LOOKBOOK_SKELETON_COUNT }), LOOKBOOK_COLUMNS);
     return (
       <View style={styles.lookbookGrid}>
-        {Array.from({ length: LOOKBOOK_SKELETON_COUNT }).map((_, index) => (
-          <LookbookSkeletonCard key={index} />
+        {skeletonRows.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.lookbookRow}>
+            {row.map((_, colIndex) => (
+              <LookbookSkeletonCard key={colIndex} />
+            ))}
+          </View>
         ))}
       </View>
     );
@@ -892,10 +948,23 @@ function LookbookSection({ inspirations, loading }) {
     );
   }
 
+  const rows = chunkIntoRows(inspirations, LOOKBOOK_COLUMNS);
+
   return (
     <View style={styles.lookbookGrid}>
-      {inspirations.map((inspiration) => (
-        <LookbookCard key={inspiration.id} inspiration={inspiration} onDelete={removeInspiration} />
+      {rows.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.lookbookRow}>
+          {row.map((inspiration) => (
+            <LookbookCard key={inspiration.id} inspiration={inspiration} onDelete={removeInspiration} />
+          ))}
+          {/* Odd item count's last row — without this, the lone card's own
+              `flex: 1` (see `lookbookCard`) would stretch it to fill the
+              entire row width instead of sitting in its normal half-width
+              column, which is exactly the "one photo fills the whole
+              screen" bug this whole chunked-row approach exists to rule
+              out. Same fix WardrobeCatalogScreen's own grid uses. */}
+          {row.length < LOOKBOOK_COLUMNS && <View style={styles.lookbookCardSpacer} />}
+        </View>
       ))}
     </View>
   );
@@ -1501,10 +1570,20 @@ const styles = StyleSheet.create({
   sectionSwitcherText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
   sectionSwitcherTextActive: { color: colors.inverseText },
 
-  // Lookbook grid — see LookbookSection/LookbookCard.
-  lookbookGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  // Lookbook grid — see LookbookSection/LookbookCard. Chunked into real rows
+  // (chunkIntoRows) rather than one flex-wrap container of percentage-width
+  // cards — `lookbookRow` is the actual 2-up flex row; this outer view just
+  // stacks those rows.
+  lookbookGrid: { gap: spacing.sm },
+  lookbookRow: { flexDirection: 'row', gap: spacing.sm },
+  // `flex: 1` (not a fixed `width: '47%'`) — inside `lookbookRow`, two of
+  // these split the row 50/50 with the row's own `gap` as the only space
+  // between them. A lone last-row card would stretch to fill the whole row
+  // on its own; `lookbookCardSpacer` (LookbookSection's own render) is the
+  // invisible `flex: 1` sibling that keeps it at the same half-width column
+  // as every other card instead.
   lookbookCard: {
-    width: '47%',
+    flex: 1,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1513,6 +1592,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     ...shadows.soft,
   },
+  lookbookCardSpacer: { flex: 1 },
   // Floats over the hero image's top-right corner — `zIndex` so it stays
   // above the image on Android (elevation ordering isn't purely paint-order
   // there the way iOS's default z-stacking is).
@@ -1528,10 +1608,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: withAlpha('#000000', 0.45),
   },
+  // `aspectRatio: 1` + `resizeMode="cover"` (set on GeneratedItemThumb's own
+  // <Image>, not here — a style prop alone can't set that) is the pairing
+  // that actually keeps a real photo of arbitrary proportions cropped
+  // cleanly to this square instead of stretched/warped to fit it.
+  // `radius.lg` (not the card's own `radius.card`) — a large square image
+  // reads better with a visibly-but-not-maximally rounded corner; nested
+  // inside the card's own 20px radius, this still looks like one
+  // consistent shape family rather than two unrelated corner treatments.
   lookbookHeroImage: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: radius.sm,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
   },
   lookbookHeroPlaceholder: { alignItems: 'center', justifyContent: 'center' },

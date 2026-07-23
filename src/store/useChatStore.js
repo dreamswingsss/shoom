@@ -30,7 +30,23 @@ export const useChatStore = create(
       // it can't re-fire on a later visit to the tab.
       pendingPrompt: null,
 
-      addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+      // Freemium chat cap — every real client-typed/quick-prompt send counts
+      // once, forever, regardless of `clearMessages()` (that resets the
+      // visible transcript, not usage — otherwise a client could just clear
+      // the chat to reset their free limit, which would make the cap
+      // meaningless). Counted here, inside the one write path every message
+      // already goes through, rather than as a separate action StylistScreen
+      // would have to remember to call alongside every send.
+      freeMessagesUsed: 0,
+
+      addMessage: (message) =>
+        set((state) => ({
+          messages: [...state.messages, message],
+          freeMessagesUsed:
+            message.sender === 'user' && !message.hidden
+              ? state.freeMessagesUsed + 1
+              : state.freeMessagesUsed,
+        })),
       updateMessage: (id, patch) =>
         set((state) => ({
           messages: state.messages.map((message) => (message.id === id ? { ...message, ...patch } : message)),
@@ -66,7 +82,9 @@ export const useChatStore = create(
       // `pendingPrompt` is a one-shot handoff to StylistScreen, not
       // transcript history — excluding it from persistence means a prompt
       // can never get "stuck" and replay on a later, unrelated app launch.
-      partialize: (state) => ({ messages: state.messages }),
+      // `freeMessagesUsed` DOES persist — it's the whole point of an
+      // account-level cap that survives an app restart.
+      partialize: (state) => ({ messages: state.messages, freeMessagesUsed: state.freeMessagesUsed }),
     }
   )
 );
