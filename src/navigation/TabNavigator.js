@@ -94,8 +94,14 @@ function FloatingTabBar({ state, navigation }) {
   // unconditionally.
   const telegramBottomInset = useTelegramBottomSafeArea();
 
+  // Raised further off the true bottom edge than a bare safe-area inset
+  // alone would put it — a floating pill nav reading as "docked flush to
+  // the edge" looks cramped/clipped-adjacent even when nothing is actually
+  // clipping it; a visible gap above the safe area is what makes it read
+  // as floating. `24` is the new floor (was `12`) and `20` the fixed lift
+  // on top of whichever inset wins (was `14`).
   return (
-    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, telegramBottomInset, 12) + 14 }]}>
+    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, telegramBottomInset, 24) + 20 }]}>
       <View style={styles.bar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
