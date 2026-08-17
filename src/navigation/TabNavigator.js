@@ -10,6 +10,7 @@ import PlannerScreen from '../screens/PlannerScreen';
 import StylistScreen from '../screens/StylistScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { TourTarget } from '../components/AppTour';
+import { useTelegramBottomSafeArea } from '../hooks/useTelegramSafeArea';
 import { colors, spacing, radius, shadows } from '../theme/tokens';
 
 const Tab = createBottomTabNavigator();
@@ -86,9 +87,15 @@ function FloatingTabBar({ state, navigation }) {
   // default tab bar used to compute for us automatically, before it got
   // replaced with this custom one.
   const insets = useSafeAreaInsets();
+  // Telegram's OWN bottom chrome — separate from the device's hardware
+  // safe area above, and NOT something `useSafeAreaInsets()` (which only
+  // reads the browser's `env(safe-area-inset-*)`) knows anything about. 0
+  // outside Telegram, so this is safe to fold into the same `Math.max`
+  // unconditionally.
+  const telegramBottomInset = useTelegramBottomSafeArea();
 
   return (
-    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
+    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, telegramBottomInset, 12) + 14 }]}>
       <View style={styles.bar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
