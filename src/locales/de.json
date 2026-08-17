@@ -1,10 +1,20 @@
 {
   "onboarding": {
     "splashWordmark": "shoom",
-    "splashTagline": "Dein persönlicher KI-Stylist und digitaler Kleiderschrank",
+    "splashTagline": "Dein persönlicher Stylist — abgestimmt auf deinen Farbtyp, deine Körperform und deine Maße, nicht nur auf deinen Kleiderschrank.",
     "splashHeadline": {
       "line1": "Dein persönlicher",
       "highlight": "KI-Stylist"
+    },
+    "howItWorks": {
+      "title": "Mehr als eine Kleiderschrank-App",
+      "subtitle": "Jede Empfehlung dreht sich um dich, nicht um Trends.",
+      "feature1Title": "Passt zu deinem Farbtyp",
+      "feature1Text": "Ein rotes Top gewählt, das nicht zu deinem Farbtyp passt? Wir sagen es dir vorher.",
+      "feature2Title": "Passt zu deiner Körperform",
+      "feature2Text": "Du magst Oversize, aber deine Form braucht Taillierung? Wir sagen es dir — und was stattdessen passt.",
+      "feature3Title": "Ein echter persönlicher Stylist",
+      "feature3Text": "Kein reiner Scanner — Shoom analysiert dich und gibt echte Tipps, wie du am besten aussiehst."
     },
     "languageStep": {
       "title": "Sprache wählen"

@@ -1,10 +1,20 @@
 {
   "onboarding": {
     "splashWordmark": "shoom",
-    "splashTagline": "Il tuo stylist IA personale e guardaroba digitale",
+    "splashTagline": "Il tuo stylist personale — su misura per il tuo sottotono, la forma del tuo corpo e le tue misure, non solo per il guardaroba.",
     "splashHeadline": {
       "line1": "Il tuo stylist",
       "highlight": "IA tascabile"
+    },
+    "howItWorks": {
+      "title": "Più di una semplice app guardaroba",
+      "subtitle": "Ogni consiglio è pensato per te, non per una tendenza.",
+      "feature1Title": "Si adatta al tuo sottotono",
+      "feature1Text": "Hai scelto un capo rosso che non si addice al tuo sottotono? Te lo diciamo prima che lo indossi.",
+      "feature2Title": "Si adatta alla forma del tuo corpo",
+      "feature2Text": "Ami l'oversize ma la tua forma chiede una vestibilità slim? Te lo diciamo — e cosa indossare invece.",
+      "feature3Title": "Un vero stylist personale",
+      "feature3Text": "Non è solo uno scanner — Shoom ti analizza e ti dà consigli reali per valorizzarti."
     },
     "languageStep": {
       "title": "Scegli la lingua"

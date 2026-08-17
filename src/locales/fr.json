@@ -1,10 +1,20 @@
 {
   "onboarding": {
     "splashWordmark": "shoom",
-    "splashTagline": "Ton styliste IA personnel et dressing numérique",
+    "splashTagline": "Ton styliste personnel — adapté à ta carnation, ta morphologie et tes mesures, pas seulement à ta garde-robe.",
     "splashHeadline": {
       "line1": "Ton styliste",
       "highlight": "IA de poche"
+    },
+    "howItWorks": {
+      "title": "Plus qu'une simple app dressing",
+      "subtitle": "Chaque recommandation est pensée pour toi, pas pour une tendance.",
+      "feature1Title": "Adapté à ta carnation",
+      "feature1Text": "Un haut rouge qui jure avec ta carnation ? On te le dit avant de le porter.",
+      "feature2Title": "Adapté à ta morphologie",
+      "feature2Text": "Tu aimes l'oversize, mais ta morphologie appelle une coupe ajustée ? On te le dit — et quoi porter à la place.",
+      "feature3Title": "Un vrai styliste personnel",
+      "feature3Text": "Pas juste un scanner — Shoom t'analyse et te donne de vrais conseils pour être à ton avantage."
     },
     "languageStep": {
       "title": "Choisissez la langue"

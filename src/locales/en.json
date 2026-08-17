@@ -1,10 +1,20 @@
 {
   "onboarding": {
     "splashWordmark": "shoom",
-    "splashTagline": "Upload your wardrobe, discover new pairings, and let your AI stylist build the perfect look for your taste and the weather — every day.",
+    "splashTagline": "Your personal stylist — matched to your color type, body shape, and measurements, not just your wardrobe.",
     "splashHeadline": {
       "line1": "Your pocket",
       "highlight": "AI Stylist"
+    },
+    "howItWorks": {
+      "title": "More than a wardrobe app",
+      "subtitle": "Every recommendation is built around you, not a trend.",
+      "feature1Title": "Matches your color type",
+      "feature1Text": "Picked a red top that clashes with your coloring? We'll tell you before you wear it.",
+      "feature2Title": "Fits your body shape",
+      "feature2Text": "Love oversized, but your shape calls for slim? We'll say so — and what to wear instead.",
+      "feature3Title": "A real personal stylist",
+      "feature3Text": "Not just a scanner — Shoom analyzes you and gives real advice to help you look your best."
     },
     "languageStep": {
       "title": "Choose Language"

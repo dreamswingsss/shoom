@@ -1,10 +1,20 @@
 {
   "onboarding": {
     "splashWordmark": "shoom",
-    "splashTagline": "Seu estilista de IA pessoal e guarda-roupa digital",
+    "splashTagline": "Seu estilista pessoal — ajustado ao seu subtom de pele, formato corporal e medidas, não só ao seu guarda-roupa.",
     "splashHeadline": {
       "line1": "Seu estilista",
       "highlight": "com IA"
+    },
+    "howItWorks": {
+      "title": "Mais do que um app de guarda-roupa",
+      "subtitle": "Cada recomendação é pensada para você, não para uma tendência.",
+      "feature1Title": "Combina com seu subtom de pele",
+      "feature1Text": "Escolheu uma peça vermelha que não combina com seu subtom? A gente avisa antes de você usar.",
+      "feature2Title": "Combina com seu formato corporal",
+      "feature2Text": "Gosta de oversized, mas seu formato pede algo ajustado? A gente avisa — e diz o que usar no lugar.",
+      "feature3Title": "Um verdadeiro estilista pessoal",
+      "feature3Text": "Não é só um scanner — o Shoom analisa você e dá conselhos reais para você se destacar."
     },
     "languageStep": {
       "title": "Escolha o idioma"

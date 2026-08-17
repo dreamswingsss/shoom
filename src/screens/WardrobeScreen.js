@@ -90,8 +90,6 @@ export default function WardrobeScreen() {
   const hairColor = useUserStore((state) => state.hairColor);
   const eyeColor = useUserStore((state) => state.eyeColor);
   const styleVibes = useUserStore((state) => state.styleVibes);
-  const hasSeenAppTour = useUserStore((state) => state.hasSeenAppTour);
-  const completeAppTour = useUserStore((state) => state.completeAppTour);
   const isPro = useUserStore((state) => state.isPro);
   const fadeOpacity = useFadeOnFocus();
   const tour = useAppTour();
@@ -169,144 +167,16 @@ export default function WardrobeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // App Tour auto-start — the nav-orientation walkthrough for a brand new,
-  // still-empty Closet (gender is Onboarding's only remaining question, see
-  // WelcomeScreen.js; this is where the client actually gets shown around).
-  //
-  // Local steps (header/plannerCard/catalogWidget) spotlight content on
-  // THIS screen's own ScrollView — `scrollViewRef` below is what lets
-  // AppTourProvider auto-center it via measureLayout when it's below the
-  // fold (see AppTour.js's own prepareStep effect) instead of requiring
-  // everything fit on one screen.
-  //
-  // `plannerWeekOverview` and `stylistHeader` are real navigation, not just
-  // a tab-bar icon spotlight: each one's `onEnter` switches tabs BEFORE
-  // that step measures anything, landing the spotlight on real content
-  // over on PlannerScreen/StylistScreen (their own `plannerWeekOverview`/
-  // `stylistHeader` TourTargets) — AppTour.js's waitForTargetRegistration
-  // is what makes this safe even the very first time either tab mounts.
-  // No Profile step anymore — Profile setup (Color DNA, Fit Profile) isn't
-  // part of this walkthrough; the tour stays scoped to Closet, Planner,
-  // and AI Stylist.
-  //
-  // Depends on `tour?.startTour` (the one stable function this actually
-  // calls), NOT on `tour` itself — this used to be a real, shipped
-  // infinite loop: `tour` (AppTourProvider's own context value) is
-  // deliberately reactive now (see that file's own `isTourActive`/
-  // `activeStepId` comment), changing identity on every step transition.
-  // With `tour` in this array, every time a step finished preparing and
-  // flipped `stepReady` true, this effect saw "a dependency changed" and
-  // re-ran — calling `startTour([...brand-new step objects...])` AGAIN for
-  // a tour that was already active, which reset the auto-scroll effect
-  // (new `currentStep` object, even at the same `stepIndex`/id), which
-  // re-measured and re-scrolled to the SAME target, which flipped
-  // `stepReady` again, which changed `tour`'s identity again — forever.
-  // Visually: the spotlight flickering on/off, and any manual scroll
-  // attempt getting immediately overridden by the next iteration's
-  // scrollTo. `tour?.startTour` is useCallback([])-stable for the entire
-  // AppTourProvider's lifetime, so this effect now only ever runs for the
-  // reasons its OTHER two deps describe — the tour hasn't been seen yet,
-  // and the closet just became (or already was) empty.
-  useEffect(() => {
-    if (hasSeenAppTour || !isEmptyCloset || !tour?.startTour) return;
-
-    tour.startTour(
-      [
-        { id: 'header', text: t('closet.tour.step1'), skipLabel: t('closet.tour.skip'), nextLabel: t('closet.tour.next') },
-        // Re-targets the SAME "Plan Ahead" bento tile plannerCard always
-        // pointed at, now with copy specifically about the Weekly Planner
-        // feature that tile opens, instead of the old generic "unlock the
-        // magic" pitch for locked tiles in general. Doesn't navigate
-        // anywhere itself — it's the teaser for the CARD, still on Closet;
-        // `plannerWeekOverview` right after is the one that actually goes
-        // in and shows the real feature.
-        { id: 'plannerCard', text: t('closet.tour.stepPlanner'), skipLabel: t('closet.tour.skip'), nextLabel: t('closet.tour.next') },
-        {
-          // Leaves Closet entirely — spotlights PlannerScreen's own hero
-          // card + day-of-week strip (its own `plannerWeekOverview`
-          // TourTarget, see that screen's own comment) so the client sees
-          // the actual Weekly Planner, not just the teaser card that opens
-          // it. `catalogWidget` right after is what navigates back to
-          // Closet — see ITS OWN onEnter below.
-          id: 'plannerWeekOverview',
-          text: t('closet.tour.stepPlannerWeek'),
-          skipLabel: t('closet.tour.skip'),
-          nextLabel: t('closet.tour.next'),
-          onEnter: () => navigation.navigate('Planner'),
-        },
-        {
-          id: 'catalogWidget',
-          text: t('closet.tour.step4'),
-          skipLabel: t('closet.tour.skip'),
-          nextLabel: t('closet.tour.next'),
-          // The previous step (`plannerWeekOverview`) left the client on
-          // the Planner tab — every other same-screen step in this tour
-          // can skip `onEnter` entirely because Closet was already
-          // showing, but this one specifically has to navigate BACK since
-          // it's the first Closet-side step after a detour to another tab.
-          onEnter: () => navigation.navigate('Closet'),
-        },
-        {
-          id: 'stylistHeader',
-          text: t('closet.tour.step5'),
-          skipLabel: t('closet.tour.skip'),
-          nextLabel: t('closet.tour.next'),
-          onEnter: () => navigation.navigate('AI Stylist'),
-        },
-        {
-          // `hideActions` — this step's tooltip shows text only, no Skip/
-          // Finish row: the floating "Add Item" pill below is the thing the
-          // client is meant to tap, not an in-tooltip substitute for it.
-          // `handleScan`'s own `tour.completeStepIfActive('scanCta')` call
-          // is what actually finishes the tour once it's tapped — see
-          // AppTourProvider's own comment on that function for why this
-          // needed a dedicated API rather than reusing Next.
-          //
-          // `hideSpotlightCutout` + `floatingAction` — no dimmed-backdrop
-          // hole at all for this step (not even the ring-free, zero-padding
-          // one `hideSpotlightRing` alone gives — see TourSpotlight's own
-          // `hideCutout` comment for why): the real button still pulses
-          // (see WardrobeScreen's addItemTile below) and AppTour only
-          // measures a step's target once, so a hole cut to that one-time
-          // rect used to get clipped crooked every time the real button's
-          // own pulse scaled it past the static cutout. `floatingAction`
-          // instead draws a same-styled duplicate pill directly on the now
-          // fully opaque backdrop, at that same rect, pulsing on its own —
-          // see TourFloatingAction in AppTour.js.
-          id: 'scanCta',
-          text: t('closet.tour.step3'),
-          hideActions: true,
-          hideSpotlightCutout: true,
-          floatingAction: {
-            icon: 'plus',
-            label: t('closet.hubActions.addItem'),
-            onPress: handleScan,
-          },
-          onEnter: () => navigation.navigate('Closet'),
-        },
-      ],
-      {
-        scrollViewRef: hubScrollRef,
-        onFinish: handleTourFinish,
-      }
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasSeenAppTour, isEmptyCloset, tour?.startTour]);
-
-  // Both a genuine completion (the `scanCta` step's real Add Item button
-  // tapped — see `handleScan` below) and an early Skip from an earlier step
-  // land here; either way this just marks the tour seen and lands back on
-  // Closet. It does NOT open the scanner itself anymore: the `scanCta` step
-  // has no tooltip button left to drive that (see its own `hideActions`
-  // comment above) — the ONLY way this callback ever fires with
-  // `completed: true` is because `handleScan` below already opened the
-  // scanner and THEN told the tour it was done, so doing it again here
-  // would double-fire (a second `setScanSheetVisible(true)` is harmless,
-  // but a second `triggerHaptic()` isn't).
-  function handleTourFinish() {
-    completeAppTour();
-    navigation.navigate('Closet');
-  }
+  // App Tour walkthrough retired (product decision — the empty-closet
+  // coach-mark tour that used to auto-start here is gone; the onboarding
+  // screens now explain the app up front instead). `AppTour.js`'s
+  // infrastructure (TourTarget wrappers below, AppTourProvider in App.js)
+  // is left in place but permanently inert without this effect ever
+  // calling `startTour` — every TourTarget is a harmless no-op measure
+  // call with nothing left to read its rect, and
+  // `scrollEnabled={!tour?.isTourActive}` below just always evaluates to
+  // enabled. Not worth the churn of unwinding every TourTarget call site
+  // for a feature that's simply off now.
 
   function handleScan() {
     triggerHaptic();
@@ -321,11 +191,6 @@ export default function WardrobeScreen() {
       return;
     }
 
-    // No-op unless the tour is actively showing the `scanCta` step (see
-    // AppTourProvider's own comment on `completeStepIfActive`) — safe to
-    // call unconditionally, so this button works identically whether or
-    // not a tour happens to be running.
-    tour?.completeStepIfActive('scanCta');
     setScanSheetVisible(true);
   }
 

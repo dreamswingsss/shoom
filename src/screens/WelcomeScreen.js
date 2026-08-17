@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -13,8 +14,9 @@ import Animated, {
   withSpring,
   Easing,
 } from 'react-native-reanimated';
+import { FadeInView } from '../components/AnimatedPressable';
 import { useUserStore } from '../store/useUserStore';
-import { colors, spacing, radius, fonts } from '../theme/tokens';
+import { colors, spacing, radius, fonts, typography } from '../theme/tokens';
 
 // Splash entrance — title, subtitle, and CTA rise + fade in as a staggered
 // cascade (each ~120ms after the previous) rather than one flat block
@@ -57,11 +59,16 @@ const SPLASH_BG = colors.background;
 // instead of needing its own hardcoded hex re-derived by hand each time.
 const SPLASH_WASH_COLOR = colors.sky;
 
-// Entry point for a brand new install — the splash, and NOTHING else.
-// "Get Started" -> useUserStore's `completeWelcome()` -> App.js's
-// `needsOnboarding` gate flips straight to TabNavigator, where
-// WardrobeScreen's own App Tour auto-start effect picks up the walkthrough
-// (see that screen's own comment).
+// Entry point for a brand new install — two local steps, no App Tour
+// walkthrough afterward (that coach-mark tour was retired — see
+// WardrobeScreen.js's own comment). Step 1 ('splash') is the brand
+// stamp + one-line pitch; Step 2 ('howItWorks') is what actually explains
+// the app's real differentiator BEFORE a guest ever sees the closet —
+// this isn't a wardrobe organizer, it's a stylist that checks what's
+// picked against the client's own color type and body shape. Only Step
+// 2's own "Get Started" calls `completeWelcome()` -> App.js's
+// `needsOnboarding` gate flips straight to TabNavigator; Step 1's button
+// just advances local `step` state, nothing persisted yet.
 //
 // Critical Change: this used to also ask for `gender` (a single chip-step
 // after the splash) before handing off — that's gone. No parameter is
@@ -76,6 +83,7 @@ export default function WelcomeScreen() {
   const { t } = useTranslation();
   const completeWelcome = useUserStore((state) => state.completeWelcome);
   const insets = useSafeAreaInsets();
+  const [step, setStep] = useState('splash');
 
   // Two progress values PER element (opacity + rise), instead of one
   // shared `entrance` — each pair starts `SPLASH_ENTRANCE_STAGGER_MS` after
@@ -142,6 +150,10 @@ export default function WelcomeScreen() {
     transform: [{ scale: 1 + pulse.value * (SPLASH_CTA_PULSE_SCALE - 1) }],
   }));
 
+  if (step === 'howItWorks') {
+    return <HowItWorksScreen onGetStarted={completeWelcome} />;
+  }
+
   return (
     <View style={styles.splashRoot}>
       <View style={styles.splashWash} pointerEvents="none" />
@@ -192,7 +204,7 @@ export default function WelcomeScreen() {
 
         <Animated.View style={[ctaStyle, pulseStyle]}>
           <TouchableOpacity
-            onPress={completeWelcome}
+            onPress={() => setStep('howItWorks')}
             activeOpacity={0.85}
             style={styles.splashCtaBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -201,6 +213,66 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         </Animated.View>
       </View>
+    </View>
+  );
+}
+
+// Step 2 — the app's real pitch, shown once (right before the app itself,
+// never again — this whole screen only exists between the splash CTA and
+// `completeWelcome()`). Three short feature rows instead of one paragraph:
+// each one names the specific thing this app checks that a plain wardrobe
+// scanner doesn't (color type, body shape, real styling advice) — the
+// actual differentiator the product's own client brief called out, not
+// generic "AI stylist" marketing copy. A plain FadeInView cascade (same
+// component WardrobeScreen's own hub cards use), not the splash's bespoke
+// Reanimated shared-value rig — this screen only needs a simple staggered
+// reveal, not a font-size-fitting wordmark or a perpetual button pulse.
+function HowItWorksScreen({ onGetStarted }) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+
+  const features = [
+    { icon: 'droplet', titleKey: 'feature1Title', textKey: 'feature1Text' },
+    { icon: 'user', titleKey: 'feature2Title', textKey: 'feature2Text' },
+    { icon: 'award', titleKey: 'feature3Title', textKey: 'feature3Text' },
+  ];
+
+  return (
+    <View style={[styles.howItWorksRoot, { paddingTop: insets.top + spacing.xl, paddingBottom: spacing.lg + insets.bottom }]}>
+      <View style={styles.howItWorksProgress}>
+        <View style={[styles.progressDot, styles.progressDotDone]} />
+        <View style={[styles.progressDot, styles.progressDotActive]} />
+      </View>
+
+      <FadeInView delay={0} style={styles.howItWorksHeader}>
+        <Text style={styles.howItWorksTitle}>{t('onboarding.howItWorks.title')}</Text>
+        <Text style={styles.howItWorksSubtitle}>{t('onboarding.howItWorks.subtitle')}</Text>
+      </FadeInView>
+
+      <View style={styles.howItWorksFeatureList}>
+        {features.map((feature, index) => (
+          <FadeInView key={feature.icon} delay={120 + index * 100} style={styles.featureRow}>
+            <View style={styles.featureIconWrap}>
+              <Feather name={feature.icon} size={20} color={colors.inverseText} />
+            </View>
+            <View style={styles.featureTextWrap}>
+              <Text style={styles.featureTitle}>{t(`onboarding.howItWorks.${feature.titleKey}`)}</Text>
+              <Text style={styles.featureText}>{t(`onboarding.howItWorks.${feature.textKey}`)}</Text>
+            </View>
+          </FadeInView>
+        ))}
+      </View>
+
+      <FadeInView delay={120 + features.length * 100 + 80}>
+        <TouchableOpacity
+          onPress={onGetStarted}
+          activeOpacity={0.85}
+          style={styles.splashCtaBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.splashCtaBtnText}>{t('onboarding.buttons.getStarted')}</Text>
+        </TouchableOpacity>
+      </FadeInView>
     </View>
   );
 }
@@ -356,4 +428,38 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: SPLASH_BG,
   },
+
+  // Step 2 — "How It Works". Same SPLASH_BG as step 1 so the transition
+  // between them reads as one continuous flow, not a jump to a different
+  // surface.
+  howItWorksRoot: { flex: 1, backgroundColor: SPLASH_BG, paddingHorizontal: 30 },
+  howItWorksProgress: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xs, marginBottom: spacing.xl },
+  progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
+  progressDotDone: { backgroundColor: colors.textPrimary, opacity: 0.35 },
+  progressDotActive: { backgroundColor: colors.textPrimary },
+  howItWorksHeader: { alignItems: 'center', marginBottom: spacing.xl },
+  howItWorksTitle: {
+    ...typography.h1,
+    textAlign: 'center',
+    color: colors.textPrimary,
+  },
+  howItWorksSubtitle: {
+    ...typography.bodySecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    maxWidth: 300,
+  },
+  howItWorksFeatureList: { flex: 1, justifyContent: 'center', gap: spacing.lg },
+  featureRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  featureIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.card,
+    backgroundColor: colors.textPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureTextWrap: { flex: 1 },
+  featureTitle: { ...typography.body, fontWeight: '700', color: colors.textPrimary },
+  featureText: { ...typography.bodySecondary, marginTop: 2, lineHeight: 19 },
 });
