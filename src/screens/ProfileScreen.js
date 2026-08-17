@@ -188,7 +188,7 @@ export default function ProfileScreen({ navigation, route }) {
     <ScreenContainer edges={['top']} scroll={false} contentStyle={styles.zeroHPadding}>
       <Animated.ScrollView
         contentContainerStyle={[styles.container, { paddingTop: spacing.sm }]}
-        style={{ opacity: fadeOpacity }}
+        style={{ flex: 1, opacity: fadeOpacity }}
       >
         {/* Guest: not tappable — there's no account yet for "Edit Profile"
             to write to, and no email to show. Name/subtitle swap to a

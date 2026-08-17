@@ -482,6 +482,7 @@ export default function StylistScreen() {
         ref={listRef}
         data={visibleMessages}
         keyExtractor={(item) => item.id}
+        style={styles.flexFill}
         contentContainerStyle={styles.messagesContent}
         renderItem={({ item }) => (
           <FadeInView duration={250}>

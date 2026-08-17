@@ -52,7 +52,7 @@ import LockableTile from '../components/LockableTile';
 import Toast from '../components/Toast';
 import PaywallModal from '../components/PaywallModal';
 import Skeleton from '../components/Skeleton';
-import { TourTarget, useAppTour } from '../components/AppTour';
+import { TourTarget } from '../components/AppTour';
 import ColorDnaCalibrationSheet from '../components/ColorDnaCalibrationSheet';
 import { triggerHaptic } from '../utils/haptics';
 import { FREE_WARDROBE_LIMIT } from '../constants/monetization';
@@ -92,7 +92,6 @@ export default function WardrobeScreen() {
   const styleVibes = useUserStore((state) => state.styleVibes);
   const isPro = useUserStore((state) => state.isPro);
   const fadeOpacity = useFadeOnFocus();
-  const tour = useAppTour();
 
   // 'hub' is the landing view (title/description + the two actions below);
   // 'catalog' drills into the category-grouped item browser. Kept as local
@@ -173,10 +172,17 @@ export default function WardrobeScreen() {
   // infrastructure (TourTarget wrappers below, AppTourProvider in App.js)
   // is left in place but permanently inert without this effect ever
   // calling `startTour` — every TourTarget is a harmless no-op measure
-  // call with nothing left to read its rect, and
-  // `scrollEnabled={!tour?.isTourActive}` below just always evaluates to
-  // enabled. Not worth the churn of unwinding every TourTarget call site
-  // for a feature that's simply off now.
+  // call with nothing left to read its rect.
+  //
+  // The two ScrollViews' own `scrollEnabled={!tour?.isTourActive}` props
+  // were NOT harmless, though, and are gone entirely (not just left
+  // inert) — confirmed on web, react-native-web renders a ScrollView with
+  // `scrollEnabled={false}` as literal CSS `overflow: hidden` rather than
+  // `auto`, permanently un-scrollable regardless of what `tour?.isTourActive`
+  // itself evaluated to. That was the actual cause of "the screen won't
+  // scroll, the tab bar and Add Item button are unreachable" once the tour
+  // stopped running — not the `flex:1`-missing bug fixed alongside this
+  // one, which was real but insufficient on its own.
 
   function handleScan() {
     triggerHaptic();
@@ -296,29 +302,13 @@ export default function WardrobeScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        // Same tour-conflict reasoning as hubScrollRef's own `scrollEnabled`
-        // below — a client swiping over to Inspirations mid-tour would leave
-        // every remaining Closet step spotlighting content on a page that's
-        // no longer showing.
-        scrollEnabled={!tour?.isTourActive}
         onMomentumScrollEnd={handlePagerScrollEnd}
         style={styles.flexFill}
       >
-      <View style={{ width: screenWidth }}>
+      <View style={{ width: screenWidth, flex: 1 }}>
       <ScrollView
         ref={hubScrollRef}
-        // Locked out for the duration of a tour — the tour's own auto-
-        // center-on-target scrollTo (AppTour.js's prepareStep effect) and a
-        // client's own scroll gesture fighting over this same ScrollView's
-        // position at once is exactly what the flicker/force-scroll-back
-        // bug looked like. `tour?.isTourActive` is reactive (flips at the
-        // start and end of a tour), which is fine to read here in the
-        // render body — the bug that reactivity caused was specifically
-        // about EFFECT dependency arrays, not renders (see this screen's
-        // own tour-launch effect comment for the full postmortem). The
-        // client navigates screen-to-screen only via the tooltip's own
-        // Next button while a tour is running.
-        scrollEnabled={!tour?.isTourActive}
+        style={styles.flexFill}
         contentContainerStyle={[styles.hubScroll, { paddingTop: spacing.sm }]}
       >
         <TourTarget id="header" style={styles.headerRow}>
@@ -523,8 +513,8 @@ export default function WardrobeScreen() {
       </ScrollView>
       </View>
 
-      <View style={{ width: screenWidth }}>
-        <ScrollView contentContainerStyle={[styles.hubScroll, { paddingTop: spacing.sm }]}>
+      <View style={{ width: screenWidth, flex: 1 }}>
+        <ScrollView style={styles.flexFill} contentContainerStyle={[styles.hubScroll, { paddingTop: spacing.sm }]}>
           <LookbookSection inspirations={inspirations} loading={inspirationsLoading} />
         </ScrollView>
       </View>

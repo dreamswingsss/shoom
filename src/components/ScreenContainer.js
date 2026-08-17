@@ -40,7 +40,32 @@ const ScreenContainer = forwardRef(function ScreenContainer(
   if (!scroll) {
     return (
       <SafeAreaView edges={edges} style={[styles.safeArea, style]}>
-        <View ref={ref} style={[styles.content, contentStyle]} {...rest}>
+        {/* `flexShrink: 1, minHeight: 0` on top of `content`'s own
+            `flexGrow: 1` — the actual bug, not decoration. React Native's
+            own layout engine (Yoga) defaults `flexShrink` to 0, unlike
+            plain CSS flexbox where it defaults to 1 — react-native-web
+            correctly replicates THAT default, so any View using the
+            `flexGrow`/`flexShrink` LONGHAND form (as `content` below does)
+            without explicitly setting `flexShrink: 1` silently refuses to
+            ever shrink below its own children's natural content height on
+            web, no matter how little space its parent actually gave it.
+            (The `flex: 1` SHORTHAND used elsewhere in this app doesn't have
+            this problem — the shorthand form always sets shrink: 1 as part
+            of expanding to the three longhand properties.) Concretely: this
+            View sizing to its content instead of the space React
+            Navigation's BottomTabView actually gave this screen (a
+            fixed-height, `overflow: hidden` wrapper it manages itself) is
+            what silently hard-clipped a screen's own content — usually its
+            own internal ScrollView, e.g. WardrobeScreen's hub — well before
+            that inner ScrollView ever got a bounded box to scroll within.
+            Confirmed empirically (DevTools computed styles across the whole
+            chain, testID-tagged and inspected one link at a time) before
+            landing on this fix — not guessed. Left off `styles.content`
+            itself since the `scroll={true}` branch below reuses it as a
+            ScrollView's `contentContainerStyle`, a completely different
+            context where content SHOULD grow to its natural size, not get
+            clamped. */}
+        <View ref={ref} style={[styles.content, { flexShrink: 1, minHeight: 0 }, contentStyle]} {...rest}>
           {children}
         </View>
       </SafeAreaView>

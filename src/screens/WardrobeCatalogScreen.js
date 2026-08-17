@@ -130,7 +130,7 @@ export default function WardrobeCatalogScreen({ wardrobe, loading, onBack, onAdd
       </HorizontalFadeScroll>
 
       {showLoading ? (
-        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.gridWrap} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           {Array.from({ length: SKELETON_ROW_COUNT }).map((_, rowIndex) => (
             <View key={rowIndex} style={styles.row}>
               <GridCardSkeleton />
@@ -148,7 +148,7 @@ export default function WardrobeCatalogScreen({ wardrobe, loading, onBack, onAdd
         <Animated.View
           style={[styles.gridWrap, { opacity: entranceOpacity, transform: [{ translateY: entranceTranslateY }] }]}
         >
-          <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.gridWrap} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
             {rows.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.row}>
                 {row.map((item) => (
