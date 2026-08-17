@@ -17,6 +17,19 @@ import { i18nReady } from './src/i18n';
 
 const navigationRef = createNavigationContainerRef();
 
+// The "phone frame" web styling below (grey backdrop, centered 400px shell,
+// drop shadow) is meant for viewing this app in a genuine WIDE DESKTOP
+// browser — react-native-web reports Platform.OS === 'web' for BOTH that
+// case AND a Telegram Mini App's WebView, which is really just a normal
+// phone-width mobile viewport. Applying the desktop mockup frame there was
+// what pushed the whole shell off-center (visible as a dark gap on one edge
+// and content clipped on the other in Telegram screenshots) — this flag
+// lets the styles below opt back into plain full-width mobile layout
+// whenever Telegram's own bridge script (see public/index.html) reports a
+// real launch, i.e. window.Telegram.WebApp.initData is non-empty.
+const isTelegramMiniApp =
+  Platform.OS === 'web' && typeof window !== 'undefined' && Boolean(window.Telegram?.WebApp?.initData);
+
 // Root stack above the tab bar — its only job is to let full-screen detail
 // views (ItemDetail) push over the tabs with a native header, back gesture,
 // and slide transition, none of which the Tab.Navigator itself provides.
@@ -206,18 +219,20 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    // On web — grey background so the shell stands out
-    backgroundColor: Platform.OS === 'web' ? '#e5e5e5' : colors.background,
-    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
+    // Desktop-preview-only "phone frame" backdrop — never inside a real
+    // Telegram Mini App, which is already phone-width (see
+    // isTelegramMiniApp's own comment above).
+    backgroundColor: Platform.OS === 'web' && !isTelegramMiniApp ? '#e5e5e5' : colors.background,
+    alignItems: Platform.OS === 'web' && !isTelegramMiniApp ? 'center' : 'stretch',
     justifyContent: 'center',
   },
   loading: { alignItems: 'center' },
   shell: {
     flex: 1,
     width: '100%',
-    maxWidth: Platform.OS === 'web' ? 400 : undefined,
-    // On web — add a subtle shadow to look like a phone frame
-    ...(Platform.OS === 'web' && {
+    maxWidth: Platform.OS === 'web' && !isTelegramMiniApp ? 400 : undefined,
+    // Desktop-preview-only shadow, to look like a phone frame.
+    ...(Platform.OS === 'web' && !isTelegramMiniApp && {
       boxShadow: '0 0 40px rgba(0,0,0,0.18)',
     }),
   },
