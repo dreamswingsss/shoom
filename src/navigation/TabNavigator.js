@@ -11,7 +11,7 @@ import StylistScreen from '../screens/StylistScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { TourTarget } from '../components/AppTour';
 import { useTelegramBottomSafeArea } from '../hooks/useTelegramSafeArea';
-import { colors, spacing, radius, shadows } from '../theme/tokens';
+import { colors, spacing, radius, shadows, withAlpha } from '../theme/tokens';
 
 const Tab = createBottomTabNavigator();
 
@@ -58,18 +58,44 @@ function TabButton({ route, isFocused, onPress }) {
     progress.value = withTiming(isFocused ? 1 : 0, { duration: PILL_TRANSITION_MS });
   }, [isFocused]);
 
+  // Interpolates between two RGBA values of the SAME color (alpha 0 -> 1),
+  // not the literal `'transparent'` keyword -> a hex color — on web,
+  // Reanimated's interpolateColor has to reconcile 'transparent' (which
+  // parses as black, alpha 0) against a completely different hex's own RGB
+  // channels, and mid-transition frames can land on genuinely wrong
+  // intermediate colors instead of a clean fade. Keeping both ends the same
+  // hue removes any channel mismatch to reconcile — only alpha moves.
   const animatedFillStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.value, [0, 1], ['transparent', config.color]),
+    backgroundColor: interpolateColor(progress.value, [0, 1], [withAlpha(config.color, 0), config.color]),
   }));
 
   const iconColor = isFocused ? colors.inverseText : colors.navInactiveIcon;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.tabBtn}>
-      <Animated.View style={[isFocused ? styles.pill : styles.circle, animatedFillStyle]}>
+      {/* Plain View owns the shape AND the icon/label children — normal
+          React reconciliation (not Reanimated) handles the circle<->pill
+          style swap AND the label Text mounting/unmounting together, so
+          the browser always recomputes this box's real intrinsic width
+          from its actual current children. The color fill lives on a
+          SEPARATE `Animated.View` underneath, absolutely positioned to
+          just fill whatever box this plain View already resolved — it
+          never participates in row/gap/padding layout itself, so
+          Reanimated's own web update path (a direct style mutation that
+          does NOT reliably force a re-layout when this component's
+          CHILDREN change in the same tick) has nothing to get stale about.
+          Before this split, the fill and the shape/children lived on the
+          SAME Animated.View — active tabs became a correctly-colored, but
+          permanently icon-only-width, box: the label Text really was in
+          the DOM (confirmed via devtools), just clipped inside a box that
+          never grew to fit it. */}
+      <View style={isFocused ? styles.pill : styles.circle}>
+        <Animated.View style={[StyleSheet.absoluteFill, animatedFillStyle]} />
         <Feather name={config.icon} size={22} color={iconColor} />
-        {isFocused && <Text style={styles.tabLabel}>{t(config.labelKey)}</Text>}
-      </Animated.View>
+        {isFocused && (
+          <Text style={styles.tabLabel}>{t(config.labelKey)}</Text>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -97,11 +123,14 @@ function FloatingTabBar({ state, navigation }) {
   // Raised further off the true bottom edge than a bare safe-area inset
   // alone would put it — a floating pill nav reading as "docked flush to
   // the edge" looks cramped/clipped-adjacent even when nothing is actually
-  // clipping it; a visible gap above the safe area is what makes it read
-  // as floating. `24` is the new floor (was `12`) and `20` the fixed lift
-  // on top of whichever inset wins (was `14`).
+  // clipping it; a visible gap of the screen's own beige background below
+  // the pill is what actually makes it read as floating rather than
+  // pinned. `36` is the new floor (was 12, then 24) and `28` the fixed
+  // lift on top of whichever inset wins (was 14, then 20) — `wrap`'s own
+  // `backgroundColor: colors.background` (see its own style below) is what
+  // shows through that gap.
   return (
-    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, telegramBottomInset, 24) + 20 }]}>
+    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, telegramBottomInset, 36) + 28 }]}>
       <View style={styles.bar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
@@ -170,13 +199,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.navBarV,
     ...shadows.navBar,
   },
-  tabBtn: { flex: 0 },
+  // Deliberately NOT `flex: 0` — react-native-web translates that SHORTHAND
+  // into literal CSS shorthand semantics (flex-grow:0; flex-shrink:1;
+  // flex-basis:0%), which collapsed this button to 0 width with nothing
+  // left to protect its content's natural size (confirmed empirically: the
+  // TouchableOpacity's own computed width was 0, one level below the
+  // 32px-clipped pill). `flexShrink: 0` alone is the LONGHAND that actually
+  // matches what RN's Yoga engine already does by default for a plain View
+  // with no flex prop at all (flexGrow: 0, flexShrink: 0, flexBasis: auto —
+  // size to content) — the same shorthand-vs-Yoga-default mismatch class of
+  // bug as ScreenContainer's own flexShrink fix, just biting in the
+  // opposite direction here.
+  tabBtn: { flexShrink: 0 },
   circle: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   pill: {
     flexDirection: 'row',
@@ -185,6 +226,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.pill,
+    overflow: 'hidden',
   },
   tabLabel: {
     fontSize: 12.5,
