@@ -2,21 +2,25 @@ import { useEffect, useState } from 'react';
 import i18n, { setAppLanguage } from '../i18n';
 import { supabase } from '../services/supabaseClient';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
+import { signInWithTelegram } from './useTelegramSignIn';
 import { useUserStore } from '../store/useUserStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { usePlannerStore } from '../store/usePlannerStore';
 
-// Supabase's `user.user_metadata` shape depends on the provider — Google's
-// OIDC claims land as `full_name`/`avatar_url` (what handle_new_auth_user()
-// in 0001_init.sql also reads), with `name`/`picture` as a fallback for
-// other providers that use the raw OIDC claim names instead. `id` rides
-// along so completeOnboarding/updateProfile/toggleStyleVibe in useUserStore
-// know which `public.users` row to write back to.
-// Exported — ScanSheet's own Google sign-in (Deferred Registration: auth now
-// happens there, not in OnboardingScreen) needs this same mapping right
-// after its setSession call, before this hook's onAuthStateChange listener
-// gets to it, so the two never drift into two different shapes for the
-// same session.
+// Supabase's `user.user_metadata` shape depends on the provider — the
+// telegram-verify Edge Function deliberately writes `full_name`/`avatar_url`
+// into `user_metadata` at createUser time (see
+// supabase/functions/telegram-verify/index.ts) so it lands in the same
+// shape handle_new_auth_user() in 0001_init.sql already reads, with
+// `name`/`picture` as a fallback for any other provider that used the raw
+// OIDC claim names instead. `id` rides along so
+// completeOnboarding/updateProfile/toggleStyleVibe in useUserStore know
+// which `public.users` row to write back to.
+// Exported — useTelegramSignIn.js (Deferred Registration: auth now happens
+// at ScanSheet/RegistrationFlow's own last step, not in OnboardingScreen)
+// needs this same mapping right after its verifyOtp call, before this
+// hook's onAuthStateChange listener gets to it, so the two never drift into
+// two different shapes for the same session.
 export function mapSupabaseUser(user) {
   return {
     id: user.id,
@@ -101,7 +105,26 @@ export function useSupabaseAuthSync() {
         } = await supabase.auth.getSession();
         if (cancelled) return;
 
-        if (session) await syncSession(session);
+        if (session) {
+          await syncSession(session);
+        } else if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) {
+          // Running inside a real Telegram Mini App with no persisted
+          // Supabase session yet — exchange the Mini App's own initData for
+          // one silently, so `isLoggedIn` is already true before the first
+          // screen ever renders (no separate "sign in" tap needed; Telegram
+          // already told us who opened this). signInWithTelegram() does its
+          // own fetchProfile/login — onAuthStateChange's SIGNED_IN branch
+          // below fires a moment later from the resulting session and
+          // harmlessly repeats that, same as every other sign-in path here.
+          // A failure here (offline, bad/expired initData, opened outside
+          // Telegram) just leaves the app in its existing guest state — the
+          // Telegram button already rendered on ScanSheet/StylistScreen/
+          // ProfileScreen for that case still works as a manual retry.
+          const result = await signInWithTelegram();
+          if (result.status === 'error') {
+            console.warn('[useSupabaseAuthSync] Automatic Telegram sign-in failed:', result.error);
+          }
+        }
       } catch (err) {
         // A cold start with no network — or Supabase unreachable behind a
         // VPN/carrier block — throws a bare TypeError straight out of

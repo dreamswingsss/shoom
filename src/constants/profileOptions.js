@@ -60,13 +60,19 @@ export const SKIN_TONES = [
   { label: 'Very Deep', hexColor: '#4A2C17' },
 ];
 
-export const BODY_TYPES_MEN = ['Trapezoid', 'Inverted Triangle', 'Rectangle', 'Oval', 'Triangle'];
+// 6 shapes each, kept as separate lists (not a shared base + gender-specific
+// extras) — Trapezoid/Oval only make sense for the men's list, Hourglass/
+// Pear/Apple only for the women's, so there's no real shared subset worth
+// factoring out beyond Rectangle/Inverted Triangle/Diamond, which already
+// happen to use the exact same label (and translation key) in both lists.
+export const BODY_TYPES_MEN = ['Trapezoid', 'Inverted Triangle', 'Rectangle', 'Diamond', 'Oval', 'Triangle'];
 export const BODY_TYPES_WOMEN = [
   'Hourglass',
   'Pear (Triangle)',
   'Apple (Round)',
   'Rectangle',
   'Inverted Triangle',
+  'Diamond',
 ];
 
 // Technical values sent to the AI stylist prompt verbatim — always English,

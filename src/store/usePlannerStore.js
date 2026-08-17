@@ -169,6 +169,25 @@ export const usePlannerStore = create(
         if (error) set({ scheduledOutfits: previous, error: error.message });
       },
 
+      // Smart Delete's write side (see PlannerScreen's handleExportPress) —
+      // attaches a just-created calendar event's id onto its day so a later
+      // removeOutfit for the same day can find and offer to delete it too
+      // (see handleRemove). Deliberately in-memory only, same as
+      // `scheduledOutfits` itself (not part of `partialize` below, and not a
+      // column on `outfits` — see 0001_init.sql): it only has to survive
+      // until the next removeOutfit() or fetchOutfits() call in the same
+      // session, not a full app restart. No-ops if the day was cleared out
+      // from under it (e.g. two exports racing) rather than resurrecting a
+      // day entry that no longer exists.
+      setOutfitEventId: (dateKey, eventId) =>
+        set((state) => {
+          const entry = state.scheduledOutfits[dateKey];
+          if (!entry) return state;
+          return {
+            scheduledOutfits: { ...state.scheduledOutfits, [dateKey]: { ...entry, eventId } },
+          };
+        }),
+
       toggleChallenge: (date) =>
         set((state) => {
           const next = { ...state.completedChallenges };

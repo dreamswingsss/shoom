@@ -61,7 +61,7 @@ const MIN_ANALYZING_MS = SCAN_STATUS_KEYS.length * SCAN_STATUS_STEP_MS;
 // account-creation step itself is a full step-by-step flow
 // (RegistrationFlow): gender/height/weight/body type/hair/eye/skin color
 // collected FIRST, entirely as that component's own local state, with
-// Google sign-in as the LAST step — so account creation reads as "one tap
+// Telegram sign-in as the LAST step — so account creation reads as "one tap
 // to save everything I just told you", not a wall up front.
 // RegistrationFlow's `onSuccess` below is what turns its collected answers
 // into a real `completeOnboarding` call, right before the scanned item
@@ -387,7 +387,15 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
     }
   }
 
-  const matchPercent = scanResult ? calculateColorDnaMatch(scanResult.color, palette) : null;
+  // Gated on `!needsCalibration` too — `getPalette` (WardrobeScreen's own
+  // `palette` prop) silently falls back to DEEP_PALETTE for a null skinTone
+  // rather than returning "unknown," so before the client has actually set
+  // hair/eye/skin color this used to compute and display a real-looking
+  // percentage against a made-up default palette — a genuine "Color DNA"
+  // match the app has no basis to claim yet. `matchPercent` now stays null
+  // until the profile is actually filled in; the render below falls back to
+  // a literal "XX%" placeholder in that case instead of hiding the pill.
+  const matchPercent = scanResult && !needsCalibration ? calculateColorDnaMatch(scanResult.color, palette) : null;
   const progressBarStyle = {
     width: progressWidth.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
   };
@@ -493,11 +501,15 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
                     item: scanResult.subcategory,
                   })}
                 </Text>
-                {matchPercent != null && (
+                {scanResult.color && (
                   <View style={styles.matchPill}>
                     <Feather name="droplet" size={11} color={colors.inverseText} />
                     <Text style={styles.matchPillText}>
-                      {t('closet.scan.colorDnaMatch', { percent: matchPercent })}
+                      {/* needsCalibration (profile not filled in yet) means
+                          matchPercent is deliberately null — see its own
+                          comment above — a literal "XX" placeholder rather
+                          than a fabricated real-looking number. */}
+                      {t('closet.scan.colorDnaMatch', { percent: matchPercent ?? 'XX' })}
                     </Text>
                   </View>
                 )}

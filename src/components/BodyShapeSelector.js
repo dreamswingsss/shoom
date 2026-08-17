@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { FadeInView } from './AnimatedPressable';
-import { colors, spacing, radius, typography } from '../theme/tokens';
+import { colors, spacing, radius, typography, withAlpha } from '../theme/tokens';
 
 // Real illustration files (assets/body-shapes/<name>.png) — empty for now.
 // Metro resolves `require()` at BUNDLE time, not runtime, so a require()
@@ -140,7 +140,19 @@ function BodyShapeIllustration({ shape, size = 140 }) {
 // actual commit to the store/DB stays owned by whatever screen renders this
 // — OnboardingScreen's answersRef, EditProfileScreen's form state — and
 // only happens when its own Continue/Save button fires, per spec.
-export default function BodyShapeSelector({ label, options, value, onChange, disabled = false }) {
+// `richCards` — opt-in only (RegistrationFlow's bodyType step passes it;
+// EditProfileScreen doesn't and keeps the original compact chip-grid
+// behavior below completely unchanged). Text-only cards: name always
+// visible, description fades in inside the card once it's selected — no
+// illustration, per spec ("cards should stay text-only").
+export default function BodyShapeSelector({
+  label,
+  options,
+  value,
+  onChange,
+  disabled = false,
+  richCards = false,
+}) {
   const { t } = useTranslation();
 
   // Local UI-toggle state, separate from `value` — this is what lets
@@ -164,6 +176,40 @@ export default function BodyShapeSelector({ label, options, value, onChange, dis
     if (disabled) return;
     setExpandedShape(null);
     onChange(null);
+  }
+
+  if (richCards) {
+    return (
+      <View style={styles.section}>
+        {label ? <Text style={styles.sectionLabel}>{label}</Text> : null}
+        <View style={styles.cardWrap}>
+          {options.map((option) => {
+            const isSelected = value === option;
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[styles.card, isSelected && styles.cardSelected]}
+                onPress={() => (isSelected ? handleCancel() : handleSelect(option))}
+                disabled={disabled}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.cardTitle, isSelected && styles.cardTitleSelected]}>
+                  {t(`onboarding.options.${option}`, option)}
+                </Text>
+
+                {isSelected && (
+                  <FadeInView>
+                    <Text style={styles.cardDescriptionSelected}>
+                      {t(`onboarding.bodyTypeDescriptions.${option}`, '')}
+                    </Text>
+                  </FadeInView>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -237,5 +283,38 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // richCards variant (RegistrationFlow's bodyType step only) — 2-up card
+  // grid, each holding a name + description and, once selected, the sprite
+  // illustration inline. `flexBasis`/`flexGrow` (not a fixed `width: '47%'`)
+  // is the same "let flex divide the row" idiom RegistrationFlow's own
+  // genderChip already uses, so an odd option count never leaves a lone
+  // card stretched to the full row width.
+  cardWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  card: {
+    flexBasis: '46%',
+    flexGrow: 1,
+    maxWidth: '48%',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+  },
+  cardSelected: { backgroundColor: colors.inverseBackground, borderColor: colors.inverseBackground },
+  cardTitle: { fontSize: 14.5, fontWeight: '700', color: colors.textPrimary },
+  cardTitleSelected: { color: colors.inverseText },
+  cardDescriptionSelected: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    marginTop: 2,
+    color: withAlpha(colors.inverseText, 0.75),
   },
 });

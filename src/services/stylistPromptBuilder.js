@@ -142,13 +142,20 @@ export function getBodyShapeGuidance(bodyShape) {
 // Formats height/weight/measurements into one line — shared by
 // buildProfileContext below so both the chat and inspiration-board system
 // prompts describe physical proportions identically.
-function describePhysicalParams({ height, weight, measurements = {} }) {
+//
+// `measurementUnit` ('cm' | 'in', see useUserStore's own field/the
+// `measurement_unit` column) labels shoulders/chest/waist/hips only —
+// RegistrationFlow's own comment on `measurementUnitValue` documents that
+// height/weight are recorded in cm/kg regardless of what unit toggle was
+// shown while typing them, so those two stay hardcoded here same as before.
+function describePhysicalParams({ height, weight, measurements = {}, measurementUnit = 'cm' }) {
+  const unitLabel = measurementUnit === 'in' ? 'in' : 'cm';
   const measurementsLine =
     [
-      measurements.shoulders != null && `shoulders ${measurements.shoulders}cm`,
-      measurements.chest != null && `chest ${measurements.chest}cm`,
-      measurements.waist != null && `waist ${measurements.waist}cm`,
-      measurements.hips != null && `hips ${measurements.hips}cm`,
+      measurements.shoulders != null && `shoulders ${measurements.shoulders}${unitLabel}`,
+      measurements.chest != null && `chest ${measurements.chest}${unitLabel}`,
+      measurements.waist != null && `waist ${measurements.waist}${unitLabel}`,
+      measurements.hips != null && `hips ${measurements.hips}${unitLabel}`,
     ]
       .filter(Boolean)
       .join(', ') || 'not specified';

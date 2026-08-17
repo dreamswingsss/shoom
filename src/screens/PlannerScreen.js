@@ -15,13 +15,17 @@ import Skeleton from '../components/Skeleton';
 import ScreenContainer from '../components/ScreenContainer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PaywallModal from '../components/PaywallModal';
+import CalendarPickerModal from '../components/CalendarPickerModal';
 import Toast from '../components/Toast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { usePaywall } from '../hooks/usePaywall';
+import { useCalendarPicker } from '../hooks/useCalendarPicker';
 import { TourTarget } from '../components/AppTour';
 import {
+  getAvailableCalendars,
   exportOutfitToCalendar,
+  deleteCalendarEvent,
   CalendarPermissionDeniedError,
   CalendarWebUnavailableError,
 } from '../services/calendarService';
@@ -81,6 +85,7 @@ export default function PlannerScreen() {
   const plannerLoading = usePlannerStore((state) => state.loading);
   const fetchOutfits = usePlannerStore((state) => state.fetchOutfits);
   const removeOutfit = usePlannerStore((state) => state.removeOutfit);
+  const setOutfitEventId = usePlannerStore((state) => state.setOutfitEventId);
   const wardrobe = useWardrobeStore((state) => state.items);
   const setPendingPrompt = useChatStore((state) => state.setPendingPrompt);
 
@@ -89,6 +94,8 @@ export default function PlannerScreen() {
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
   const { toastMessage, toastKey, showToast } = useToast();
   const { paywallMessage, showPaywall, closePaywall } = usePaywall();
+  const { pickCalendar, pickerVisible, pickerCalendars, onSelectCalendar, onDismissPicker } =
+    useCalendarPicker();
 
   const wardrobeById = useMemo(
     () => Object.fromEntries(wardrobe.map((item) => [item.id, item])),
@@ -151,17 +158,46 @@ export default function PlannerScreen() {
     setSelectedDate(date);
   }
 
+  // Smart Delete — a day with no exported calendar event (see
+  // handleExportPress) just clears immediately, same as before. A day that
+  // WAS exported gets one extra question first: whether to take the
+  // matching system-calendar event down with it, since removing the plan
+  // here silently orphaning an event still sitting on the client's own
+  // Apple/Google Calendar was the actual bug this closes.
   function handleRemove(dateKey) {
+    const eventId = scheduledOutfits[dateKey]?.eventId;
+
+    if (!eventId) {
+      removeOutfit(dateKey);
+      return;
+    }
+
+    async function removeAndDeleteEvent() {
+      try {
+        await deleteCalendarEvent(eventId);
+      } catch (err) {
+        // The client may have already deleted this event by hand in their
+        // own calendar app (or revoked calendar permission) since it was
+        // exported — either way the planner-side removal below still has
+        // to go through, so this is swallowed rather than surfaced.
+        console.error('[PlannerScreen] Calendar event delete failed:', err);
+      }
+      removeOutfit(dateKey);
+    }
+
     // useConfirm() routes to the real OS Alert on native and to a
     // CenteredModal-based dialog on web — `Alert.alert` alone is a silent
     // no-op in react-native-web, which would otherwise make this button do
-    // nothing at all for a web client.
+    // nothing at all for a web client. `onCancel` here is the "No, keep in
+    // calendar" branch: unlike a typical confirm dialog, declining still
+    // removes the plan — it only opts out of touching the calendar event.
     confirm({
-      title: t('planner.removeTitle'),
-      message: t('planner.removeMessage'),
-      cancelLabel: t('planner.cancel'),
-      confirmLabel: t('planner.remove'),
-      onConfirm: () => removeOutfit(dateKey),
+      title: t('planner.removeCalendarTitle'),
+      message: t('planner.removeCalendarMessage'),
+      cancelLabel: t('planner.removeCalendarKeep'),
+      confirmLabel: t('planner.removeCalendarDelete'),
+      onConfirm: removeAndDeleteEvent,
+      onCancel: () => removeOutfit(dateKey),
     });
   }
 
@@ -202,8 +238,19 @@ export default function PlannerScreen() {
     if (exporting || !selectedEntry) return;
     setExporting(true);
     try {
+      const calendars = await getAvailableCalendars();
+      if (calendars.length === 0) {
+        showToast(t('closet.inspirationDetail.exportNoCalendars'));
+        return;
+      }
+      const calendarId = await pickCalendar(calendars);
+      if (!calendarId) return; // client backed out of the picker
+
       const itemNames = getScheduledItemNames(selectedEntry, wardrobeById);
-      await exportOutfitToCalendar({ itemNames, date: selectedDate });
+      const eventId = await exportOutfitToCalendar({ itemNames, date: selectedDate, calendarId });
+      // Smart Delete's write side — lets a later handleRemove for this same
+      // day find and offer to clean up this exact event.
+      setOutfitEventId(selectedKey, eventId);
       // Reuses closet.inspirationDetail's own calendar-export copy — same
       // messages, same feature, just a different entry point onto it, not
       // worth duplicating across 7 locales for an identical string.
@@ -408,6 +455,12 @@ export default function PlannerScreen() {
         <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
       )}
       <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
+      <CalendarPickerModal
+        visible={pickerVisible}
+        calendars={pickerCalendars}
+        onSelect={onSelectCalendar}
+        onClose={onDismissPicker}
+      />
       <Toast key={toastKey} message={toastMessage} />
     </ScreenContainer>
   );

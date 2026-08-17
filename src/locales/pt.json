@@ -25,6 +25,17 @@
       "bodyType": "O Estilista IA usa isso para recomendar cortes que realmente valorizam você.",
       "colorDna": "É assim que o Estilista IA sabe quais cores combinam mais com você."
     },
+    "bodyTypeDescriptions": {
+      "Hourglass": "Ombros e quadris equilibrados, cintura bem definida.",
+      "Trapezoid": "Ombros largos que afinam suavemente até a cintura.",
+      "Inverted Triangle": "Ombros e peito mais largos que os quadris.",
+      "Rectangle": "Ombros, cintura e quadris com proporções semelhantes.",
+      "Oval": "Região central mais cheia, ombros e quadris mais estreitos.",
+      "Triangle": "Quadris mais largos que os ombros, peso concentrado embaixo.",
+      "Pear (Triangle)": "Quadris e coxas mais cheios que ombros e busto.",
+      "Apple (Round)": "Região central mais cheia com braços e pernas mais finos.",
+      "Diamond": "Cintura mais larga que ombros e quadris."
+    },
     "measurementsStep": {
       "unitMetric": "Métrico (cm, kg)",
       "unitImperial": "Imperial (ft/in, lbs)",
@@ -66,7 +77,8 @@
       "Triangle": "Triângulo",
       "Hourglass": "Ampulheta",
       "Pear (Triangle)": "Pêra (triângulo)",
-      "Apple (Round)": "Maçã (redondo)"
+      "Apple (Round)": "Maçã (redondo)",
+      "Diamond": "Diamante"
     }
   },
   "profile": {
@@ -76,7 +88,7 @@
       "name": "Convidado",
       "subtitle": "Entre para salvar seus dados",
       "ctaTitle": "Crie sua conta",
-      "ctaMessage": "Entre com o Google para salvar seu guarda-roupa, sincronizar seu perfil e desbloquear os recursos de IA."
+      "ctaMessage": "Entre com o Telegram para salvar seu guarda-roupa, sincronizar seu perfil e desbloquear os recursos de IA."
     },
     "sections": {
       "basicInfo": "Informações básicas",
@@ -209,7 +221,8 @@
       "exportSuccess": "Salvo no calendário!",
       "exportPermissionDenied": "É necessário acesso ao calendário — ative-o para o Shoom nas Configurações do seu telefone.",
       "exportWebUnavailable": "A exportação para o calendário não está disponível na Web — tente pelo seu celular.",
-      "exportGenericError": "Não foi possível exportar para o calendário. Tente novamente."
+      "exportGenericError": "Não foi possível exportar para o calendário. Tente novamente.",
+      "exportNoCalendars": "Nenhum calendário editável encontrado neste dispositivo."
     },
     "hub": {
       "title": "Seu closet digital",
@@ -366,8 +379,13 @@
         "title": "Conta necessária",
         "message": "Crie um perfil para salvar esta peça no seu guarda-roupa e receber recomendações de IA personalizadas.",
         "cancel": "Cancelar",
-        "googleButton": "Continuar com o Google",
+        "googleButton": "Continuar com o Telegram",
         "genericError": "Algo deu errado ao entrar. Tente novamente."
+      },
+      "registration": {
+        "heightWeightTitle": "Qual é a sua altura e peso?",
+        "finalTitle": "Crie sua conta",
+        "finalSubtitle": "Entre com o Telegram para salvar este item e tudo o que você nos disse."
       },
       "calibration": {
         "title": "Só mais alguns detalhes",
@@ -445,6 +463,7 @@
     "inputPlaceholder": "Pergunte ao seu estilista...",
     "inputPlaceholderShopping": "Adicione peças para desbloquear o styling...",
     "genericError": "Não foi possível contatar seu estilista agora. Tente novamente.",
+    "imageReadError": "Não foi possível ler essa foto. Tente novamente.",
     "rateLimitApology": "Nossa, estamos cheios de clientes hoje! Me dê um minuto para respirar, e seu look estará pronto.",
     "locationRestrictedApology": "Estou com dificuldade para acessar o mecanismo de styling a partir da sua conexão atual — tente novamente em instantes, ou troque de rede se o problema continuar.",
     "welcomeMessage": "Oi, eu sou seu estilista pessoal. Me conte o visual que você quer.",
@@ -471,6 +490,16 @@
     "cameraPermission": {
       "title": "Acesso à câmera necessário",
       "message": "Permita o acesso à câmera nas configurações do dispositivo para tirar uma foto."
+    },
+    "libraryPermission": {
+      "title": "Acesso à galeria de fotos necessário",
+      "message": "Permita o acesso à galeria de fotos nas configurações do dispositivo para escolher uma foto."
+    },
+    "attachMenu": {
+      "title": "Anexar foto",
+      "camera": "Tirar uma foto",
+      "library": "Escolher da galeria",
+      "cancel": "Cancelar"
     },
     "profileFields": {
       "gender": "gênero",
@@ -527,6 +556,9 @@
     },
     "zeroCloset": {
       "banner": "Seu guarda-roupa está vazio. Adicione algumas peças para que seu estilista de IA tenha algo real para trabalhar."
+    },
+    "missingBasics": {
+      "title": "💡 Para completar o look"
     }
   },
   "planner": {
@@ -534,10 +566,10 @@
     "screenTitle": "Plano semanal",
     "today": "Hoje",
     "askPrompt": "O que devo vestir em {{date}}?",
-    "removeTitle": "Remover look planejado",
-    "removeMessage": "Remover o look planejado para este dia?",
-    "cancel": "Cancelar",
-    "remove": "Remover",
+    "removeCalendarTitle": "Remover também do calendário?",
+    "removeCalendarMessage": "Deseja excluir este look também do calendário do sistema?",
+    "removeCalendarKeep": "Não, manter no calendário",
+    "removeCalendarDelete": "Sim, excluir",
     "heroBadge": "Esta semana",
     "heroTitle": "{{count}} de 7 dias planejados",
     "heroCaption": "Adicione um look para os dias que faltam",
@@ -551,6 +583,10 @@
     "plannedLook": "Look planejado",
     "styledByAi": "Estilizado por IA",
     "snapOrShuffle": "Tire uma foto ou embaralhe"
+  },
+  "calendarPicker": {
+    "title": "Escolha um calendário",
+    "cancel": "Cancelar"
   },
   "itemDetail": {
     "wearToday": "Estou usando isto hoje",

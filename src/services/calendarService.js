@@ -45,48 +45,48 @@ export class CalendarPermissionDeniedError extends Error {
   }
 }
 
-// `Calendar.getDefaultCalendarAsync()` is iOS-only — calling it on Android
-// throws (no such concept exists there; a device can have several
-// equally-valid event calendars from different synced accounts). This is
-// exactly the kind of cross-platform gap AGENTS.md's "Expo has changed,
-// check the docs before writing code" warning exists for — the naive
-// single call would work in the iOS simulator and crash the very first
-// time a real Android device exercises this. Android instead asks for
-// every calendar that supports EVENT entities and picks the device's own
-// primary one (falling back to the first still-writable calendar if
-// nothing is flagged primary — e.g. a device with only a secondary Google
-// account's calendar synced).
-async function getWritableCalendarId() {
-  if (Platform.OS === 'ios') {
-    const defaultCalendar = await Calendar.getDefaultCalendarAsync();
-    return defaultCalendar.id;
+// Shared by every entry point below — requesting an already-granted
+// permission is a cheap no-op, so this just runs unconditionally rather
+// than each caller tracking whether some earlier call already asked.
+async function ensureCalendarPermission() {
+  if (Platform.OS === 'web') {
+    throw new CalendarWebUnavailableError();
   }
+  const { status, canAskAgain } = await Calendar.requestCalendarPermissionsAsync();
+  if (status !== 'granted') {
+    throw new CalendarPermissionDeniedError(canAskAgain);
+  }
+}
 
+// Every calendar the device will actually let us write an event into — the
+// list a client picks from before exporting (see PlannerScreen's/
+// InspirationDetailScreen's own useCalendarPicker). Replaces the old
+// "silently guess the primary/default one" behavior: a device with several
+// synced accounts (personal iCloud, a work Google Calendar, ...) can have
+// more than one writable calendar, and picking one on the client's behalf
+// with no say in it was the actual complaint this fixes. `getCalendarsAsync`
+// itself is already cross-platform (unlike the iOS-only
+// `getDefaultCalendarAsync` this used to lean on), so no OS branching is
+// needed here.
+export async function getAvailableCalendars() {
+  await ensureCalendarPermission();
   const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-  const writable = calendars.filter((cal) => cal.allowsModifications);
-  const target = writable.find((cal) => cal.isPrimary) || writable[0];
-  if (!target) {
-    throw new Error('No writable calendar found on this device.');
-  }
-  return target.id;
+  return calendars
+    .filter((cal) => cal.allowsModifications)
+    .map((cal) => ({ id: cal.id, title: cal.title }));
 }
 
 // `date`: a plain Date for the calendar day the client picked (time-of-day
 // on it is ignored — see EVENT_HOUR above). `itemNames`: the wardrobe/
 // suggested item names for this look, joined into the event's `notes` —
 // the whole point of exporting is to see "what to wear" right inside the
-// OS calendar app without reopening Shoom.
-export async function exportOutfitToCalendar({ itemNames = [], date }) {
-  if (Platform.OS === 'web') {
-    throw new CalendarWebUnavailableError();
-  }
-
-  const { status, canAskAgain } = await Calendar.requestCalendarPermissionsAsync();
-  if (status !== 'granted') {
-    throw new CalendarPermissionDeniedError(canAskAgain);
-  }
-
-  const calendarId = await getWritableCalendarId();
+// OS calendar app without reopening Shoom. `calendarId`: which of
+// `getAvailableCalendars()`'s own results the client picked — this no
+// longer guesses one on its own. Returns the created event's id so the
+// caller can hold onto it (see usePlannerStore's `setOutfitEventId`) for
+// Smart Delete to find the same event again later.
+export async function exportOutfitToCalendar({ itemNames = [], date, calendarId }) {
+  await ensureCalendarPermission();
 
   const startDate = new Date(date);
   startDate.setHours(EVENT_HOUR, 0, 0, 0);
@@ -101,4 +101,17 @@ export async function exportOutfitToCalendar({ itemNames = [], date }) {
   });
 
   return eventId;
+}
+
+// Smart Delete's other half (see PlannerScreen's handleRemove) — removes
+// the actual device-calendar event when a client clears a planned day that
+// was previously exported. Deliberately doesn't swallow "the event's
+// already gone" itself (unlike exportOutfitToCalendar, this has no
+// reasonable fallback if the id doesn't resolve) — the caller wraps this in
+// its own try/catch, since a client having already deleted the same event
+// by hand in their own calendar app is a completely normal thing to have
+// happened by the time they clear it here too, not a real error.
+export async function deleteCalendarEvent(eventId) {
+  await ensureCalendarPermission();
+  await Calendar.deleteEventAsync(eventId);
 }

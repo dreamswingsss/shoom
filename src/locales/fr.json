@@ -25,6 +25,17 @@
       "bodyType": "Le Styliste IA s'en sert pour vous recommander des coupes qui vous mettent vraiment en valeur.",
       "colorDna": "C'est ainsi que le Styliste IA sait quelles couleurs vous vont le mieux."
     },
+    "bodyTypeDescriptions": {
+      "Hourglass": "Épaules et hanches équilibrées, taille bien marquée.",
+      "Trapezoid": "Épaules larges s'affinant doucement vers la taille.",
+      "Inverted Triangle": "Épaules et poitrine plus larges que les hanches.",
+      "Rectangle": "Épaules, taille et hanches aux proportions similaires.",
+      "Oval": "Zone médiane plus généreuse, épaules et hanches plus fines.",
+      "Triangle": "Hanches plus larges que les épaules, poids porté plus bas.",
+      "Pear (Triangle)": "Hanches et cuisses plus généreuses que les épaules et la poitrine.",
+      "Apple (Round)": "Zone médiane plus généreuse, bras et jambes plus fins.",
+      "Diamond": "Taille plus large que les épaules et les hanches."
+    },
     "measurementsStep": {
       "unitMetric": "Métrique (cm, kg)",
       "unitImperial": "Impérial (ft/in, lbs)",
@@ -66,7 +77,8 @@
       "Triangle": "Triangle",
       "Hourglass": "Sablier",
       "Pear (Triangle)": "Poire (triangle)",
-      "Apple (Round)": "Pomme (rond)"
+      "Apple (Round)": "Pomme (rond)",
+      "Diamond": "Losange"
     }
   },
   "profile": {
@@ -76,7 +88,7 @@
       "name": "Invité",
       "subtitle": "Connectez-vous pour enregistrer vos données",
       "ctaTitle": "Créez votre compte",
-      "ctaMessage": "Connectez-vous avec Google pour enregistrer votre dressing, synchroniser votre profil et débloquer les fonctionnalités IA."
+      "ctaMessage": "Connectez-vous avec Telegram pour enregistrer votre dressing, synchroniser votre profil et débloquer les fonctionnalités IA."
     },
     "sections": {
       "basicInfo": "Infos de base",
@@ -209,7 +221,8 @@
       "exportSuccess": "Enregistré dans l'agenda !",
       "exportPermissionDenied": "L'accès à l'agenda est nécessaire — activez-le pour Shoom dans les réglages de votre téléphone.",
       "exportWebUnavailable": "L'export vers l'agenda n'est pas disponible sur le Web — essayez depuis votre téléphone.",
-      "exportGenericError": "Impossible d'exporter vers l'agenda. Veuillez réessayer."
+      "exportGenericError": "Impossible d'exporter vers l'agenda. Veuillez réessayer.",
+      "exportNoCalendars": "Aucun agenda modifiable trouvé sur cet appareil."
     },
     "hub": {
       "title": "Votre dressing numérique",
@@ -366,8 +379,13 @@
         "title": "Compte requis",
         "message": "Créez un profil pour enregistrer cet article dans votre garde-robe et recevoir des recommandations IA personnalisées.",
         "cancel": "Annuler",
-        "googleButton": "Continuer avec Google",
+        "googleButton": "Continuer avec Telegram",
         "genericError": "Une erreur est survenue lors de la connexion. Veuillez réessayer."
+      },
+      "registration": {
+        "heightWeightTitle": "Quelle est votre taille et votre poids ?",
+        "finalTitle": "Créez votre compte",
+        "finalSubtitle": "Connectez-vous avec Telegram pour enregistrer cet article et tout ce que vous avez indiqué."
       },
       "calibration": {
         "title": "Encore quelques détails",
@@ -445,6 +463,7 @@
     "inputPlaceholder": "Demandez à votre styliste...",
     "inputPlaceholderShopping": "Ajoutez des pièces pour débloquer le stylisme...",
     "genericError": "Impossible de joindre votre styliste. Réessayez.",
+    "imageReadError": "Impossible de lire cette photo. Réessayez.",
     "rateLimitApology": "Ouf, on est débordés de clients aujourd'hui ! Laissez-moi une minute pour souffler, et votre tenue sera prête.",
     "locationRestrictedApology": "J'ai du mal à joindre le moteur de style depuis votre connexion actuelle — réessayez dans un instant, ou changez de réseau si le problème persiste.",
     "welcomeMessage": "Bonjour, je suis votre styliste personnel. Dites-moi le look que vous recherchez.",
@@ -471,6 +490,16 @@
     "cameraPermission": {
       "title": "Accès à la caméra requis",
       "message": "Autorisez l'accès à la caméra dans les paramètres de votre appareil pour prendre une photo."
+    },
+    "libraryPermission": {
+      "title": "Accès à la photothèque requis",
+      "message": "Veuillez autoriser l'accès à votre photothèque dans les réglages de l'appareil pour choisir une photo."
+    },
+    "attachMenu": {
+      "title": "Joindre une photo",
+      "camera": "Prendre une photo",
+      "library": "Choisir dans la galerie",
+      "cancel": "Annuler"
     },
     "profileFields": {
       "gender": "genre",
@@ -527,6 +556,9 @@
     },
     "zeroCloset": {
       "banner": "Votre dressing est vide. Ajoutez quelques pièces pour que votre styliste IA ait de quoi travailler."
+    },
+    "missingBasics": {
+      "title": "💡 Pour compléter la tenue"
     }
   },
   "planner": {
@@ -534,10 +566,10 @@
     "screenTitle": "Plan hebdomadaire",
     "today": "Aujourd'hui",
     "askPrompt": "Que devrais-je porter le {{date}} ?",
-    "removeTitle": "Supprimer la tenue planifiée",
-    "removeMessage": "Supprimer la tenue planifiée pour ce jour ?",
-    "cancel": "Annuler",
-    "remove": "Supprimer",
+    "removeCalendarTitle": "Supprimer aussi de l'agenda ?",
+    "removeCalendarMessage": "Voulez-vous aussi supprimer cette tenue de l'agenda de votre système ?",
+    "removeCalendarKeep": "Non, garder dans l'agenda",
+    "removeCalendarDelete": "Oui, supprimer",
     "heroBadge": "Cette semaine",
     "heroTitle": "{{count}} jours sur 7 planifiés",
     "heroCaption": "Ajoutez une tenue pour les jours restants",
@@ -551,6 +583,10 @@
     "plannedLook": "Tenue planifiée",
     "styledByAi": "Stylisé par l'IA",
     "snapOrShuffle": "Photo ou mélange"
+  },
+  "calendarPicker": {
+    "title": "Choisissez un agenda",
+    "cancel": "Annuler"
   },
   "itemDetail": {
     "wearToday": "Je porte ceci aujourd'hui",

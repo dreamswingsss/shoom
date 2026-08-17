@@ -31,20 +31,31 @@ export function useConfirm() {
   const [dialogProps, setDialogProps] = useState(null);
 
   const confirm = useCallback(
-    ({ title, message, cancelLabel, confirmLabel, destructive = true, onConfirm }) => {
+    ({ title, message, cancelLabel, confirmLabel, destructive = true, onConfirm, onCancel }) => {
       if (Platform.OS !== 'web') {
         Alert.alert(title, message, [
-          { text: cancelLabel, style: 'cancel' },
+          { text: cancelLabel, style: 'cancel', onPress: onCancel },
           { text: confirmLabel, style: destructive ? 'destructive' : 'default', onPress: onConfirm },
         ]);
         return;
       }
-      setDialogProps({ title, message, cancelLabel, confirmLabel, destructive, onConfirm });
+      setDialogProps({ title, message, cancelLabel, confirmLabel, destructive, onConfirm, onCancel });
     },
     []
   );
 
-  const closeDialog = useCallback(() => setDialogProps(null), []);
+  // Web's own dismiss path — backdrop tap and the Cancel button both route
+  // through ConfirmDialog's single `onClose` prop, same as how the OS Alert
+  // above treats a tap outside/back-press as the cancel-styled button. Most
+  // callers never pass `onCancel` (plain "cancel just means do nothing"),
+  // so this only ever fires for the ones that do (e.g. PlannerScreen's
+  // Smart Delete, where "No, keep in calendar" still has to remove the plan).
+  const closeDialog = useCallback(() => {
+    setDialogProps((current) => {
+      current?.onCancel?.();
+      return null;
+    });
+  }, []);
 
   // Closes BEFORE running the caller's onConfirm — same ordering
   // `Alert.alert`'s own button press already gives on native (the dialog

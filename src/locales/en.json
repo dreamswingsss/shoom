@@ -25,6 +25,17 @@
       "bodyType": "The AI Stylist uses this to recommend cuts that actually flatter you.",
       "colorDna": "This is how the AI Stylist knows which colors work best on you."
     },
+    "bodyTypeDescriptions": {
+      "Hourglass": "Balanced shoulders and hips with a defined waist.",
+      "Trapezoid": "Broad shoulders tapering gently to a narrower waist.",
+      "Inverted Triangle": "Broader shoulders and chest than hips.",
+      "Rectangle": "Shoulders, waist, and hips are similarly proportioned.",
+      "Oval": "Fuller through the midsection, narrower shoulders and hips.",
+      "Triangle": "Hips broader than shoulders, weight carried lower.",
+      "Pear (Triangle)": "Hips and thighs fuller than the shoulders and bust.",
+      "Apple (Round)": "Fuller midsection with slimmer arms and legs.",
+      "Diamond": "Waist fuller than both shoulders and hips."
+    },
     "measurementsStep": {
       "unitMetric": "Metric (cm, kg)",
       "unitImperial": "Imperial (ft/in, lbs)",
@@ -66,7 +77,8 @@
       "Triangle": "Triangle",
       "Hourglass": "Hourglass",
       "Pear (Triangle)": "Pear (Triangle)",
-      "Apple (Round)": "Apple (Round)"
+      "Apple (Round)": "Apple (Round)",
+      "Diamond": "Diamond"
     }
   },
   "profile": {
@@ -76,7 +88,7 @@
       "name": "Guest",
       "subtitle": "Sign in to save your data",
       "ctaTitle": "Create your account",
-      "ctaMessage": "Sign in with Google to save your wardrobe, sync your profile, and unlock AI features."
+      "ctaMessage": "Sign in with Telegram to save your wardrobe, sync your profile, and unlock AI features."
     },
     "sections": {
       "basicInfo": "Basic Info",
@@ -214,7 +226,8 @@
       "exportSuccess": "Saved to calendar!",
       "exportPermissionDenied": "Calendar access is needed — enable it for Shoom in your phone's Settings.",
       "exportWebUnavailable": "Calendar export isn't available on Web — try this on your phone.",
-      "exportGenericError": "Couldn't export to calendar. Please try again."
+      "exportGenericError": "Couldn't export to calendar. Please try again.",
+      "exportNoCalendars": "No writable calendar found on this device."
     },
     "hub": {
       "title": "Your Digital Closet",
@@ -372,13 +385,13 @@
         "message": "You're not registered yet, so this item won't be saved. Sign up to save items to your wardrobe and train the AI on your personal style.",
         "cancel": "Cancel",
         "registerButton": "Sign Up",
-        "googleButton": "Continue with Google",
+        "googleButton": "Continue with Telegram",
         "genericError": "Something went wrong signing you in. Please try again."
       },
       "registration": {
         "heightWeightTitle": "What's your height & weight?",
         "finalTitle": "Create your account",
-        "finalSubtitle": "Sign in with Google to save this item and everything you just told us."
+        "finalSubtitle": "Sign in with Telegram to save this item and everything you just told us."
       },
       "calibration": {
         "title": "Just a few details",
@@ -456,6 +469,7 @@
     "inputPlaceholder": "Ask your stylist...",
     "inputPlaceholderShopping": "Add items to unlock styling...",
     "genericError": "Could not reach your stylist right now. Please try again.",
+    "imageReadError": "Couldn't read that photo. Please try again.",
     "rateLimitApology": "Whew, we're swamped with clients today! Give me one minute to catch my breath, and I'll have your outfit ready.",
     "locationRestrictedApology": "I'm having trouble reaching the styling engine from your current connection — try again in a moment, or switch networks if it keeps happening.",
     "welcomeMessage": "Hi, I'm your personal stylist. Tell me what look you're going for.",
@@ -482,6 +496,16 @@
     "cameraPermission": {
       "title": "Camera access needed",
       "message": "Please allow camera access in your device settings to take a photo."
+    },
+    "libraryPermission": {
+      "title": "Photo library access needed",
+      "message": "Please allow photo library access in your device settings to choose a photo."
+    },
+    "attachMenu": {
+      "title": "Attach Photo",
+      "camera": "Take a Photo",
+      "library": "Choose from Gallery",
+      "cancel": "Cancel"
     },
     "profileFields": {
       "gender": "gender",
@@ -538,6 +562,9 @@
     },
     "zeroCloset": {
       "banner": "Your closet is empty. Add a few pieces so your AI stylist has something real to work with."
+    },
+    "missingBasics": {
+      "title": "💡 To complete the look"
     }
   },
   "planner": {
@@ -545,10 +572,10 @@
     "screenTitle": "Weekly Plan",
     "today": "Today",
     "askPrompt": "What should I wear on {{date}}?",
-    "removeTitle": "Remove Planned Outfit",
-    "removeMessage": "Remove the outfit planned for this day?",
-    "cancel": "Cancel",
-    "remove": "Remove",
+    "removeCalendarTitle": "Remove from calendar too?",
+    "removeCalendarMessage": "Do you want to delete this outfit from your system calendar as well?",
+    "removeCalendarKeep": "No, keep in calendar",
+    "removeCalendarDelete": "Yes, delete",
     "heroBadge": "This week",
     "heroTitle": "{{count}} of 7 days planned",
     "heroCaption": "Add a look for the days left blank",
@@ -562,6 +589,10 @@
     "plannedLook": "Planned look",
     "styledByAi": "Styled by AI",
     "snapOrShuffle": "Snap or shuffle"
+  },
+  "calendarPicker": {
+    "title": "Choose a calendar",
+    "cancel": "Cancel"
   },
   "itemDetail": {
     "wearToday": "I'm wearing this today",

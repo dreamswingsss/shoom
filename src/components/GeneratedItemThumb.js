@@ -103,7 +103,15 @@ export default function GeneratedItemThumb({ uri, name = '', searchQuery = '', s
 }
 
 const styles = StyleSheet.create({
-  image: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  // No hardcoded `height: '100%'` here — a style array merge (`[styles.image, style]`)
+  // only lets a later object's keys override earlier ones, so a fixed height baked in
+  // here would survive even when a caller (e.g. WardrobeScreen's `lookbookHeroImage`)
+  // wants to size itself via `aspectRatio` instead. `height:'100%'` + `aspectRatio`
+  // together make Yoga drop the aspectRatio entirely (it only fills in a dimension
+  // that isn't already set), and resolving that leftover `height:'100%'` against a
+  // parent whose own height is content-driven (not explicit) is exactly the "photo
+  // renders at native resolution and blows out the card" bug this fixes.
+  image: { width: '100%', alignItems: 'center', justifyContent: 'center' },
   iconWrap: { alignItems: 'center', justifyContent: 'center' },
   monogram: {
     position: 'absolute',

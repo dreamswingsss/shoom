@@ -1,24 +1,28 @@
 import { StyleSheet } from 'react-native';
 
-// Redesign v9 — values verified directly from the live source file
-// (`Wardrobe App Redesign v2.dc.html`'s own `renderVals()`, not the prose
-// docs). The prose handoff docs (`design_handoff_app_redesign/README.md`,
-// `Wardrobe App - Design Tokens.md`) describe an earlier violet/coral/sky/
-// sage palette (`#6C4DF6` etc.) with Manrope — but the mockup file itself
-// was edited in place past that point (its own on-page banner now reads
-// "Design update v3") to a muted brown/gold/blue-grey "Mother Earth"
-// palette. Every prior pass in this file's history (v6/v7/v8) was chasing
-// one or the other stale source and landed on values matching neither —
-// this pass reads the file's actual `var violet = ...` block (and the
-// tile/nav-icon style objects that consume it) directly, once, and is the
-// first to match what the mockup currently renders. Font stays Manrope by
-// deliberate choice (not a source mismatch this time) — the mockup itself
-// moved to Archivo/Anton, but porting new font assets was declared out of
-// scope for this pass.
+// Redesign v10 ("Noctis / Marigold") — supersedes v9's "Mother Earth" brown/
+// gold pass below. v9's own comment already documented this file's history
+// of chasing a moving-target mockup (v6/v7/v8/v9 each read a DIFFERENT
+// snapshot of the same evolving `Wardrobe App Redesign v2.dc.html` and
+// landed on values matching none of them by the time each pass shipped).
+// This pass is grounded in a DIFFERENT, newer, explicitly-named file instead
+// — `Shoom App - Noctis Marigold.html` (Downloads, exported ~13 min after
+// the v2.dc.html snapshots v9 was chasing) — verified the same way v9 was
+// supposed to be: live, via `getComputedStyle` on the rendered prototype
+// (served over local HTTP + a real Chrome tab, not by reading its minified
+// source), not eyeballed off a screenshot or guessed from the file's own
+// color-name callouts (which include a `#E3A419` "Marigold" brand swatch
+// that turns out NOT to be what's actually used for the functional accent
+// — see `marigold` below).
 //
-// Borders/shadows follow the spec's own convention of deriving every
-// neutral overlay from a single hex + alpha suffix rather than a separate
-// flat color (`withAlpha` below implements that literally) — so a card
+// Colors only — fonts deliberately left on Manrope/CormorantGaramond. The
+// mockup itself uses Archivo/Instrument Serif/Anton, but none of those are
+// bundled in this app yet (no font files, no `expo-font` registration) —
+// pulling in three new typefaces is a separate decision with its own asset
+// footprint, not something to fold silently into a token-value pass.
+//
+// Borders/shadows follow the same convention v9 established: every neutral
+// overlay derives from one ink hex + alpha (`withAlpha` below), so a card
 // border, a divider, and a modal backdrop are all "ink at some opacity",
 // and a button glow is "the accent at some opacity", never a bespoke color.
 
@@ -30,20 +34,45 @@ function withAlpha(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// Base ink triad + canvas, read straight off `renderVals()`: `ink`
-// literally equals `violet` in the source (same hex, both roles collapse
-// to one brown) — kept as separate named constants for call-site clarity,
-// but they resolve identically, matching the mockup.
-const ink = '#513229';
-const inkSecondary = '#6E5A4C';
-const inkMuted = '#A99A88';
-const paper = '#F4F1E2';
+// Base ink triad + canvas — every value below is a `getComputedStyle()`
+// reading off the live prototype (see this file's own top-of-file comment),
+// not a value transcribed from the file's color-name callout cards.
+// `ink` ("Noctis") is the one dark color the whole UI is built from: primary
+// text, primary CTA fill (`Изменить профиль`/`Добавить вещь`/nav bar
+// background), same "one dark color IS the accent" shape v9's own comment
+// described for the brown it replaces.
+const ink = '#1F2235';
+// Avatar gradient's second stop (`linear-gradient(145deg, ink, inkDark)`) —
+// near-black navy, not a lighter tint despite sitting next to `ink`.
+const inkDark = '#12141F';
+const inkSecondary = '#474C63';
+const inkMuted = '#8A8FA3';
+const paper = '#F3E4D8';
 const white = '#FFFFFF';
 
-const violet = '#513229'; // "Mother Earth" — primary accent, == ink
-const coral = '#8A7238'; // deep Bay gold — secondary accent
-const sky = '#4A6B86'; // deep Something Blue — secondary accent
-const sage = '#6E6B45'; // deep Walking Vinnie — auxiliary accent
+// The prototype's own color-name card calls this swatch "Marigold" at
+// `#E3A419` — but that's a brand/logo-concept reference, not what's actually
+// painted on screen. The real functional accent (the active bottom-nav
+// tab's own filled pill, `getComputedStyle`'d directly off the rendered
+// Profile tab) is a noticeably darker, richer amber: `#C98A12`. Using the
+// verified rendered value, not the brand swatch, per this file's whole
+// point of reading the actual prototype rather than its supporting docs.
+const marigold = '#C98A12';
+
+// `violet`/`coral`/`sky`/`sage` — legacy role names from the original
+// 4-accent system (violet/coral/sky/sage, each a distinct hue). The
+// Noctis/Marigold prototype doesn't have 4 accent hues anymore: every icon
+// rendered navy regardless of which tile/tint it sat on (verified across
+// the Closet hero card, stat tiles, Planner/Copilot tiles, and every
+// Profile row icon), and the only OTHER functional color anywhere is
+// `marigold` above, used exclusively for the active nav pill. So every
+// legacy accent role collapses to `ink` except the one that's visibly
+// distinct — kept as separate constants (not one shared variable) purely so
+// call sites reading `colors.sky` etc. keep working unchanged.
+const violet = ink;
+const coral = marigold;
+const sky = ink;
+const sage = ink;
 
 export const colors = {
   background: paper,
@@ -66,13 +95,13 @@ export const colors = {
   border: withAlpha(ink, 0.07),
   borderStrong: withAlpha(ink, 0.14),
 
-  // Text stays the same red across every revision so far. The tint behind
-  // it is NOT a red/pink tint in the source — `dangerBtnStyle.background`
-  // is literally `#D8EBF9`, the same pale blue as the violet card tint
-  // below. Kept as-is per fidelity even though it reads unusually for a
-  // destructive action.
+  // Text stays the same red across every revision so far — `#D14343`
+  // verified unchanged in the new prototype's own "Выйти" (Log out) button.
+  // Its background tint DID change: verified `#FBEBC4`, the same warm
+  // marigold-tinted cream as the Closet hero card (not the pale blue an
+  // earlier pass found in a since-superseded source).
   danger: '#D14343',
-  dangerBackground: '#D8EBF9',
+  dangerBackground: '#FBEBC4',
   success: sage,
 
   // Section accents. `violet` doubles as `accent` — the one color used for
@@ -82,11 +111,15 @@ export const colors = {
   sky,
   sage,
   accent: violet,
-  // Second stop of the avatar's gradient fill (`avatarSmallStyle`/
-  // `avatarLargeStyle`: `linear-gradient(145deg, violet, #2E1C15)`) — a
-  // darker near-black brown, not a lighter tone despite the name; name kept
-  // for call-site stability.
-  violetLight: '#2E1C15',
+  // The verified `#C98A12` active-nav-pill color, exposed under its own
+  // name (not just via `coral`) so TabNavigator can use it directly as ONE
+  // shared active-tab fill — see that file's own comment for why this
+  // replaced the old one-hue-per-tab scheme.
+  marigold,
+  // Second stop of the avatar's gradient fill (`linear-gradient(145deg,
+  // ink, inkDark)`, verified via getComputedStyle) — name kept for call-site
+  // stability even though it's now a darker, not lighter, tone.
+  violetLight: inkDark,
 
   // Inactive tab icon — spec's `#ffffff8a` (54% white) expressed via the
   // same alpha helper instead of a bare hex8 literal.
@@ -102,49 +135,42 @@ export const colors = {
   premiumBackground: paper,
 };
 
-// Tint backgrounds for plaques/tiles/icon chips, one per section accent.
-// Read directly off the mockup's own `coralTileStyle`/`skyTileStyle`/
-// `sageTileStyle`/`violetTileStyle` objects — these are a genuinely
-// SEPARATE pastel set from the `violet`/`coral`/`sky`/`sage` accent hexes
-// above, not derived from them (e.g. `violetTileStyle` is a pale blue,
-// `#D8EBF9`, nothing like the brown `violet` accent). The mapping below is
-// by RENDERED ROLE, verified by tracing which literal style object each
-// screen section actually uses, not by matching hex-to-name: violet tint =
-// Closet hero card + Profile "Notifications"/"Language" chips; coral tint =
-// Closet streak tile + Planner hero/plan card + Profile "Style vibes" chip;
-// sky tint = Closet capsule tile + Planner plan card + Stylist empty-state
-// card + Profile "Fit profile" chip; sage tint = Profile "Wear history"
-// chip. Every border in the source is plain INK-at-alpha regardless of
-// tint (not the tint's own hue) — replicated as-is since that's genuinely
-// what's rendered.
+// Tint backgrounds for plaques/tiles/icon chips. Verified via
+// getComputedStyle on the actual rendered cards (Closet hero/stat tiles,
+// Profile row icon chips, the "Log out" button) — role mapping (which
+// screen section uses which tint) kept from v9's own tracing since the
+// SCREENS/LAYOUT are unchanged, only the hex values are new: violet tint =
+// Closet hero card + "Log out" button fill; coral tint = Closet streak
+// tile; sky tint = Closet capsule-score tile + Profile "Body profile" chip;
+// sage tint = Profile "Wear history"/"Language" chips. Every border is
+// plain ink-at-alpha regardless of tint hue, same as before.
+//
+// Unlike the old 4-hue system, this prototype really only cycles through
+// two tint FAMILIES — a warm marigold-tinted cream (violet/coral/sage
+// below) and one cool grey-lavender (sky) — reused across roles rather than
+// one distinct hue per role. `sage` is set apart from `violet`/`coral` by a
+// shade, not a different hue, to keep 4 distinguishable tokens without
+// inventing a hue that isn't actually in the source.
 export const cardTints = {
-  violet: '#D8EBF9',
+  violet: '#FBEBC4',
   violetBorder: withAlpha(ink, 0.2),
-  // Soft decorative "blob" fill for hero cards (an opaque-over-opaque tint
-  // would be invisible on its own tile, so this stays a translucent overlay
-  // rather than reusing `violet`/`violetBorder`). The source's own
-  // `heroBlobStyle` radial-gradient literally hardcodes `rgba(46,74,92,
-  // 0.24)` — a stale leftover from an earlier palette pass, not today's
-  // ink or violet. Using TODAY's `violet` at that same 0.24 alpha instead
-  // of replicating the leftover.
-  violetBlob: withAlpha(violet, 0.24),
-  coral: '#FCE6B7',
+  // Decorative hero-card "blob" fill — tinted with the marigold accent
+  // (not ink) since a warm highlight reads right on a warm tan card; this
+  // specific decorative detail wasn't directly confirmed on the new
+  // prototype (no visible blob in the rendered hero card at the checked
+  // viewport), so it's a reasoned carryover from the layout spec rather
+  // than a getComputedStyle reading like the rest of this file.
+  violetBlob: withAlpha(marigold, 0.24),
+  coral: '#F3E7CD',
   coralBorder: withAlpha(ink, 0.18),
-  // `heroBlobStylePlanner` literally hardcodes `rgba(255,122,89,0.3)` — an
-  // OLD coral hex (`#FF7A59`) from a much earlier palette pass, left stale
-  // in the source while the `coral` variable itself moved on twice since.
-  // Using today's coral at that same 0.3 alpha instead of replicating the
-  // stale leftover.
-  coralBlob: withAlpha(coral, 0.3),
+  coralBlob: withAlpha(marigold, 0.3),
   // Text color for copy set on a WHITE badge sitting on top of the coral
-  // tint (e.g. the Planner hero card's "This week" badge) — the source's
-  // own `heroBadgeStylePlanner` uses plain ink here, NOT the coral accent
-  // (unlike Closet's hero badge, whose `heroBadgeStyle` uses `color: violet`
-  // — see WardrobeScreen's own heroBadgeText, unchanged).
+  // tint (e.g. the Planner hero card's "This week" badge) — plain ink, same
+  // role v9 documented, unaffected by this palette swap.
   coralInk: ink,
-  sky: '#E7E4CA',
+  sky: '#E6E8F0',
   skyBorder: withAlpha(ink, 0.3),
-  sage: '#D7D4B1',
+  sage: '#EFE0BE',
   sageBorder: withAlpha(ink, 0.22),
 };
 
@@ -377,7 +403,7 @@ export const shadows = {
     shadowRadius: 32,
     elevation: 10,
   },
-  // Google sign-in button. Spec: 0 6px 16 rgba(ink,0.08).
+  // Telegram sign-in button. Spec: 0 6px 16 rgba(ink,0.08).
   googleBtn: {
     shadowColor: colors.textPrimary,
     shadowOffset: { width: 0, height: 6 },

@@ -22,14 +22,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { sendChatMessage } from '../services/aiChatEngine';
+import { readImageAsBase64 } from '../utils/imageBase64';
 import { useUserStore } from '../store/useUserStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { useChatStore } from '../store/useChatStore';
 import { usePlannerStore, toDateKey, getPlannedDaysCount } from '../store/usePlannerStore';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
-import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
+import { useWeather } from '../hooks/useWeather';
+import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
 import { useToast } from '../hooks/useToast';
 import { usePaywall } from '../hooks/usePaywall';
+import { useActionSheet } from '../hooks/useActionSheet';
 import { formatWeekdayLong, formatWeekdayShortWithDate } from '../utils/dateFormat';
 import { colors, cardTints, spacing, radius, typography, shadows, buttons, opacity } from '../theme/tokens';
 import ScreenContainer from '../components/ScreenContainer';
@@ -39,6 +42,7 @@ import { FadeInView } from '../components/AnimatedPressable';
 import FullScreenImageViewer from '../components/FullScreenImageViewer';
 import Toast from '../components/Toast';
 import PaywallModal from '../components/PaywallModal';
+import ActionSheetModal from '../components/ActionSheetModal';
 import { triggerHaptic } from '../utils/haptics';
 import { FREE_CHAT_MESSAGE_LIMIT, FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
 
@@ -149,6 +153,12 @@ export default function StylistScreen() {
   const upsertProfileStalePrompt = useChatStore((state) => state.upsertProfileStalePrompt);
   const freeMessagesUsed = useChatStore((state) => state.freeMessagesUsed);
   const fadeOpacity = useFadeOnFocus();
+  // Live location weather for RULE: WEATHER PRIORITY in aiChatEngine.js's
+  // system prompt — `status !== 'ready'` (denied permission, no fix yet, a
+  // failed fetch) is passed through as `null` below rather than a
+  // half-populated reading, so the prompt's own "(not available)" fallback
+  // is what the model sees instead of a stale/undefined temperature.
+  const weather = useWeather();
 
   // Freemium chat cap — once hit, the input bar itself is replaced by an
   // upgrade prompt (see the render below), not just disabled in place, per
@@ -156,6 +166,11 @@ export default function StylistScreen() {
   const chatLimitReached = !isPro && freeMessagesUsed >= FREE_CHAT_MESSAGE_LIMIT;
 
   const [inputText, setInputText] = useState('');
+  // Draft photo attached via the camera/gallery menu, waiting to go out
+  // with whatever caption gets typed (or alone, if Send is tapped with no
+  // text) — cleared by handleSend once the combined message actually goes
+  // out, or by tapping the preview's own remove button.
+  const [pendingImage, setPendingImage] = useState(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   // Full-screen viewer for any tapped chat image (a wardrobe photo) — one
@@ -164,6 +179,7 @@ export default function StylistScreen() {
   const [viewerUri, setViewerUri] = useState(null);
   const { toastMessage, toastKey, toastHoldMs, showToast } = useToast();
   const { paywallMessage, showPaywall, closePaywall } = usePaywall();
+  const { showActionSheet, sheetProps, closeActionSheet, handleOptionPress } = useActionSheet();
 
   const listRef = useRef(null);
   // Synchronous companion to the `sending` state guard in handleSend below.
@@ -263,7 +279,12 @@ export default function StylistScreen() {
   // message's own "Save Inspiration" button later; nothing here reads it.
   async function handleSend(overrideText, { baseItemId = null } = {}) {
     const text = (overrideText ?? inputText).trim();
-    if (!text || sendingRef.current) return;
+    // Snapshotted before any state clears below — `pendingImage` itself
+    // gets set to null a few lines down (the moment the draft actually
+    // goes out), so anything after that point needs its own local copy of
+    // what was attached, not the (by-then-stale) state variable.
+    const imageUri = pendingImage;
+    if ((!text && !imageUri) || sendingRef.current) return;
     // Defense in depth — the render below already replaces the entire
     // input bar (including every quick-prompt chip) with an upgrade prompt
     // once `chatLimitReached`, so there's no live UI path left that calls
@@ -273,11 +294,20 @@ export default function StylistScreen() {
     sendingRef.current = true;
 
     triggerHaptic();
-    const userMessage = { id: `${Date.now()}-user`, sender: 'user', text };
+    // One combined message, not two — a caption-less photo just omits
+    // `text`, a photo-less send just omits `imageUri`; MessageBubble's own
+    // user-turn render below handles all three shapes.
+    const userMessage = {
+      id: `${Date.now()}-user`,
+      sender: 'user',
+      ...(text ? { text } : {}),
+      ...(imageUri ? { imageUri } : {}),
+    };
     const historyForRequest = messages;
 
     addMessage(userMessage);
     setInputText('');
+    setPendingImage(null);
     setError(null);
     setSending(true);
 
@@ -297,12 +327,46 @@ export default function StylistScreen() {
         return;
       }
 
-      const { text: aiText, outfitIds } = await sendChatMessage({
+      // Base64-encode the attached photo (if any) right before the network
+      // call — Gemini's vision input needs the actual image bytes inline
+      // (inlineData.data below, in aiChatEngine's buildContents), not the
+      // local file:// URI ImagePicker hands back, which means nothing
+      // outside this device. This is the actual fix for "I cannot see the
+      // item": the photo used to never reach sendChatMessage at all (see
+      // aiChatEngine.js's own IMAGE_TURN_PLACEHOLDER comment for the full
+      // history of that gap).
+      let imageBase64 = null;
+      if (imageUri) {
+        try {
+          imageBase64 = await readImageAsBase64(imageUri);
+        } catch (err) {
+          console.error('[StylistScreen] Failed to read attached photo:', err);
+          setError(t('stylist.imageReadError'));
+          return;
+        }
+      }
+
+      const { text: aiText, outfitIds, suggestedOutfit, missingBasics } = await sendChatMessage({
         message: text,
         wardrobe,
         history: historyForRequest,
+        imageBase64,
+        currentWeather:
+          weather.status === 'ready' ? { temperature: weather.temperature, condition: weather.condition } : null,
       });
-      addMessage({ id: `${Date.now()}-ai`, sender: 'ai', text: aiText, outfitIds, baseItemId });
+      // `suggestedOutfit`/`missingBasics` ride along on the stored message
+      // (not just `outfitIds`) so aiChatEngine's buildContents can replay
+      // this turn's real per-item reasoning on a later follow-up like
+      // "swap the jeans for a skirt" — see its own history.forEach comment.
+      addMessage({
+        id: `${Date.now()}-ai`,
+        sender: 'ai',
+        text: aiText,
+        outfitIds,
+        suggestedOutfit,
+        missingBasics,
+        baseItemId,
+      });
     } catch (err) {
       setError(err.message || t('stylist.genericError'));
     } finally {
@@ -321,8 +385,7 @@ export default function StylistScreen() {
     navigation.navigate('Closet');
   }
 
-  async function handleCameraPress() {
-    triggerHaptic();
+  async function handleTakePhoto() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       showToast(t('stylist.cameraPermission.message'));
@@ -336,12 +399,48 @@ export default function StylistScreen() {
     });
 
     if (result.canceled || !result.assets?.[0]) return;
+    // Drafting, not sending — the photo just sits attached above the input
+    // bar (see `pendingImage`'s own render below) until handleSend picks it
+    // up alongside whatever caption gets typed, same as any chat app's
+    // "attach then compose" flow. Replaces the old behavior where a photo
+    // fired off as its own message the instant it was picked, with no
+    // chance to caption it.
+    setPendingImage(result.assets[0].uri);
+  }
 
-    addMessage({
-      id: `${Date.now()}-user-image`,
-      sender: 'user',
-      type: 'image',
-      uri: result.assets[0].uri,
+  async function handleChooseFromGallery() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showToast(t('stylist.libraryPermission.message'));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+    setPendingImage(result.assets[0].uri);
+  }
+
+  // Camera button now opens a source picker instead of jumping straight to
+  // the camera — a client with an outfit photo already in their gallery
+  // (e.g. a mirror selfie from earlier) had no way to attach it here before,
+  // only to re-shoot it live. useActionSheet routes to the real
+  // ActionSheetIOS/Alert.alert on native and an ActionSheetModal on web,
+  // where Alert.alert alone would be a silent no-op (see that hook's own
+  // comment) — this button used to simply do nothing on web.
+  function handleAttachPress() {
+    triggerHaptic();
+    showActionSheet({
+      title: t('stylist.attachMenu.title'),
+      options: [
+        { label: t('stylist.attachMenu.camera'), onPress: handleTakePhoto },
+        { label: t('stylist.attachMenu.library'), onPress: handleChooseFromGallery },
+        { label: t('stylist.attachMenu.cancel'), cancel: true },
+      ],
     });
   }
 
@@ -442,11 +541,28 @@ export default function StylistScreen() {
             />
           )}
 
+          {/* Draft preview — the attached photo sits here, above the input
+              bar, until handleSend picks it up alongside whatever caption
+              gets typed (or Send is tapped with the field empty). */}
+          {pendingImage && (
+            <View style={styles.pendingImageWrap}>
+              <Image source={{ uri: pendingImage }} style={styles.pendingImageThumb} />
+              <TouchableOpacity
+                style={styles.pendingImageRemoveBtn}
+                onPress={() => setPendingImage(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.8}
+              >
+                <Feather name="x" size={12} color={colors.inverseText} />
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.inputBar}>
             <View style={styles.cameraBtnContainer}>
               <TouchableOpacity
                 style={styles.rateMyFitBtn}
-                onPress={handleCameraPress}
+                onPress={handleAttachPress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 activeOpacity={0.8}
               >
@@ -466,9 +582,12 @@ export default function StylistScreen() {
               editable={!sending}
             />
             <TouchableOpacity
-              style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
+              style={[
+                styles.sendBtn,
+                ((!inputText.trim() && !pendingImage) || sending) && styles.sendBtnDisabled,
+              ]}
               onPress={() => handleSend()}
-              disabled={!inputText.trim() || sending}
+              disabled={(!inputText.trim() && !pendingImage) || sending}
               activeOpacity={0.8}
             >
               <Feather name="arrow-up" size={20} color={colors.inverseText} />
@@ -481,6 +600,13 @@ export default function StylistScreen() {
       <FullScreenImageViewer visible={!!viewerUri} imageUri={viewerUri} onClose={() => setViewerUri(null)} />
       <Toast key={toastKey} message={toastMessage} holdMs={toastHoldMs} />
       <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
+      <ActionSheetModal
+        visible={!!sheetProps}
+        onClose={closeActionSheet}
+        onSelect={handleOptionPress}
+        title={sheetProps?.title}
+        options={sheetProps?.options}
+      />
     </ScreenContainer>
   );
 }
@@ -553,7 +679,20 @@ function MessageBubble({
     return (
       <View style={styles.messageRowUser}>
         {item.type === 'image' ? (
+          // Legacy standalone-image turn — from before drafting existed
+          // (a photo used to fire off as its own message the instant it
+          // was picked, no caption possible). Kept so chat history saved
+          // before this change still renders.
           <Image source={{ uri: item.uri }} style={styles.userImage} />
+        ) : item.imageUri ? (
+          <View style={styles.userBubble}>
+            <TouchableOpacity onPress={() => onImagePress(item.imageUri)} activeOpacity={0.9}>
+              <Image source={{ uri: item.imageUri }} style={styles.userMessageImage} />
+            </TouchableOpacity>
+            {item.text ? (
+              <Text style={[styles.userBubbleText, styles.userBubbleTextWithImage]}>{item.text}</Text>
+            ) : null}
+          </View>
         ) : (
           <View style={styles.userBubble}>
             <Text style={styles.userBubbleText}>{item.text}</Text>
@@ -563,7 +702,22 @@ function MessageBubble({
     );
   }
 
-  const outfitItems = (item.outfitIds || []).map((id) => wardrobeById[id]).filter(Boolean);
+  // New shape (see aiChatEngine.js's sendChatMessage / StylistScreen's own
+  // handleSend) carries per-piece `reasoning` alongside each id — preferred
+  // whenever present. `item.outfitIds` alone (no `suggestedOutfit`, or an
+  // empty one) means this bubble was persisted before that schema existed;
+  // falls back to the old id-only render so pre-existing chat history
+  // doesn't lose its outfit strip or crash on the new lookup.
+  const hasSuggestedOutfit = Array.isArray(item.suggestedOutfit) && item.suggestedOutfit.length > 0;
+  const outfitItems = hasSuggestedOutfit
+    ? item.suggestedOutfit
+        .map((entry) => {
+          const wardrobeItem = wardrobeById[entry.itemId];
+          return wardrobeItem ? { ...wardrobeItem, reasoning: entry.reasoning } : null;
+        })
+        .filter(Boolean)
+    : (item.outfitIds || []).map((id) => wardrobeById[id]).filter(Boolean);
+  const missingBasics = Array.isArray(item.missingBasics) ? item.missingBasics.filter(Boolean) : [];
 
   return (
     <View style={styles.messageRowAi}>
@@ -587,8 +741,29 @@ function MessageBubble({
                 <Text style={styles.outfitMiniColor} numberOfLines={1}>
                   {wardrobeItem.color}
                 </Text>
+                {/* Per-item styling rationale — only ever present on the new
+                    `suggestedOutfit` shape, so a fallback-rendered legacy
+                    bubble (id-only) simply has nothing here. */}
+                {wardrobeItem.reasoning ? (
+                  <Text style={styles.outfitMiniReasoning} numberOfLines={3}>
+                    ✨ {wardrobeItem.reasoning}
+                  </Text>
+                ) : null}
               </View>
             ))}
+          </View>
+        )}
+
+        {missingBasics.length > 0 && (
+          <View style={styles.missingBasicsBlock}>
+            <Text style={styles.missingBasicsTitle}>{t('stylist.missingBasics.title')}</Text>
+            <View style={styles.missingBasicsChipsRow}>
+              {missingBasics.map((basic, index) => (
+                <View key={`${item.id}-missing-${index}`} style={styles.missingBasicChip}>
+                  <Text style={styles.missingBasicChipText}>{basic}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
@@ -624,7 +799,7 @@ function MessageBubble({
 // separate "which messages are saved" bookkeeping needed here.
 //
 // Guest gate mirrors ScanSheet's Save-to-Closet flow exactly (same
-// useGoogleSignIn hook, same BottomSheet shape): checking `isLoggedIn`
+// useTelegramSignIn hook, same BottomSheet shape): checking `isLoggedIn`
 // BEFORE attempting the save — not attempt-then-catch-"not signed in" —
 // is what lets a successful sign-in fall straight through into performSave()
 // with the generated look still in hand, instead of the client losing this
@@ -639,7 +814,7 @@ function SaveInspirationButton({ messageId, saved, baseItemId, aiText, generated
     signingIn,
     error: googleSignInError,
     setError: setGoogleSignInError,
-  } = useGoogleSignIn();
+  } = useTelegramSignIn();
 
   const [saving, setSaving] = useState(false);
   const [authPromptVisible, setAuthPromptVisible] = useState(false);
@@ -734,7 +909,7 @@ function SaveInspirationButton({ messageId, saved, baseItemId, aiText, generated
               <ActivityIndicator size="small" color={colors.inverseText} />
             ) : (
               <>
-                <MaterialCommunityIcons name="google" size={20} color={colors.inverseText} />
+                <MaterialCommunityIcons name="telegram" size={20} color={colors.inverseText} />
                 <Text style={styles.googleBtnText}>{t('closet.scan.authPrompt.googleButton')}</Text>
               </>
             )}
@@ -1124,6 +1299,11 @@ const styles = StyleSheet.create({
   },
   userBubbleText: { color: colors.textPrimary, fontSize: 15, lineHeight: 21 },
   userImage: { width: 200, height: 200, borderRadius: radius.card, ...shadows.soft },
+  // Combined text+photo user turn — photo sits inside the same bubble as
+  // the caption (not a separate message), smaller than the legacy
+  // standalone `userImage` since it now shares space with text underneath.
+  userMessageImage: { width: 180, height: 180, borderRadius: radius.md },
+  userBubbleTextWithImage: { marginTop: spacing.xs },
 
   messageRowAi: { alignItems: 'flex-start', marginBottom: spacing.sm, paddingRight: spacing.lg },
   // The assistant's answer as a "look presentation" card — glassCard fill,
@@ -1191,6 +1371,35 @@ const styles = StyleSheet.create({
   },
   outfitMiniLabel: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
   outfitMiniColor: { fontSize: 11, color: colors.textSecondary },
+  // Per-item reasoning ("why this piece") — deliberately below the color
+  // label, smallest/mutedest text in the card so it reads as a footnote,
+  // not competing with the subcategory/color identifying the piece itself.
+  outfitMiniReasoning: { fontSize: 10, lineHeight: 13, color: colors.textMuted, marginTop: 3 },
+
+  // Missing Basics — a distinct nested panel (paper canvas tone against the
+  // white aiCard, same "one dark ink + alpha" derivation as everywhere else
+  // in this file) so it reads as its own callout rather than more outfit
+  // strip. Sits between the outfit strip and the Save/Planner actions,
+  // independent of whether outfitItems is non-empty (RULE #5 in
+  // aiChatEngine.js can report a missing piece even for a partial/empty
+  // suggested outfit).
+  missingBasicsBlock: {
+    marginTop: spacing.sm,
+    padding: spacing.xs,
+    backgroundColor: colors.background,
+    borderRadius: radius.lg,
+  },
+  missingBasicsTitle: { fontSize: 12, fontWeight: '700', color: colors.textPrimary, marginBottom: 6 },
+  missingBasicsChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  missingBasicChip: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 4,
+  },
+  missingBasicChipText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
 
   saveToPlannerBtn: {
     flexDirection: 'row',
@@ -1433,6 +1642,31 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     backgroundColor: colors.premiumBackground,
     ...shadows.soft,
+  },
+  // Draft photo preview — sits above inputBar, same background so it reads
+  // as part of the same composer slot rather than a separate floating
+  // element. `alignSelf: 'flex-start'` (not stretched full-width) since
+  // it's a single 60x60 thumbnail, not a row of content.
+  pendingImageWrap: {
+    alignSelf: 'flex-start',
+    marginLeft: spacing.screenH + 44 + spacing.xs, // clears the camera button slot above it
+    marginBottom: spacing.xs,
+    backgroundColor: colors.premiumBackground,
+    paddingTop: spacing.xs,
+  },
+  pendingImageThumb: { width: 60, height: 60, borderRadius: radius.md, ...shadows.soft },
+  // Overlaps the thumbnail's own top-right corner — same "small dark circle,
+  // white icon" chip other remove/close affordances in this app use.
+  pendingImageRemoveBtn: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.inverseBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Freemium chat cap — replaces the entire input bar once the free tier's
   // message count is spent. Same horizontal padding/background as

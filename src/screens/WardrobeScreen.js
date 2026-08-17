@@ -11,6 +11,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -136,6 +137,25 @@ export default function WardrobeScreen() {
   const isEmptyCloset = !wardrobeLoading && wardrobe.length === 0;
 
   const hubScrollRef = useRef(null);
+  const pagerRef = useRef(null);
+  const { width: screenWidth } = useWindowDimensions();
+
+  // Swipe navigation between the Items/Inspirations pages (Section
+  // Switcher's own two tabs) — a plain `ScrollView horizontal pagingEnabled`
+  // rather than a new native-module dependency (no react-native-pager-view/
+  // react-native-tab-view in this project, and neither is worth adding just
+  // for a fixed 2-page swap). `handleSectionChange` drives the pager from a
+  // switcher tap; `handlePagerScrollEnd` drives the switcher's own active
+  // pill from a swipe — same `section` state, two ways to move it.
+  function handleSectionChange(next) {
+    setSection(next);
+    pagerRef.current?.scrollTo({ x: next === 'inspirations' ? screenWidth : 0, animated: true });
+  }
+
+  function handlePagerScrollEnd(event) {
+    const pageIndex = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+    setSection(pageIndex === 1 ? 'inspirations' : 'items');
+  }
 
   // Closet is a lazy tab (React Navigation only mounts it on first visit),
   // so this only fires once per session, right when the client actually
@@ -396,6 +416,30 @@ export default function WardrobeScreen() {
   return (
     <ScreenContainer edges={['top']} scroll={false} style={styles.hubContainer} contentStyle={styles.zeroHPadding}>
       <Animated.View style={[styles.flexFill, { opacity: fadeOpacity }]}>
+
+      {/* Fixed above the swipeable pager (not inside either page's own
+          ScrollView) so it stays visible and its active pill tracks the
+          current page regardless of how far either page is scrolled — see
+          `handleSectionChange`/`handlePagerScrollEnd` above for the two ways
+          it stays in sync with the pager. */}
+      <View style={styles.sectionSwitcherWrap}>
+        <SectionSwitcher section={section} onChange={handleSectionChange} />
+      </View>
+
+      <ScrollView
+        ref={pagerRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        // Same tour-conflict reasoning as hubScrollRef's own `scrollEnabled`
+        // below — a client swiping over to Inspirations mid-tour would leave
+        // every remaining Closet step spotlighting content on a page that's
+        // no longer showing.
+        scrollEnabled={!tour?.isTourActive}
+        onMomentumScrollEnd={handlePagerScrollEnd}
+        style={styles.flexFill}
+      >
+      <View style={{ width: screenWidth }}>
       <ScrollView
         ref={hubScrollRef}
         // Locked out for the duration of a tour — the tour's own auto-
@@ -431,12 +475,6 @@ export default function WardrobeScreen() {
           </View>
         </TourTarget>
 
-        <SectionSwitcher section={section} onChange={setSection} />
-
-        {section === 'inspirations' ? (
-          <LookbookSection inspirations={inspirations} loading={inspirationsLoading} />
-        ) : (
-        <>
         <View style={styles.bentoGrid}>
           <FadeInView delay={0}>
             <WeatherWidget />
@@ -617,8 +655,14 @@ export default function WardrobeScreen() {
             </View>
           </LockableTile>
         </FadeInView>
-        </>
-        )}
+      </ScrollView>
+      </View>
+
+      <View style={{ width: screenWidth }}>
+        <ScrollView contentContainerStyle={[styles.hubScroll, { paddingTop: spacing.sm }]}>
+          <LookbookSection inspirations={inspirations} loading={inspirationsLoading} />
+        </ScrollView>
+      </View>
       </ScrollView>
 
       {needsColorDnaCalibration ? (
@@ -1547,6 +1591,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inspirationMiniLabel: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
+
+  // Now rendered as a fixed sibling above the horizontal swipe pager (see
+  // the main return), not inside either page's own ScrollView — needs its
+  // own horizontal inset since it's no longer riding on `hubScroll`'s
+  // `paddingHorizontal: spacing.screenH`.
+  sectionSwitcherWrap: { paddingHorizontal: spacing.screenH, paddingTop: spacing.sm },
 
   // Items/Inspirations segmented control — see SectionSwitcher.
   sectionSwitcher: {

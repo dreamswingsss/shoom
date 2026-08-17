@@ -63,6 +63,8 @@ function toDbProfilePatch(patch) {
     weight_kg: patch.weight,
     measurements: patch.measurements,
     style_preferences: patch.stylePreferences,
+    style_vibes: patch.styleVibes,
+    measurement_unit: patch.measurementUnit,
   };
 }
 
@@ -105,6 +107,7 @@ export const useUserStore = create(
       measurements: EMPTY_MEASUREMENTS,
       stylePreferences: '',
       styleVibes: [],
+      measurementUnit: 'cm',
       // Mirrors the DB's `users.language` column — the actual app-wide
       // language switch (i18next + the `@app_language` AsyncStorage key
       // that i18nReady restores from on cold start) is owned by
@@ -199,6 +202,7 @@ export const useUserStore = create(
           measurements: EMPTY_MEASUREMENTS,
           stylePreferences: '',
           styleVibes: [],
+          measurementUnit: 'cm',
           language: null,
           pushToken: null,
           isProfileStale: false,
@@ -243,6 +247,7 @@ export const useUserStore = create(
           measurements: row.measurements || EMPTY_MEASUREMENTS,
           stylePreferences: row.style_preferences || '',
           styleVibes: row.style_vibes || [],
+          measurementUnit: row.measurement_unit || 'cm',
           language: row.language || null,
           pushToken: row.expo_push_token || null,
           profileSyncError: null,
@@ -382,6 +387,22 @@ export const useUserStore = create(
           weight: data.weight,
           measurements: data.measurements || EMPTY_MEASUREMENTS,
           stylePreferences: data.stylePreferences || '',
+          // New — RegistrationFlow's own Style Preferences step (chip multi-
+          // select) is the first/only caller that ever passes this here.
+          // Deliberately NOT added to updateProfile's patch below:
+          // EditProfileScreen never includes `styleVibes` in the object it
+          // passes (it manages that field through its own toggleStyleVibe,
+          // committed immediately per tap, not through this Save-gated
+          // path), so adding it there with a `|| []` fallback would silently
+          // wipe out whatever the client already picked every time they hit
+          // Save on an unrelated field.
+          styleVibes: data.styleVibes || [],
+          // New — RegistrationFlow's Body Measurements step's cm/in toggle.
+          // Same "don't add to updateProfile" reasoning as styleVibes above:
+          // EditProfileScreen has no unit toggle of its own yet and never
+          // passes this, so a `|| 'cm'` fallback there would silently reset
+          // an already-set 'in' back to 'cm' on every unrelated Save.
+          measurementUnit: data.measurementUnit || 'cm',
         };
 
         set({ ...patch, profileSyncError: null });
@@ -471,6 +492,7 @@ export const useUserStore = create(
           measurements: EMPTY_MEASUREMENTS,
           stylePreferences: '',
           styleVibes: [],
+          measurementUnit: 'cm',
           isProfileStale: false,
           staleChangedFields: [],
         }),

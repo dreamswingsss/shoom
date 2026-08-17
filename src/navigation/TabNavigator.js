@@ -14,18 +14,20 @@ import { colors, spacing, radius, shadows } from '../theme/tokens';
 
 const Tab = createBottomTabNavigator();
 
-// Redesign v3 — each tab's active fill is that section's own accent
-// (violet=Closet, coral=Planner, sky=Stylist, sage=Profile) instead of one
-// shared violet everywhere, so the nav bar previews each section's color
-// before you even tap in. `labelKey` is resolved through t() inside
-// TabButton (not stored here as a literal string) so it re-renders in
-// whichever language is active, and is shown next to the icon only once
-// active.
+// Redesign v10 (Noctis/Marigold) — every tab's active fill is now the SAME
+// shared marigold accent, verified directly off the live prototype's
+// bottom nav (getComputedStyle on the active "Профиль" pill returned
+// `#C98A12` — `colors.marigold` — not a per-tab hue). Replaces v3's
+// one-hue-per-tab scheme (violet=Closet, coral=Planner, sky=Stylist,
+// sage=Profile), which belonged to the design system this one replaced.
+// `labelKey` is resolved through t() inside TabButton (not stored here as a
+// literal string) so it re-renders in whichever language is active, and is
+// shown next to the icon only once active.
 const TAB_CONFIG = {
-  Closet: { icon: 'grid', color: colors.violet, labelKey: 'tabs.closet' },
-  Planner: { icon: 'calendar', color: colors.coral, labelKey: 'tabs.planner' },
-  'AI Stylist': { icon: 'zap', color: colors.sky, labelKey: 'tabs.stylist' },
-  Profile: { icon: 'user', color: colors.sage, labelKey: 'tabs.profile' },
+  Closet: { icon: 'grid', color: colors.marigold, labelKey: 'tabs.closet' },
+  Planner: { icon: 'calendar', color: colors.marigold, labelKey: 'tabs.planner' },
+  'AI Stylist': { icon: 'zap', color: colors.marigold, labelKey: 'tabs.stylist' },
+  Profile: { icon: 'user', color: colors.marigold, labelKey: 'tabs.profile' },
 };
 
 const PILL_TRANSITION_MS = 200;

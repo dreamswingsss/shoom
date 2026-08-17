@@ -114,6 +114,19 @@ export default function App() {
   // complete profile back through Onboarding — the bug this hook fixes.
   const sessionReady = useSupabaseAuthSync();
 
+  // Telegram Mini App bootstrap — tells Telegram the page has finished
+  // loading (ready()) and asks for the full available viewport height
+  // (expand()) instead of the collapsed half-screen a Mini App opens at by
+  // default. window.Telegram is only ever defined inside Telegram's own
+  // WebView (see public/index.html's telegram-web-app.js script tag) —
+  // optional-chained so opening the deployed URL in a normal browser is a
+  // silent no-op, not a crash.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.Telegram?.WebApp?.ready();
+    window.Telegram?.WebApp?.expand();
+  }, []);
+
   const [fontsLoaded] = useFonts({
     // Redesign v2 — Manrope replaces the Space Grotesk/Jakarta pairing for
     // both display and body text (see theme/tokens.js `fonts`). Google

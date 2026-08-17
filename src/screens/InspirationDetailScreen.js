@@ -21,12 +21,15 @@ import { colors, cardTints, spacing, radius, shadows, typography } from '../them
 import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PaywallModal from '../components/PaywallModal';
+import CalendarPickerModal from '../components/CalendarPickerModal';
 import Toast from '../components/Toast';
 import ScreenContainer from '../components/ScreenContainer';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { usePaywall } from '../hooks/usePaywall';
+import { useCalendarPicker } from '../hooks/useCalendarPicker';
 import {
+  getAvailableCalendars,
   exportOutfitToCalendar,
   CalendarPermissionDeniedError,
   CalendarWebUnavailableError,
@@ -68,6 +71,8 @@ export default function InspirationDetailScreen() {
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
   const { toastMessage, toastKey, showToast } = useToast();
   const { paywallMessage, showPaywall, closePaywall } = usePaywall();
+  const { pickCalendar, pickerVisible, pickerCalendars, onSelectCalendar, onDismissPicker } =
+    useCalendarPicker();
 
   const [isDeleting, setIsDeleting] = useState(false);
   // Export-to-Calendar's own day-picker — separate from the delete
@@ -152,11 +157,22 @@ export default function InspirationDetailScreen() {
 
   async function handleSelectExportDay(date) {
     if (exporting) return;
+    // Closes the day picker right away rather than leaving it stacked
+    // behind the calendar picker that comes next — the two are sequential
+    // steps of one flow, not layers meant to be visible together.
+    setExportModalVisible(false);
     setExporting(true);
     try {
+      const calendars = await getAvailableCalendars();
+      if (calendars.length === 0) {
+        showToast(t('closet.inspirationDetail.exportNoCalendars'));
+        return;
+      }
+      const calendarId = await pickCalendar(calendars);
+      if (!calendarId) return; // client backed out of the picker
+
       const itemNames = items.map((entry) => entry.name).filter(Boolean);
-      await exportOutfitToCalendar({ itemNames, date });
-      setExportModalVisible(false);
+      await exportOutfitToCalendar({ itemNames, date, calendarId });
       showToast(t('closet.inspirationDetail.exportSuccess'));
     } catch (err) {
       // Both calendarService error classes get their own translated copy
@@ -173,7 +189,6 @@ export default function InspirationDetailScreen() {
         console.error('[InspirationDetailScreen] Calendar export failed:', err);
         showToast(err.message || t('closet.inspirationDetail.exportGenericError'));
       }
-      setExportModalVisible(false);
     } finally {
       setExporting(false);
     }
@@ -248,6 +263,12 @@ export default function InspirationDetailScreen() {
         visible={exportModalVisible}
         onClose={() => setExportModalVisible(false)}
         onSelectDay={handleSelectExportDay}
+      />
+      <CalendarPickerModal
+        visible={pickerVisible}
+        calendars={pickerCalendars}
+        onSelect={onSelectCalendar}
+        onClose={onDismissPicker}
       />
       <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
       <Toast key={toastKey} message={toastMessage} />
@@ -349,8 +370,28 @@ const styles = StyleSheet.create({
   itemBadgeTextCloset: { color: colors.sage },
   itemBadgeTextSuggested: { color: colors.violet },
 
-  headerActions: { flexDirection: 'row', gap: spacing.md, paddingRight: spacing.xs },
-  headerIconBtn: { padding: 2 },
+  // No `paddingRight` here (there used to be one) — native-stack already
+  // applies its own standard horizontal inset around `headerRight`, matching
+  // the back button's own inset on the left. Adding more on top of that was
+  // exactly what made the trash icon read as off-center/misaligned relative
+  // to the title and the header's other edge.
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  // Explicit square, centered hit area with its OWN circular chip
+  // background — not just `padding`, and not relying on any background a
+  // parent/native header container might already be drawing. A plain
+  // `padding` box's visual center can drift from the glyph's own bounding
+  // box depending on the icon's exact metrics; giving this button its own
+  // fully-owned `width`/`height`/`borderRadius`/centering means the icon is
+  // guaranteed dead-center inside ITS OWN chip regardless of what else is
+  // rendered around it.
+  headerIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   notFoundContainer: { alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   notFoundText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },

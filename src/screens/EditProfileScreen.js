@@ -177,10 +177,17 @@ export default function EditProfileScreen({ onDone }) {
           />
 
           <FieldLabel>{t('profile.fields.bodyShape')}</FieldLabel>
+          {/* richCards — same centered, text-only card grid RegistrationFlow's
+              bodyType step uses (see BodyShapeSelector's own comment): fixes
+              both the old left-aligned chip row (no `center` prop existed for
+              this component before) and the old tap-to-expand-an-illustration
+              behavior in one move, since richCards never renders an image at
+              all — just the shape name, and its description once selected. */}
           <BodyShapeSelector
             options={getBodyTypeOptions(formGender)}
             value={formBodyType}
             onChange={setFormBodyType}
+            richCards
           />
         </AccordionSection>
 

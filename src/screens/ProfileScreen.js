@@ -10,7 +10,7 @@ import { calculateCohesionScore } from '../utils/wardrobeUtils';
 import { supabase } from '../services/supabaseClient';
 import { deleteAccount } from '../services/accountService';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
-import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
+import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { colors, cardTints, spacing, radius, shadows, hairline, typography, buttons } from '../theme/tokens';
@@ -56,11 +56,11 @@ export default function ProfileScreen({ navigation, route }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   // Deferred Registration guest CTA — same shared flow as ScanSheet's
-  // Save-to-Closet auth prompt (see useGoogleSignIn.js). No extra branching
+  // Save-to-Closet auth prompt (see useTelegramSignIn.js). No extra branching
   // needed here after signIn() resolves: it already restores/persists
   // gender, fetches the profile, and logs in — isLoggedIn flips reactively
   // and this whole screen re-renders showing the real profile on its own.
-  const { signIn: signInWithGoogle, signingIn, error: googleSignInError } = useGoogleSignIn();
+  const { signIn: signInWithGoogle, signingIn, error: googleSignInError } = useTelegramSignIn();
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
   const { toastMessage, toastKey, showToast } = useToast();
   // Which nav row's content is expanded in place below it — see the file
@@ -278,7 +278,7 @@ export default function ProfileScreen({ navigation, route }) {
                 <ActivityIndicator size="small" color={colors.inverseText} />
               ) : (
                 <>
-                  <MaterialCommunityIcons name="google" size={18} color={colors.inverseText} />
+                  <MaterialCommunityIcons name="telegram" size={18} color={colors.inverseText} />
                   <Text style={styles.guestGoogleBtnText}>{t('closet.scan.authPrompt.googleButton')}</Text>
                 </>
               )}

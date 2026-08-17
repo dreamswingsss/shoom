@@ -25,6 +25,17 @@
       "bodyType": "So empfiehlt dir der KI-Stylist Schnitte, die wirklich zu dir passen.",
       "colorDna": "So weiß der KI-Stylist, welche Farben dir am besten stehen."
     },
+    "bodyTypeDescriptions": {
+      "Hourglass": "Schultern und Hüften ausgeglichen, mit definierter Taille.",
+      "Trapezoid": "Breite Schultern, die sanft zur Taille hin schmaler werden.",
+      "Inverted Triangle": "Schultern und Brust breiter als die Hüften.",
+      "Rectangle": "Schultern, Taille und Hüften sind ähnlich proportioniert.",
+      "Oval": "Fülligere Mitte, schmalere Schultern und Hüften.",
+      "Triangle": "Hüften breiter als die Schultern, Gewicht eher unten.",
+      "Pear (Triangle)": "Hüften und Oberschenkel fülliger als Schultern und Brust.",
+      "Apple (Round)": "Fülligere Körpermitte mit schlankeren Armen und Beinen.",
+      "Diamond": "Taille breiter als Schultern und Hüften."
+    },
     "measurementsStep": {
       "unitMetric": "Metrisch (cm, kg)",
       "unitImperial": "Imperial (ft/in, lbs)",
@@ -66,7 +77,8 @@
       "Triangle": "Dreieck",
       "Hourglass": "Sanduhr",
       "Pear (Triangle)": "Birne (Dreieck)",
-      "Apple (Round)": "Apfel (rund)"
+      "Apple (Round)": "Apfel (rund)",
+      "Diamond": "Diamant"
     }
   },
   "profile": {
@@ -76,7 +88,7 @@
       "name": "Gast",
       "subtitle": "Melde dich an, um deine Daten zu speichern",
       "ctaTitle": "Erstelle dein Konto",
-      "ctaMessage": "Melde dich mit Google an, um deinen Kleiderschrank zu speichern, dein Profil zu synchronisieren und KI-Funktionen freizuschalten."
+      "ctaMessage": "Melde dich mit Telegram an, um deinen Kleiderschrank zu speichern, dein Profil zu synchronisieren und KI-Funktionen freizuschalten."
     },
     "sections": {
       "basicInfo": "Grundinformationen",
@@ -209,7 +221,8 @@
       "exportSuccess": "Im Kalender gespeichert!",
       "exportPermissionDenied": "Kalenderzugriff wird benötigt — aktiviere ihn für Shoom in den Einstellungen deines Telefons.",
       "exportWebUnavailable": "Der Kalender-Export ist im Web nicht verfügbar — versuche es auf deinem Smartphone.",
-      "exportGenericError": "Export in den Kalender fehlgeschlagen. Bitte versuche es erneut."
+      "exportGenericError": "Export in den Kalender fehlgeschlagen. Bitte versuche es erneut.",
+      "exportNoCalendars": "Kein beschreibbarer Kalender auf diesem Gerät gefunden."
     },
     "hub": {
       "title": "Dein digitaler Kleiderschrank",
@@ -366,8 +379,13 @@
         "title": "Konto erforderlich",
         "message": "Erstelle ein Profil, um dieses Teil in deinem Kleiderschrank zu speichern und personalisierte KI-Empfehlungen zu erhalten.",
         "cancel": "Abbrechen",
-        "googleButton": "Weiter mit Google",
+        "googleButton": "Weiter mit Telegram",
         "genericError": "Bei der Anmeldung ist etwas schiefgelaufen. Bitte versuche es erneut."
+      },
+      "registration": {
+        "heightWeightTitle": "Wie groß bist du und wie viel wiegst du?",
+        "finalTitle": "Erstelle dein Konto",
+        "finalSubtitle": "Melde dich mit Telegram an, um dieses Teil und alles, was du angegeben hast, zu speichern."
       },
       "calibration": {
         "title": "Nur noch ein paar Angaben",
@@ -445,6 +463,7 @@
     "inputPlaceholder": "Frag deinen Stylisten...",
     "inputPlaceholderShopping": "Füge Teile hinzu, um Styling freizuschalten...",
     "genericError": "Dein Stylist ist gerade nicht erreichbar. Bitte versuche es erneut.",
+    "imageReadError": "Das Foto konnte nicht gelesen werden. Bitte versuche es erneut.",
     "rateLimitApology": "Puh, wir sind heute mit Kundschaft überlastet! Gib mir eine Minute, dann ist dein Outfit fertig.",
     "locationRestrictedApology": "Ich habe gerade Schwierigkeiten, die Styling-Engine von deiner aktuellen Verbindung aus zu erreichen — versuche es gleich noch einmal oder wechsle das Netzwerk, falls es weiter auftritt.",
     "welcomeMessage": "Hallo, ich bin dein persönlicher Stylist. Erzähl mir, welchen Look du suchst.",
@@ -471,6 +490,16 @@
     "cameraPermission": {
       "title": "Kamerazugriff erforderlich",
       "message": "Bitte erlaube den Kamerazugriff in den Geräteeinstellungen, um ein Foto aufzunehmen."
+    },
+    "libraryPermission": {
+      "title": "Zugriff auf Fotomediathek erforderlich",
+      "message": "Bitte erlaube den Zugriff auf deine Fotomediathek in den Geräteeinstellungen, um ein Foto auszuwählen."
+    },
+    "attachMenu": {
+      "title": "Foto anhängen",
+      "camera": "Foto aufnehmen",
+      "library": "Aus Galerie wählen",
+      "cancel": "Abbrechen"
     },
     "profileFields": {
       "gender": "Geschlecht",
@@ -527,6 +556,9 @@
     },
     "zeroCloset": {
       "banner": "Dein Kleiderschrank ist leer. Füge ein paar Teile hinzu, damit dein KI-Stylist etwas Echtes zum Arbeiten hat."
+    },
+    "missingBasics": {
+      "title": "💡 Um den Look zu vervollständigen"
     }
   },
   "planner": {
@@ -534,10 +566,10 @@
     "screenTitle": "Wochenplan",
     "today": "Heute",
     "askPrompt": "Was soll ich am {{date}} tragen?",
-    "removeTitle": "Geplanten Look entfernen",
-    "removeMessage": "Den für diesen Tag geplanten Look entfernen?",
-    "cancel": "Abbrechen",
-    "remove": "Entfernen",
+    "removeCalendarTitle": "Auch aus dem Kalender entfernen?",
+    "removeCalendarMessage": "Möchtest du diesen Look auch aus deinem Systemkalender löschen?",
+    "removeCalendarKeep": "Nein, im Kalender behalten",
+    "removeCalendarDelete": "Ja, löschen",
     "heroBadge": "Diese Woche",
     "heroTitle": "{{count}} von 7 Tagen geplant",
     "heroCaption": "Füge einen Look für die noch offenen Tage hinzu",
@@ -551,6 +583,10 @@
     "plannedLook": "Geplanter Look",
     "styledByAi": "Gestylt von KI",
     "snapOrShuffle": "Foto machen oder mischen"
+  },
+  "calendarPicker": {
+    "title": "Kalender auswählen",
+    "cancel": "Abbrechen"
   },
   "itemDetail": {
     "wearToday": "Ich trage das heute",
