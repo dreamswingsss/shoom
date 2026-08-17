@@ -6,6 +6,22 @@
 // `{ icon, title }` JSON, and return that instead of the local lookup below.
 import { getPalette } from './colorDna';
 
+// colorDna.js's `name` fields (Navy, Emerald, ...) are internal matching
+// keys shared with calculateColorDnaMatch's substring match against
+// AI-extracted item colors — translating them there would silently break
+// that matching. This is a display-only lookup just for this tile's
+// Russian title, decoupled from the matching logic entirely.
+const COLOR_NAME_RU = {
+  Navy: 'тёмно-синий',
+  Emerald: 'изумрудный',
+  'Soft Rose': 'нежно-розовый',
+  Lavender: 'лавандовый',
+  Terracotta: 'терракотовый',
+  Mustard: 'горчичный',
+  Cream: 'кремовый',
+  Olive: 'оливковый',
+};
+
 // Deterministic per calendar day (not per render) — every re-render of the
 // widget within the same day sees the same target; it only changes at local
 // midnight, same cadence as the old static list.
@@ -15,36 +31,36 @@ function getDayIndex(date = new Date()) {
 }
 
 const BODY_SHAPE_TARGETS = {
-  Hourglass: { icon: 'target', title: "Cinch your waist today — it flatters your Hourglass shape" },
-  'Pear (Triangle)': { icon: 'target', title: 'Try a structured top today — it balances your Pear shape' },
-  'Apple (Round)': { icon: 'target', title: 'Try an open layer today — it elongates your silhouette' },
-  Rectangle: { icon: 'target', title: 'Try a cinched waist today — it adds curve to your frame' },
-  'Inverted Triangle': { icon: 'target', title: 'Try a wider-leg bottom today — it balances your shoulders' },
-  Trapezoid: { icon: 'target', title: 'Try a fitted silhouette today — it suits your balanced frame' },
-  Triangle: { icon: 'target', title: 'Try a structured shoulder today — it balances your frame' },
-  Oval: { icon: 'target', title: 'Try a monochrome outfit today — it elongates your line' },
+  Hourglass: { icon: 'target', title: 'Подчеркните талию сегодня — это выгодно для фигуры «Песочные часы»' },
+  'Pear (Triangle)': { icon: 'target', title: 'Наденьте структурированный верх сегодня — он уравновесит фигуру «Груша»' },
+  'Apple (Round)': { icon: 'target', title: 'Попробуйте открытый слой сегодня — он вытянет силуэт' },
+  Rectangle: { icon: 'target', title: 'Подчеркните талию сегодня — это добавит фигуре изгибов' },
+  'Inverted Triangle': { icon: 'target', title: 'Наденьте низ пошире сегодня — он уравновесит плечи' },
+  Trapezoid: { icon: 'target', title: 'Выберите приталенный силуэт сегодня — он подойдёт вашей сбалансированной фигуре' },
+  Triangle: { icon: 'target', title: 'Наденьте структурированные плечи сегодня — это уравновесит фигуру' },
+  Oval: { icon: 'target', title: 'Попробуйте монохромный образ сегодня — он вытянет силуэт' },
 };
 
 const WEATHER_TARGETS = {
   clear: (temp) =>
     temp != null && temp >= 24
-      ? { icon: 'sun', title: 'Go light today — skip the extra layer in the heat' }
-      : { icon: 'sun', title: 'Clear skies today — a good day for your favorite sneakers' },
-  cloudy: () => ({ icon: 'cloud', title: 'Layer a light jacket today — the sky could turn' }),
-  rain: () => ({ icon: 'umbrella', title: 'Wear waterproof shoes today — rain is in the forecast' }),
-  snow: () => ({ icon: 'cloud-snow', title: 'Bundle up today — your warmest outerwear is calling' }),
-  storm: () => ({ icon: 'cloud-lightning', title: 'Grab a real coat today — storms are rolling in' }),
-  fog: () => ({ icon: 'cloud', title: 'Add one bright accent today — stand out in the fog' }),
+      ? { icon: 'sun', title: 'Оденьтесь легче сегодня — без лишнего слоя в такую жару' }
+      : { icon: 'sun', title: 'Сегодня ясно — хороший день для любимых кроссовок' },
+  cloudy: () => ({ icon: 'cloud', title: 'Возьмите лёгкую куртку сегодня — погода может измениться' }),
+  rain: () => ({ icon: 'umbrella', title: 'Наденьте непромокаемую обувь сегодня — ожидается дождь' }),
+  snow: () => ({ icon: 'cloud-snow', title: 'Одевайтесь теплее сегодня — пора доставать самую тёплую верхнюю одежду' }),
+  storm: () => ({ icon: 'cloud-lightning', title: 'Возьмите настоящее пальто сегодня — надвигается непогода' }),
+  fog: () => ({ icon: 'cloud', title: 'Добавьте яркий акцент сегодня — выделитесь в тумане' }),
 };
 
 // Used only when neither a color-type nor a body-shape signal is available
 // yet (e.g. onboarding not finished) and weather hasn't resolved either.
 const FALLBACK_TARGETS = [
-  { icon: 'droplet', title: 'Wear something blue today' },
-  { icon: 'grid', title: 'Try a monochrome outfit today' },
-  { icon: 'refresh-cw', title: 'Rewear a hidden gem today' },
-  { icon: 'plus-circle', title: 'Add one accessory today' },
-  { icon: 'layers', title: 'Layer two unexpected pieces today' },
+  { icon: 'droplet', title: 'Наденьте что-нибудь синее сегодня' },
+  { icon: 'grid', title: 'Попробуйте монохромный образ сегодня' },
+  { icon: 'refresh-cw', title: 'Наденьте сегодня незаслуженно забытую вещь' },
+  { icon: 'plus-circle', title: 'Добавьте один аксессуар сегодня' },
+  { icon: 'layers', title: 'Скомбинируйте сегодня два неожиданных предмета' },
 ];
 
 // Picks between a Color DNA target, a body-shape target, and a weather
@@ -61,7 +77,8 @@ export function generateDailyChallenge(userProfile = {}, weather = {}) {
   const palette = getPalette(userProfile.skinTone, userProfile.hairColor, userProfile.eyeColor);
   if (palette?.best?.length) {
     const color = palette.best[dayIndex % palette.best.length];
-    signals.push({ icon: 'star', title: `Wear something ${color.name} today — it's in your Color DNA` });
+    const colorNameRu = COLOR_NAME_RU[color.name] || color.name;
+    signals.push({ icon: 'star', title: `Наденьте сегодня что-то ${colorNameRu} — это ваш цвет по Color DNA` });
   }
 
   if (userProfile.bodyType && BODY_SHAPE_TARGETS[userProfile.bodyType]) {

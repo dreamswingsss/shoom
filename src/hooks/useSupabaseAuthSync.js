@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import i18n, { setAppLanguage } from '../i18n';
 import { supabase } from '../services/supabaseClient';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
 import { signInWithTelegram } from './useTelegramSignIn';
@@ -27,6 +26,12 @@ export function mapSupabaseUser(user) {
     name: user.user_metadata?.full_name || user.user_metadata?.name || null,
     email: user.email,
     photo: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+    // Telegram's @handle — set only by telegram-verify (Google sign-in
+    // never had a concept of one), null for that provider. ProfileScreen
+    // shows this in place of `email` (a real Google address is meaningful
+    // to show there; the synthetic tg_<id>@telegram.local one isn't).
+    username: user.user_metadata?.telegram_username || null,
+    createdAt: user.created_at || null,
   };
 }
 
@@ -41,17 +46,6 @@ export function mapSupabaseUser(user) {
 async function syncSession(session) {
   const { login, fetchProfile } = useUserStore.getState();
   await fetchProfile(session.user.id);
-
-  // Cross-device language sync: a fresh install (or a device the client
-  // never picked a language on) defaults to i18next's `en` fallback —
-  // if the account has a different saved language, switch to it now
-  // that fetchProfile has it. setAppLanguage() writes back to
-  // `users.language` too, but that's a same-value no-op update here
-  // since we're only applying what we just read.
-  const fetchedLanguage = useUserStore.getState().language;
-  if (fetchedLanguage && fetchedLanguage !== i18n.language) {
-    await setAppLanguage(fetchedLanguage);
-  }
 
   login(mapSupabaseUser(session.user));
 

@@ -13,10 +13,10 @@ import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
+import { formatMemberSince } from '../utils/dateFormat';
 import { colors, cardTints, spacing, radius, shadows, hairline, typography, buttons } from '../theme/tokens';
 import EditProfileScreen from './EditProfileScreen';
 import ScreenContainer from '../components/ScreenContainer';
-import LanguagePicker from '../components/LanguagePicker';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { getInitials } from '../utils/getInitials';
@@ -27,8 +27,8 @@ import { getInitials } from '../utils/getInitials';
 // History, Language & Region) each open their own screen there; this app
 // doesn't have Notifications or Wear History as real features yet, so
 // those two stay stubs (an alert) while Style Vibes/Fit Profile expand
-// the same data the old layout showed inline, and Language & Region wires
-// straight into the existing LanguagePicker modal.
+// the same data the old layout showed inline. Language & Region was
+// dropped entirely — the app is Russian-only, nothing left to switch.
 export default function ProfileScreen({ navigation, route }) {
   const { t } = useTranslation();
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
@@ -42,6 +42,17 @@ export default function ProfileScreen({ navigation, route }) {
   const stylePreferences = useUserStore((state) => state.stylePreferences);
   const styleVibes = useUserStore((state) => state.styleVibes);
   const resetAppTour = useUserStore((state) => state.resetAppTour);
+
+  // Telegram's @handle, not the synthetic tg_<id>@telegram.local address —
+  // that email is only ever a Supabase auth implementation detail (see
+  // mapSupabaseUser's own comment), never something worth showing. Falls
+  // back to a real email for the rare pre-Mini-App Google account that
+  // still has one and no Telegram username.
+  const subtitle = useMemo(() => {
+    const memberSince = user?.createdAt ? t('profile.memberSince', { date: formatMemberSince(user.createdAt) }) : '';
+    if (user?.username) return memberSince ? `@${user.username} · ${memberSince}` : `@${user.username}`;
+    return user?.email && !user.email.endsWith('@telegram.local') ? user.email : memberSince;
+  }, [user?.username, user?.email, user?.createdAt, t]);
   const isPro = useUserStore((state) => state.isPro);
   const setIsPro = useUserStore((state) => state.setIsPro);
   const fadeOpacity = useFadeOnFocus();
@@ -226,7 +237,7 @@ export default function ProfileScreen({ navigation, route }) {
                 {isLoggedIn && <Feather name="chevron-right" size={14} color={colors.textMuted} />}
               </View>
               <Text style={styles.email} numberOfLines={1}>
-                {isLoggedIn ? user?.email || '' : t('profile.guest.subtitle')}
+                {isLoggedIn ? subtitle : t('profile.guest.subtitle')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -369,21 +380,11 @@ export default function ProfileScreen({ navigation, route }) {
           )}
 
           <NavRow
+            last
             iconWrapStyle={styles.navIconWrapSage}
             icon={<Feather name="clock" size={16} color={colors.sage} />}
             label={t('profile.nav.wearHistory')}
             onPress={() => showComingSoon('profile.comingSoon.title', 'profile.comingSoon.wearHistory')}
-          />
-          <LanguagePicker
-            renderTrigger={(open) => (
-              <NavRow
-                last
-                iconWrapStyle={styles.navIconWrapViolet}
-                icon={<Feather name="globe" size={16} color={colors.violet} />}
-                label={t('profile.nav.languageRegion')}
-                onPress={open}
-              />
-            )}
           />
         </View>
 

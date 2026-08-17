@@ -281,7 +281,7 @@ export default function InspirationDetailScreen() {
 // this app's exports are always "put this look on one of the next 7 days",
 // never an arbitrary future date, so that's the only range worth offering.
 function CalendarExportModal({ visible, onClose, onSelectDay }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const days = useMemo(() => {
     const today = new Date();
@@ -304,7 +304,7 @@ function CalendarExportModal({ visible, onClose, onSelectDay }) {
               onPress={() => onSelectDay(date)}
               activeOpacity={0.7}
             >
-              <Text style={styles.exportDayRowText}>{formatWeekdayLong(date, i18n.language)}</Text>
+              <Text style={styles.exportDayRowText}>{formatWeekdayLong(date)}</Text>
             </TouchableOpacity>
           ))}
         </Pressable>

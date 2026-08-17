@@ -3,26 +3,13 @@ import { fetchWithFallback, GeminiRateLimitError, GeminiLocationRestrictedError 
 import { buildProfileContext } from './stylistPromptBuilder';
 // Raw i18n singleton (not the useTranslation hook) — this is a plain
 // service module, not a component. Same pattern useChatStore.js already
-// uses for WELCOME_MESSAGE. Reading `i18n.t`/`i18n.language` live (rather
-// than accepting them as caller-supplied params) means every screen that
-// talks to the stylist automatically gets replies in whatever language the
-// client currently has the app set to, with no call site changes needed.
+// uses for WELCOME_MESSAGE.
 import i18n from '../i18n';
 
-// Human-readable names for the HARD RULE below — Gemini follows a plain
-// English language name far more reliably than an ISO code.
-const LANGUAGE_NAMES = {
-  en: 'English',
-  es: 'Spanish',
-  it: 'Italian',
-  pt: 'Portuguese',
-  fr: 'French',
-  de: 'German',
-  ru: 'Russian',
-};
-
+// Gemini follows a plain English language name far more reliably than an
+// ISO code for the HARD RULE below — app is Russian-only, so this is fixed.
 function currentLanguageName() {
-  return LANGUAGE_NAMES[i18n.language] || LANGUAGE_NAMES.en;
+  return 'Russian';
 }
 
 function describeWardrobe(wardrobe) {

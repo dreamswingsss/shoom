@@ -1079,7 +1079,7 @@ function DynamicQuickReplies({ lastMessage, isConversationStart, onSelect }) {
 // suggested-to-buy items) to a day on the WeeklyPlanner without leaving the
 // chat. Picks from the same 7-day window WeeklyPlanner shows.
 function SaveToPlannerButton({ outfitIds }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const scheduleOutfit = usePlannerStore((state) => state.scheduleOutfit);
   const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
   const isPro = useUserStore((state) => state.isPro);
@@ -1125,7 +1125,7 @@ function SaveToPlannerButton({ outfitIds }) {
       return;
     }
     setModalVisible(false);
-    setSavedLabel(formatWeekdayShortWithDate(date, i18n.language));
+    setSavedLabel(formatWeekdayShortWithDate(date));
   }
 
   if (savedLabel) {
@@ -1157,7 +1157,7 @@ function SaveToPlannerButton({ outfitIds }) {
                 activeOpacity={0.7}
               >
                 <Text style={styles.plannerDayRowText}>
-                  {formatWeekdayLong(date, i18n.language)}
+                  {formatWeekdayLong(date)}
                 </Text>
               </TouchableOpacity>
             ))}

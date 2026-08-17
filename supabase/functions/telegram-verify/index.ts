@@ -133,6 +133,36 @@ Deno.serve(async (req) => {
       if (createError && !createError.message?.toLowerCase().includes('already been registered')) {
         throw createError;
       }
+    } else {
+      // Returning client — Telegram's own name/username/photo can have
+      // changed since account creation (createUser above only ever runs
+      // once), so every login refreshes both auth.users' metadata (what
+      // mapSupabaseUser in useSupabaseAuthSync.js actually reads for
+      // display) and the public.users mirror columns the creation trigger
+      // originally set, keeping them from drifting stale forever after the
+      // first login. photo_url is skipped when Telegram didn't send one
+      // this time rather than overwriting a previously-known avatar with
+      // null — initData omits it for users with no Telegram profile photo,
+      // not as a signal that an existing one was removed.
+      const { error: updateAuthError } = await adminClient.auth.admin.updateUserById(existingProfile.id, {
+        user_metadata: {
+          full_name: fullName,
+          ...(photo_url ? { avatar_url: photo_url } : {}),
+          telegram_id: telegramId,
+          telegram_username: username || null,
+        },
+      });
+      if (updateAuthError) throw updateAuthError;
+
+      const { error: updateProfileError } = await adminClient
+        .from('users')
+        .update({
+          display_name: fullName,
+          telegram_username: username || null,
+          ...(photo_url ? { avatar_url: photo_url } : {}),
+        })
+        .eq('id', existingProfile.id);
+      if (updateProfileError) throw updateProfileError;
     }
 
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({

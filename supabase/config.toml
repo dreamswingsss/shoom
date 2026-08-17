@@ -371,6 +371,12 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+[functions.telegram-bot-webhook]
+# Telegram's own webhook POSTs carry no Supabase JWT at all — auth here is
+# the X-Telegram-Bot-Api-Secret-Token header this function checks itself
+# (see its own header comment), not Supabase's.
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

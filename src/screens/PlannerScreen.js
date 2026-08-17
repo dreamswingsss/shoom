@@ -76,7 +76,7 @@ function getScheduledItemNames(scheduled, wardrobeById) {
 }
 
 export default function PlannerScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const user = useUserStore((state) => state.user);
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
@@ -212,7 +212,7 @@ export default function PlannerScreen() {
       showPaywall(t('paywall.plannerDaysLimitMessage'));
       return;
     }
-    const label = formatWeekdayLong(selectedDate, i18n.language);
+    const label = formatWeekdayLong(selectedDate);
     navigation.navigate('AI Stylist', { initialPrompt: t('planner.askPrompt', { date: label }) });
   }
 
@@ -280,7 +280,7 @@ export default function PlannerScreen() {
             {t('planner.screenTitle')}
           </Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {t('planner.today')}, {formatWeekdayShortWithDate(new Date(), i18n.language)}
+            {t('planner.today')}, {formatWeekdayShortWithDate(new Date())}
           </Text>
         </View>
       </View>
@@ -354,7 +354,7 @@ export default function PlannerScreen() {
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.dayPillLabel, isSelected && styles.dayPillLabelSelected]}>
-                      {dateKey === todayKey ? t('planner.today') : formatWeekdayShort(date, i18n.language)}
+                      {dateKey === todayKey ? t('planner.today') : formatWeekdayShort(date)}
                     </Text>
                     <Text style={[styles.dayPillDate, isSelected && styles.dayPillLabelSelected]}>
                       {date.getDate()}
@@ -395,7 +395,7 @@ export default function PlannerScreen() {
           <View style={styles.planCardHeaderRow}>
             <View style={styles.planCardBadge}>
               <Text style={styles.planCardBadgeText}>
-                {selectedKey === todayKey ? t('planner.today') : formatWeekdayShort(selectedDate, i18n.language)}
+                {selectedKey === todayKey ? t('planner.today') : formatWeekdayShort(selectedDate)}
               </Text>
             </View>
             {/* Export to Calendar — the whole point of this redesign's 3rd
@@ -417,7 +417,7 @@ export default function PlannerScreen() {
             <Text style={styles.planCardTitle} numberOfLines={2}>
               {summarizeOutfit(selectedEntry, wardrobeById) || t('planner.plannedLook')}
             </Text>
-            <Text style={styles.planCardCaption}>{formatWeekdayShortWithDate(selectedDate, i18n.language)}</Text>
+            <Text style={styles.planCardCaption}>{formatWeekdayShortWithDate(selectedDate)}</Text>
           </View>
 
           <View style={styles.planCardFooterRow}>
@@ -437,7 +437,7 @@ export default function PlannerScreen() {
           </View>
           <Text style={styles.emptyStateText}>
             {t('planner.emptyStateForDay', {
-              date: selectedKey === todayKey ? t('planner.today') : formatWeekdayLong(selectedDate, i18n.language),
+              date: selectedKey === todayKey ? t('planner.today') : formatWeekdayLong(selectedDate),
             })}
           </Text>
           <TouchableOpacity style={styles.planOutfitBtn} onPress={handlePlanPress} activeOpacity={0.85}>

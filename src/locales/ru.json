@@ -94,6 +94,7 @@
   "profile": {
     "title": "Профиль",
     "unknownUser": "Неизвестный пользователь",
+    "memberSince": "с нами с {{date}}",
     "guest": {
       "name": "Гость",
       "subtitle": "Войдите, чтобы сохранить свои данные",
@@ -190,8 +191,7 @@
     },
     "nav": {
       "notifications": "Уведомления",
-      "wearHistory": "История носки",
-      "languageRegion": "Язык и регион"
+      "wearHistory": "История носки"
     },
     "comingSoon": {
       "title": "Скоро",

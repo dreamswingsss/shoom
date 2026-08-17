@@ -108,14 +108,6 @@ export const useUserStore = create(
       stylePreferences: '',
       styleVibes: [],
       measurementUnit: 'cm',
-      // Mirrors the DB's `users.language` column — the actual app-wide
-      // language switch (i18next + the `@app_language` AsyncStorage key
-      // that i18nReady restores from on cold start) is owned by
-      // src/i18n/index.js's setAppLanguage(), which calls syncLanguage()
-      // below to keep this in sync. Not read anywhere for display; it
-      // exists so a fresh install/new device can pick up the account's
-      // saved language (see useSupabaseAuthSync.js).
-      language: null,
       // Mirrors the DB's `users.expo_push_token` column — the last token
       // this store either read from public.users (fetchProfile) or wrote
       // to it (syncPushToken). useSupabaseAuthSync compares a freshly
@@ -203,7 +195,6 @@ export const useUserStore = create(
           stylePreferences: '',
           styleVibes: [],
           measurementUnit: 'cm',
-          language: null,
           pushToken: null,
           isProfileStale: false,
           staleChangedFields: [],
@@ -248,32 +239,9 @@ export const useUserStore = create(
           stylePreferences: row.style_preferences || '',
           styleVibes: row.style_vibes || [],
           measurementUnit: row.measurement_unit || 'cm',
-          language: row.language || null,
           pushToken: row.expo_push_token || null,
           profileSyncError: null,
         });
-      },
-
-      // The one write path for `users.language` — called by
-      // src/i18n/index.js's setAppLanguage() (itself the one place both
-      // OnboardingScreen's language step and Profile's LanguagePicker funnel
-      // through), so every place the client can change language stays in
-      // sync with the DB without each call site needing its own Supabase
-      // call. No isProfileStale bookkeeping here — language isn't part of
-      // the "styling advice" prompt StylistScreen nudges the client about.
-      syncLanguage: (langCode) => {
-        set({ language: langCode });
-
-        const userId = get().user?.id;
-        if (!userId) return;
-
-        supabase
-          .from('users')
-          .update({ language: langCode })
-          .eq('id', userId)
-          .then(({ error }) => {
-            if (error) set({ profileSyncError: error.message });
-          });
       },
 
       // The one write path for `users.expo_push_token` — called by

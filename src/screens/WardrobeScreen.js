@@ -74,7 +74,7 @@ const INSPIRATION_TAGS = [
 ];
 
 export default function WardrobeScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const user = useUserStore((state) => state.user);
   const wardrobe = useWardrobeStore((state) => state.items);
@@ -325,7 +325,7 @@ export default function WardrobeScreen() {
               {t('closet.hub.greeting', { name: user?.name?.split(' ')[0] || t('closet.hub.greetingFallback') })}
             </Text>
             <Text style={styles.headerDate} numberOfLines={1}>
-              {formatWeekdayShortWithDate(new Date(), i18n.language)}
+              {formatWeekdayShortWithDate(new Date())}
             </Text>
           </View>
         </TourTarget>

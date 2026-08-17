@@ -13,7 +13,6 @@ import { AppTourProvider } from './src/components/AppTour';
 import { useUserStore } from './src/store/useUserStore';
 import { useSupabaseAuthSync } from './src/hooks/useSupabaseAuthSync';
 import { colors } from './src/theme/tokens';
-import { i18nReady } from './src/i18n';
 
 const navigationRef = createNavigationContainerRef();
 
@@ -189,13 +188,6 @@ export default function App() {
     CormorantGaramond: require('./assets/fonts/CormorantGaramond-Variable.ttf'),
   });
 
-  // Gates first render on the saved language (if any) being restored, so
-  // the UI never flashes English before switching.
-  const [languageReady, setLanguageReady] = useState(false);
-  useEffect(() => {
-    i18nReady.then(() => setLanguageReady(true));
-  }, []);
-
   // Root routing rule (in priority order):
   //   1. !sessionReady         -> loading screen below
   //   2. !hasCompletedWelcome  -> WelcomeScreen
@@ -212,7 +204,7 @@ export default function App() {
   // reason: tapping Get Started never creates a session by itself.
   const needsOnboarding = !hasCompletedWelcome;
 
-  if (!fontsLoaded || !languageReady || !sessionReady) {
+  if (!fontsLoaded || !sessionReady) {
     return (
       <SafeAreaProvider>
         <View style={[styles.root, styles.loading]}>
