@@ -134,10 +134,46 @@ export default function App() {
   // WebView (see public/index.html's telegram-web-app.js script tag) —
   // optional-chained so opening the deployed URL in a normal browser is a
   // silent no-op, not a crash.
+  //
+  // expand() resizes the WebView asynchronously — a plain CSS `height:100%`
+  // chain (html/body/#root, see public/index.html) only catches up with
+  // that resize if the WebView actually fires a standard browser `resize`
+  // event, which isn't reliable across every Telegram client. Left
+  // unhandled, this is exactly what produced the "bottom tab bar and the
+  // floating scan button aren't reachable" report: `html`/`body` stayed
+  // locked at the pre-expand (collapsed) height, react-native-web's
+  // `Dimensions.get('window')` (which every screen-height calculation in
+  // this app — including AppTour's spotlight/scroll math — reads from)
+  // stayed stale right along with it, and `body`'s own `overflow: hidden`
+  // then clipped anything below that stale, too-short height instead of
+  // ever making it reachable by scrolling.
+  //
+  // Fixed by explicitly pinning html/body to Telegram's own reported
+  // `viewportStableHeight` (the actual expanded height, once settled) on
+  // every `viewportChanged` event, PLUS dispatching a synthetic `resize` so
+  // Dimensions (and anything else listening for it) re-reads
+  // `window.innerHeight` right away instead of waiting on a native resize
+  // event that may never come.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.Telegram?.WebApp?.ready();
-    window.Telegram?.WebApp?.expand();
+    if (typeof window === 'undefined') return undefined;
+    const webApp = window.Telegram?.WebApp;
+    if (!webApp) return undefined;
+
+    webApp.ready();
+    webApp.expand();
+
+    function syncViewportHeight() {
+      const height = webApp.viewportStableHeight || webApp.viewportHeight;
+      if (height) {
+        document.documentElement.style.height = `${height}px`;
+        document.body.style.height = `${height}px`;
+      }
+      window.dispatchEvent(new Event('resize'));
+    }
+
+    syncViewportHeight();
+    webApp.onEvent('viewportChanged', syncViewportHeight);
+    return () => webApp.offEvent('viewportChanged', syncViewportHeight);
   }, []);
 
   const [fontsLoaded] = useFonts({
