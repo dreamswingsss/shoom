@@ -49,7 +49,17 @@ async function geocodeCity(cityName) {
     // Falls through to the HTTP geocoder below.
   }
 
-  const response = await fetch(`${GEOCODING_ENDPOINT}?name=${encodeURIComponent(cityName)}&count=1`);
+  // `language=ru` is required, not cosmetic — Open-Meteo's geocoder only
+  // matches Cyrillic input (e.g. "Москва") against its localized name index
+  // when a language is given; without it the search silently returns zero
+  // results for any Cyrillic query (verified directly against the API),
+  // which is exactly what surfaced as "city not found" for every Russian
+  // city name. This app is Russian-only (see AGENTS.md) so the language is
+  // never anything else. Latin-script queries ("Paris") still resolve fine
+  // with this param set.
+  const response = await fetch(
+    `${GEOCODING_ENDPOINT}?name=${encodeURIComponent(cityName)}&count=1&language=ru`
+  );
   if (!response.ok) throw new Error(`Geocoding request failed (${response.status})`);
 
   const payload = await response.json();

@@ -37,10 +37,10 @@ import { useChatStore } from '../store/useChatStore';
 import { usePlannerStore, toDateKey, getStyleStreak } from '../store/usePlannerStore';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useWeather } from '../hooks/useWeather';
-import { colors, cardTints, spacing, radius, hairline, shadows, opacity, typography, withAlpha } from '../theme/tokens';
+import { colors, cardTints, spacing, radius, hairline, shadows, opacity, typography, fonts, withAlpha } from '../theme/tokens';
 import WardrobeCatalogScreen from './WardrobeCatalogScreen';
 import ScreenContainer from '../components/ScreenContainer';
-import { FadeInView } from '../components/AnimatedPressable';
+import { FadeInView, AnimatedPressable } from '../components/AnimatedPressable';
 import HorizontalFadeScroll from '../components/HorizontalFadeScroll';
 import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -134,6 +134,11 @@ export default function WardrobeScreen() {
   const hubScrollRef = useRef(null);
   const pagerRef = useRef(null);
   const { width: screenWidth } = useWindowDimensions();
+  // Drives the SectionSwitcher's sliding active-pill — a direct read of the
+  // pager's own horizontal scroll offset, not a separate animation someone
+  // has to keep in sync by hand. Real state-transition motion (position IS
+  // scroll progress), not a decorative loop.
+  const pagerScrollX = useRef(new Animated.Value(0)).current;
 
   // Swipe navigation between the Items/Inspirations pages (Section
   // Switcher's own two tabs) — a plain `ScrollView horizontal pagingEnabled`
@@ -292,14 +297,23 @@ export default function WardrobeScreen() {
           `handleSectionChange`/`handlePagerScrollEnd` above for the two ways
           it stays in sync with the pager. */}
       <View style={styles.sectionSwitcherWrap}>
-        <SectionSwitcher section={section} onChange={handleSectionChange} />
+        <SectionSwitcher
+          section={section}
+          onChange={handleSectionChange}
+          scrollX={pagerScrollX}
+          screenWidth={screenWidth}
+        />
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
         ref={pagerRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: pagerScrollX } } }], {
+          useNativeDriver: true,
+        })}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={handlePagerScrollEnd}
         style={styles.flexFill}
       >
@@ -346,8 +360,9 @@ export default function WardrobeScreen() {
             <FadeInView delay={140} style={styles.bentoRowItem}>
               <BentoTile
                 square
+                statTile
                 tint="sky"
-                icon={<Feather name="star" size={18} color={colors.textPrimary} />}
+                icon={<Feather name="star" size={14} color={colors.textPrimary} />}
                 title={`${cohesionScore}%`}
                 subtitle={t('closet.hub.capsuleScore.subtitle')}
                 // Was unconditional — a real Pro client tapping this still
@@ -490,7 +505,7 @@ export default function WardrobeScreen() {
           <LookbookSection inspirations={inspirations} loading={inspirationsLoading} />
         </ScrollView>
       </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {needsColorDnaCalibration ? (
         <ColorDnaCalibrationSheet
@@ -519,10 +534,10 @@ export default function WardrobeScreen() {
       <View style={styles.addItemFloating}>
         <FadeInView delay={360}>
           <TourTarget id="scanCta" borderRadius={radius.pill} style={styles.scanCtaTarget}>
-            <TouchableOpacity style={styles.addItemTile} onPress={handleScan} activeOpacity={0.85}>
+            <AnimatedPressable style={styles.addItemTile} onPress={handleScan}>
               <Feather name="plus" size={18} color={colors.inverseText} />
               <Text style={styles.addItemTitle}>{t('closet.hubActions.addItem')}</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </TourTarget>
         </FadeInView>
       </View>
@@ -550,14 +565,25 @@ export default function WardrobeScreen() {
 // in favor of the tint's own hairline border; the icon wrap becomes a
 // translucent white circle instead of the violet-tinted chip so it still
 // reads against the colored tile.
-function BentoTile({ wide, square, icon, title, subtitle, badge, onPress, tint }) {
+// `statTile` — the Style Streak / Capsule Score pair's own variant: the
+// number IS the card (Unbounded, large, top-anchored) with the icon shrunk
+// to an inline marker next to its label at the bottom, instead of its own
+// circular chip competing with the number for attention. Matches how
+// design/moodboard/ref2.jpg and ref4.jpg both put a large number in the
+// font's display weight as the card's one visual anchor, not beside a
+// decorative icon circle. Every other BentoTile (Planner, Catalog, Shopping
+// Copilot) keeps the original icon-chip-then-title layout — that shape
+// still fits a real label like "Каталог", it's specifically the stat pair
+// with a bare number as `title` that reads better this way.
+function BentoTile({ wide, square, statTile, icon, title, subtitle, badge, onPress, tint }) {
   function handlePress() {
     triggerHaptic();
     onPress?.();
   }
 
   return (
-    <TouchableOpacity
+    <AnimatedPressable
+      onPress={handlePress}
       style={[
         styles.bentoTile,
         wide && styles.bentoWide,
@@ -565,20 +591,34 @@ function BentoTile({ wide, square, icon, title, subtitle, badge, onPress, tint }
         tint === 'coral' && styles.bentoTileCoral,
         tint === 'sky' && styles.bentoTileSky,
       ]}
-      onPress={handlePress}
-      activeOpacity={0.85}
     >
       {badge && <View style={styles.proBadge}>{badge}</View>}
-      <View style={[styles.bentoIconWrap, tint && styles.bentoIconWrapOnTint]}>{icon}</View>
-      <View style={styles.bentoTextWrap}>
-        <Text style={styles.bentoTitle} numberOfLines={1} ellipsizeMode="tail">
-          {title}
-        </Text>
-        <Text style={styles.bentoSubtitle} numberOfLines={1} ellipsizeMode="tail">
-          {subtitle}
-        </Text>
-      </View>
-    </TouchableOpacity>
+      {statTile ? (
+        <>
+          <Text style={styles.bentoStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {title}
+          </Text>
+          <View style={styles.bentoStatFooter}>
+            {icon}
+            <Text style={styles.bentoStatLabel} numberOfLines={1} ellipsizeMode="tail">
+              {subtitle}
+            </Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={[styles.bentoIconWrap, tint && styles.bentoIconWrapOnTint]}>{icon}</View>
+          <View style={styles.bentoTextWrap}>
+            <Text style={styles.bentoTitle} numberOfLines={1} ellipsizeMode="tail">
+              {title}
+            </Text>
+            <Text style={styles.bentoSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              {subtitle}
+            </Text>
+          </View>
+        </>
+      )}
+    </AnimatedPressable>
   );
 }
 
@@ -601,22 +641,59 @@ function InspirationMiniCard({ icon, label }) {
 // sections' own content, so it's always reachable regardless of which one
 // is showing. Plain local component (not extracted to src/components) since
 // nothing else in the app needs a two-state segmented control yet.
-function SectionSwitcher({ section, onChange }) {
+// The active pill used to be an instant background swap on tap/swipe-end.
+// Now it's a real `Animated.View` whose `translateX` reads straight off the
+// pager's own scroll offset (`scrollX`, shared with the ScrollView via
+// `Animated.event` in WardrobeScreen) — the pill's position IS the actual
+// swipe progress, not a separate animation replaying after the fact. Needs
+// its own measured width (`onLayout`) since the pill is sized in real
+// pixels, not a CSS percentage transform RN Web doesn't handle reliably.
+function SectionSwitcher({ section, onChange, scrollX, screenWidth }) {
   const { t } = useTranslation();
+  const [switcherWidth, setSwitcherWidth] = useState(0);
+  const thumbWidth = switcherWidth > 0 ? (switcherWidth - 8) / 2 : 0;
+  const translateX = scrollX.interpolate({
+    inputRange: [0, screenWidth],
+    outputRange: [0, thumbWidth],
+    extrapolate: 'clamp',
+  });
+  // Label color used to flip the instant `section` state changes (React
+  // state updates on tap before the thumb has visually caught up) against
+  // the thumb's own slow animated slide — for one frame the destination
+  // label would go active-white while the thumb (its "background") was
+  // still elsewhere, i.e. white text on the plain white switcher. Driving
+  // both off the same `scrollX` keeps them mathematically in sync, not
+  // just "usually close enough".
+  const itemsTextColor = scrollX.interpolate({
+    inputRange: [0, screenWidth],
+    outputRange: [colors.inverseText, colors.textSecondary],
+    extrapolate: 'clamp',
+  });
+  const inspirationsTextColor = scrollX.interpolate({
+    inputRange: [0, screenWidth],
+    outputRange: [colors.textSecondary, colors.inverseText],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <View style={styles.sectionSwitcher}>
+    <View style={styles.sectionSwitcher} onLayout={(e) => setSwitcherWidth(e.nativeEvent.layout.width)}>
+      {thumbWidth > 0 && (
+        <Animated.View
+          style={[styles.sectionSwitcherThumb, { width: thumbWidth, transform: [{ translateX }] }]}
+        />
+      )}
       <TouchableOpacity
-        style={[styles.sectionSwitcherBtn, section === 'items' && styles.sectionSwitcherBtnActive]}
+        style={styles.sectionSwitcherBtn}
         onPress={() => onChange('items')}
         activeOpacity={0.8}
       >
         <Feather name="grid" size={14} color={section === 'items' ? colors.inverseText : colors.textSecondary} />
-        <Text style={[styles.sectionSwitcherText, section === 'items' && styles.sectionSwitcherTextActive]}>
+        <Animated.Text style={[styles.sectionSwitcherText, { color: itemsTextColor }]}>
           {t('closet.sections.items')}
-        </Text>
+        </Animated.Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.sectionSwitcherBtn, section === 'inspirations' && styles.sectionSwitcherBtnActive]}
+        style={styles.sectionSwitcherBtn}
         onPress={() => onChange('inspirations')}
         activeOpacity={0.8}
       >
@@ -625,11 +702,9 @@ function SectionSwitcher({ section, onChange }) {
           size={14}
           color={section === 'inspirations' ? colors.inverseText : colors.textSecondary}
         />
-        <Text
-          style={[styles.sectionSwitcherText, section === 'inspirations' && styles.sectionSwitcherTextActive]}
-        >
+        <Animated.Text style={[styles.sectionSwitcherText, { color: inspirationsTextColor }]}>
           {t('closet.sections.inspirations')}
-        </Text>
+        </Animated.Text>
       </TouchableOpacity>
     </View>
   );
@@ -840,8 +915,9 @@ function StyleStreakTile({ showToast }) {
   return (
     <BentoTile
       square
+      statTile
       tint="coral"
-      icon={<MaterialCommunityIcons name="fire" size={18} color={colors.textPrimary} />}
+      icon={<MaterialCommunityIcons name="fire" size={14} color={colors.textPrimary} />}
       title={t('closet.hub.styleStreak.count', { count: streak })}
       subtitle={streak > 0 ? t('closet.hub.styleStreak.subtitleActive') : t('closet.hub.styleStreak.subtitleEmpty')}
       onPress={handlePress}
@@ -916,7 +992,7 @@ function DailyChallengeTile() {
             {isDone ? t('closet.hub.dailyChallenge.doneBadge') : t('closet.hub.dailyChallenge.badge')}
           </Text>
         </View>
-        <Text style={[styles.heroTitle, { color: titleColor }]} numberOfLines={2}>
+        <Text style={[styles.heroTitle, { color: titleColor }]} numberOfLines={3}>
           {challenge.title}
         </Text>
         <View style={styles.heroFooterRow}>
@@ -1205,10 +1281,10 @@ const styles = StyleSheet.create({
 
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 10, marginBottom: 22 },
   avatar: { width: 38, height: 38, borderRadius: radius.avatarSm, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: colors.inverseText, fontSize: 13, fontWeight: '800' },
+  avatarText: { fontFamily: fonts.display, color: colors.inverseText, fontSize: 13, fontWeight: '800' },
   headerTextWrap: { flex: 1, minWidth: 0 },
   headerGreeting: { fontFamily: typography.title.fontFamily, fontWeight: '800', fontSize: 16, color: colors.textPrimary },
-  headerDate: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 1 },
+  headerDate: { fontFamily: fonts.body, fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 1 },
 
   // Vertical stack: Weather, hero challenge, stat row, planner link,
   // catalog/copilot row, color DNA — all spaced by the same 16px gap used
@@ -1292,7 +1368,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     zIndex: 1,
   },
-  proBadgeText: { fontSize: 9, fontWeight: '700', color: colors.inverseText, letterSpacing: 0.5 },
+  proBadgeText: { fontFamily: fonts.body, fontSize: 9, fontWeight: '700', color: colors.inverseText, letterSpacing: 0.5 },
 
   // Shared small section header — matches typography.label styling used
   // elsewhere in the app for section eyebrows.
@@ -1330,11 +1406,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 5,
   },
-  heroBadgeText: { fontSize: 10.5, fontWeight: '700', color: colors.violet },
-  heroTitle: { fontSize: 20, fontWeight: '800', lineHeight: 25, maxWidth: '72%' },
+  heroBadgeText: { fontFamily: fonts.body, fontSize: 10.5, fontWeight: '700', color: colors.violet },
+  // Unbounded is wider per-glyph than the system font this replaced — the
+  // real challenge strings (dailyChallengeEngine.js) run 60-90 characters
+  // ("Одевайтесь теплее сегодня — пора доставать самую тёплую верхнюю
+  // одежду"), so this dropped fontSize 20->18 and widened maxWidth
+  // 72%->80% (still clears the heroBlob decoration in the top-right
+  // corner) rather than let a real challenge truncate mid-sentence at 2
+  // lines — see the matching numberOfLines bump on the Text itself below.
+  heroTitle: { fontFamily: fonts.display, fontSize: 18, fontWeight: '800', lineHeight: 23, maxWidth: '80%' },
   heroFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heroIconWrap: { width: 26, height: 26, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  heroCaption: { fontSize: 12, fontWeight: '600' },
+  heroCaption: { fontFamily: fonts.body, fontSize: 12, fontWeight: '600' },
 
   // Pulls the ScrollView back out to the true screen edge, canceling the
   // 16px margin ScreenContainer applies at the shell level, so the row can
@@ -1365,7 +1448,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  inspirationMiniLabel: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
+  inspirationMiniLabel: { fontFamily: fonts.body, fontSize: 12, fontWeight: '600', color: colors.textPrimary },
 
   // Now rendered as a fixed sibling above the horizontal swipe pager (see
   // the main return), not inside either page's own ScrollView — needs its
@@ -1382,6 +1465,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.sm,
   },
+  // Sliding active-pill, positioned behind the two buttons (first child,
+  // absolute) — its `translateX` comes from the pager's real scroll offset,
+  // not a snap-on-tap swap. Sized/positioned to sit exactly inside the 4px
+  // `sectionSwitcher` padding on all sides.
+  sectionSwitcherThumb: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.violet,
+  },
   sectionSwitcherBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -1391,9 +1486,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: radius.pill,
   },
-  sectionSwitcherBtnActive: { backgroundColor: colors.violet },
-  sectionSwitcherText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
-  sectionSwitcherTextActive: { color: colors.inverseText },
+  sectionSwitcherText: { fontFamily: fonts.body, fontSize: 13, fontWeight: '700', color: colors.textSecondary },
 
   // Lookbook grid — see LookbookSection/LookbookCard. Chunked into real rows
   // (chunkIntoRows) rather than one flex-wrap container of percentage-width
@@ -1463,8 +1556,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  lookbookThumbOverflowText: { fontSize: 11, fontWeight: '800', color: colors.inverseText },
+  lookbookThumbOverflowText: { fontFamily: fonts.body, fontSize: 11, fontWeight: '800', color: colors.inverseText },
   lookbookCardCaption: {
+    fontFamily: fonts.body,
     fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '500',
@@ -1494,6 +1588,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   lookbookEmptyText: {
+    fontFamily: fonts.body,
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
@@ -1503,6 +1598,23 @@ const styles = StyleSheet.create({
   bentoTextWrap: { marginTop: spacing.sm },
   bentoTitle: { ...typography.title, fontSize: 16 },
   bentoSubtitle: { ...typography.bodySecondary, fontSize: 13, marginTop: 2, fontWeight: '500' },
+
+  // Stat-tile variant (Style Streak / Capsule Score) — see BentoTile's own
+  // `statTile` branch. The number is the card's one visual anchor, so it
+  // gets the display font at genuine headline size, not the shared 16px
+  // `bentoTitle`. `adjustsFontSizeToFit` on the Text itself (not a style)
+  // is the safety net for a 3-digit streak count without needing a second
+  // font-size tier.
+  bentoStatValue: {
+    fontFamily: fonts.display,
+    fontWeight: '800',
+    fontSize: 30,
+    lineHeight: 34,
+    letterSpacing: -0.5,
+    color: colors.textPrimary,
+  },
+  bentoStatFooter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bentoStatLabel: { ...typography.bodySecondary, fontSize: 12, fontWeight: '600' },
 
   // Weather widget — a horizontal status bar (icon + text + action), not a
   // BentoTile, so it stays compact instead of matching the taller tiles.
@@ -1531,7 +1643,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
   },
-  dressMeBtnText: { fontSize: 12, fontWeight: '700', color: colors.inverseText },
+  dressMeBtnText: { fontFamily: fonts.body, fontSize: 12, fontWeight: '700', color: colors.inverseText },
   dressMeBtnDisabled: { opacity: opacity.disabled },
 
   cityModalBackdrop: {
@@ -1567,7 +1679,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     alignItems: 'center',
   },
-  cityModalCancelBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  cityModalCancelBtnText: { fontFamily: fonts.body, fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   cityModalApplyBtn: {
     flex: 1,
     backgroundColor: colors.accent,
@@ -1576,7 +1688,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cityModalApplyBtnDisabled: { opacity: opacity.disabled },
-  cityModalApplyBtnText: { fontSize: 15, fontWeight: '600', color: colors.inverseText },
+  cityModalApplyBtnText: { fontFamily: fonts.body, fontSize: 15, fontWeight: '600', color: colors.inverseText },
 
   // Color DNA — bespoke card (not BentoTile) since its content row is
   // swatches, not a single icon.
@@ -1616,7 +1728,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     ...shadows.sm,
   },
-  colorDnaSwatchName: { fontSize: 14, color: colors.textPrimary, fontWeight: '500' },
+  colorDnaSwatchName: { fontFamily: fonts.body, fontSize: 14, color: colors.textPrimary, fontWeight: '500' },
 
   // Primary CTA of the Hub — solid violet fill, no border, colored glow
   // (shadows.accent) so it outweighs every card around it. Rendered as a
@@ -1643,7 +1755,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scanCtaTarget: { alignSelf: 'center' },
-  addItemTitle: { color: colors.inverseText, fontWeight: '800', fontSize: 14.5 },
+  addItemTitle: { fontFamily: fonts.display, color: colors.inverseText, fontWeight: '800', fontSize: 14.5 },
 
   errorBox: {
     width: '100%',
