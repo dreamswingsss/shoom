@@ -1,8 +1,8 @@
 import { fetchWithFallback, GeminiRateLimitError } from './gemini';
 
 const RATE_LIMIT_RESULT = {
-  verdict: 'Pass',
-  reasoning: "Your shopping copilot is a bit overloaded right now — try scanning again in a minute.",
+  verdict: 'Пропустить',
+  reasoning: 'Помощник покупок сейчас немного перегружен — попробуйте отсканировать ещё раз через минуту.',
   error: true,
 };
 
@@ -10,10 +10,12 @@ function buildPrompt(capsuleScore, styleVibes) {
   const vibesText = styleVibes && styleVibes.length > 0 ? styleVibes.join(', ') : 'no specific aesthetic set';
   return `Analyze this item. Based on the user's existing wardrobe capsule score (${capsuleScore}%) and style vibes (${vibesText}), is this a 'Buy' or 'Pass'? Provide a brief reasoning.
 
+LANGUAGE (ABSOLUTE) — Write both "verdict" and "reasoning" entirely in Russian. This app is Russian-only (see AGENTS.md) and both values are shown directly to the client.
+
 Respond with ONLY a raw, valid JSON object — no markdown formatting, no code fences, no commentary before or after it. Exact shape:
 {
-  "verdict": "Buy" or "Pass" (exactly one of these two strings, nothing else),
-  "reasoning": "1-2 sentences explaining the verdict"
+  "verdict": "Купить" or "Пропустить" (exactly one of these two strings, nothing else),
+  "reasoning": "1-2 sentences in Russian explaining the verdict"
 }`;
 }
 

@@ -7,16 +7,18 @@ const SYSTEM_PROMPT = `You are a Fashion Data Extractor.
 
 Look at the single clothing item shown in the attached photo and extract structured catalog data about it.
 
+LANGUAGE (ABSOLUTE) — Write "subcategory", "color", "style", and "description" entirely in Russian. This app is Russian-only (see AGENTS.md); these four values are shown directly to the client, unlike "category" below. Never mix languages within a single value.
+
 Respond with ONLY a raw, valid JSON object — no markdown formatting, no \`\`\`json code fences, no commentary before or after it. The object must have exactly these five keys:
 {
-  "category": one of ${CATEGORY_ENUM} (must match exactly, no other value is allowed),
-  "subcategory": a short, specific garment name, e.g. "T-shirt",
-  "color": the primary color of the item, e.g. "Black",
-  "style": the item's style register in one or two words, e.g. "Casual", "Formal", "Sport", "Streetwear",
-  "description": a short one-sentence description of the item (cut, material impression, notable details)
+  "category": one of ${CATEGORY_ENUM} (must match exactly, in English, no other value is allowed — this is an internal enum, translated for display elsewhere, not shown to the client as-is),
+  "subcategory": a short, specific garment name IN RUSSIAN, e.g. "Футболка",
+  "color": the primary color of the item IN RUSSIAN, e.g. "Чёрный",
+  "style": the item's style register in one or two words IN RUSSIAN, e.g. "Кэжуал", "Классика", "Спорт", "Стритвир",
+  "description": a short one-sentence description of the item IN RUSSIAN (cut, material impression, notable details)
 }`;
 
-const RATE_LIMIT_MESSAGE = 'Servers are a bit overloaded! Please try scanning this item again in a minute.';
+const RATE_LIMIT_MESSAGE = 'Серверы сейчас немного перегружены! Попробуйте отсканировать вещь ещё раз через минуту.';
 
 export async function scanClothingItem(base64Image) {
   if (!base64Image) {

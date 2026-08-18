@@ -68,7 +68,13 @@ const styles = StyleSheet.create({
     position: Platform.OS === 'web' ? 'fixed' : 'absolute',
     left: spacing.md,
     right: spacing.md,
-    bottom: 100,
+    // Was 100 — measured directly against WardrobeScreen's floating "Добавить
+    // вещь" CTA (bottom:20, ~52px tall, sitting above the floating tab bar)
+    // and the two boxes landed almost exactly on top of each other (592-641
+    // vs 588-640 in viewport pixels). 180 clears that button with real
+    // margin to spare; every other screen's toast just renders a bit
+    // higher, which is harmless where nothing floats down there.
+    bottom: 180,
     backgroundColor: colors.inverseBackground,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm,

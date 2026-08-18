@@ -29,6 +29,7 @@ import { getPalette } from '../utils/colorDna';
 import { calculateCohesionScore } from '../utils/wardrobeUtils';
 import { generateDailyChallenge } from '../utils/dailyChallengeEngine';
 import { useUserStore } from '../store/useUserStore';
+import { isAdminTelegramId } from '../utils/admin';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { useChatStore } from '../store/useChatStore';
 import { usePlannerStore, toDateKey, getStyleStreak } from '../store/usePlannerStore';
@@ -73,6 +74,7 @@ const INSPIRATION_TAGS = [
 export default function WardrobeScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
+  const user = useUserStore((state) => state.user);
   const wardrobe = useWardrobeStore((state) => state.items);
   const wardrobeLoading = useWardrobeStore((state) => state.loading);
   const wardrobeError = useWardrobeStore((state) => state.error);
@@ -124,8 +126,10 @@ export default function WardrobeScreen() {
   // Gated on !wardrobeLoading too — otherwise the very first render (before
   // the fetch resolves, `wardrobe` still `[]`) would flash the empty-state
   // hero even for a client who actually has items, right before the real
-  // list snaps in.
-  const isEmptyCloset = !wardrobeLoading && wardrobe.length === 0;
+  // list snaps in. Admin's own account never locks these — its whole point
+  // is exercising every feature regardless of what test data happens to be
+  // in its closet at the time.
+  const isEmptyCloset = !isAdminTelegramId(user?.telegramId) && !wardrobeLoading && wardrobe.length === 0;
 
   const hubScrollRef = useRef(null);
   const pagerRef = useRef(null);
