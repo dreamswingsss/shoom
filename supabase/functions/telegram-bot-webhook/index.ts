@@ -31,6 +31,13 @@ const MINI_APP_URL = Deno.env.get('TELEGRAM_MINI_APP_URL') ?? 'https://shoom-dus
 const PRIVACY_POLICY_URL = 'https://telegra.ph/Politika-konfidencialnosti-08-18-78';
 const TERMS_OF_SERVICE_URL = 'https://telegra.ph/Polzovatelskoe-soglashenie-08-18-25';
 const SUPPORT_URL = 'https://t.me/shoom_help';
+// Served statically from the Expo web build's `public/` folder (copied
+// there from assets/brand/shoom-wordmark.png — same file, kept in both
+// places since `public/` is what Vercel actually serves at this URL, and
+// `assets/` is what the rest of the app's own asset pipeline expects
+// brand files to live under). Telegram's sendPhoto needs a URL it can
+// fetch itself, not a local file upload.
+const WORDMARK_PHOTO_URL = `${MINI_APP_URL}/brand/shoom-wordmark.png`;
 
 // Longer than the original one-paragraph pitch on purpose — modeled on
 // @sgxplanner_bot's own `/start` reply (mechanism explanation + a bullet
@@ -60,13 +67,19 @@ const WELCOME_TEXT =
   'планирование 2 раза в неделю. Pro снимает все лимиты.\n\n' +
   'Жми кнопку ниже, чтобы начать.';
 
-async function sendMessage(chatId: number, text: string): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+// Photo + caption (not a plain text message) — the wordmark renders above
+// the pitch text in the chat, same "image first, text below" shape as the
+// reference bot this whole /start flow is modeled on. WELCOME_TEXT (795
+// chars at last count) must stay under Telegram's 1024-char caption cap
+// for sendPhoto — sendMessage's own 4096-char cap doesn't apply here.
+async function sendWelcomePhoto(chatId: number, caption: string): Promise<void> {
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      photo: WORDMARK_PHOTO_URL,
+      caption,
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
@@ -102,7 +115,7 @@ Deno.serve(async (req) => {
     // needs a plain 200 so Telegram doesn't mistake "we chose not to reply"
     // for "delivery failed" and keep resending the same update.
     if (chatId && typeof message?.text === 'string') {
-      await sendMessage(chatId, WELCOME_TEXT);
+      await sendWelcomePhoto(chatId, WELCOME_TEXT);
     }
     return new Response('OK', { status: 200 });
   } catch (err) {
