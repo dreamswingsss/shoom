@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../store/useUserStore';
@@ -22,6 +23,7 @@ import { supabase } from '../services/supabaseClient';
 import { deleteAccount } from '../services/accountService';
 import { sendBroadcast } from '../services/broadcastService';
 import { isAdminTelegramId } from '../utils/admin';
+import { connectGoogleCalendar, disconnectGoogleCalendar } from '../services/googleCalendarService';
 import { SUPPORT_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../constants/legal';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
@@ -61,6 +63,8 @@ export default function ProfileScreen({ navigation, route }) {
   const bodyType = useUserStore((state) => state.bodyType);
   const notificationsEnabled = useUserStore((state) => state.notificationsEnabled);
   const setNotificationsEnabled = useUserStore((state) => state.setNotificationsEnabled);
+  const googleCalendarConnected = useUserStore((state) => state.googleCalendarConnected);
+  const setGoogleCalendarConnected = useUserStore((state) => state.setGoogleCalendarConnected);
   const measurements = useUserStore((state) => state.measurements);
   const stylePreferences = useUserStore((state) => state.stylePreferences);
   const styleVibes = useUserStore((state) => state.styleVibes);
@@ -91,6 +95,8 @@ export default function ProfileScreen({ navigation, route }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isConnectingCalendar, setIsConnectingCalendar] = useState(false);
+  const [isDisconnectingCalendar, setIsDisconnectingCalendar] = useState(false);
   const isAdmin = isAdminTelegramId(user?.telegramId);
   // Deferred Registration guest CTA — same shared flow as ScanSheet's
   // Save-to-Closet auth prompt (see useTelegramSignIn.js). No extra branching
@@ -125,6 +131,19 @@ export default function ProfileScreen({ navigation, route }) {
     setIsEditing(true);
     navigation.setParams({ openEditProfile: undefined });
   }, [route?.params?.openEditProfile]);
+
+  // Google's OAuth consent screen opens in the system browser (see
+  // handleConnectCalendar above), outside this screen's own render entirely
+  // — the only way this screen learns the connection actually went through
+  // is by re-checking the DB once the client switches back to Telegram and
+  // this tab regains focus, since there's no in-app callback to hook into.
+  useFocusEffect(
+    useCallback(() => {
+      if (isLoggedIn && user?.id) {
+        useUserStore.getState().fetchProfile(user.id);
+      }
+    }, [isLoggedIn, user?.id])
+  );
 
   // Ends the Supabase session rather than calling useUserStore's logout()
   // directly — useSupabaseAuthSync's onAuthStateChange listener reacts to
@@ -182,6 +201,41 @@ export default function ProfileScreen({ navigation, route }) {
   // testing. Remove once a real purchase flow sets this instead.
   function handleTogglePro() {
     setIsPro(!isPro);
+  }
+
+  // Opens Google's consent screen in the system browser (see
+  // googleCalendarService.js's own comment on why a Mini App's WebView
+  // can't navigate there itself) — the actual `google_calendar_connected`
+  // flip happens server-side in google-calendar-oauth-callback once the
+  // client finishes consenting there, not here. This screen only learns
+  // about it later, via the useFocusEffect below re-fetching the profile
+  // when the client switches back to Telegram and this tab regains focus.
+  async function handleConnectCalendar() {
+    if (isConnectingCalendar) return;
+    setIsConnectingCalendar(true);
+    try {
+      await connectGoogleCalendar();
+    } catch (err) {
+      console.log('[handleConnectCalendar] failed:', err.message);
+      showToast(t('profile.calendar.connectError'));
+    } finally {
+      setIsConnectingCalendar(false);
+    }
+  }
+
+  async function handleDisconnectCalendar() {
+    if (isDisconnectingCalendar) return;
+    setIsDisconnectingCalendar(true);
+    try {
+      await disconnectGoogleCalendar();
+      setGoogleCalendarConnected(false);
+      showToast(t('profile.calendar.disconnectSuccess'));
+    } catch (err) {
+      console.log('[handleDisconnectCalendar] failed:', err.message);
+      showToast(t('profile.calendar.disconnectError'));
+    } finally {
+      setIsDisconnectingCalendar(false);
+    }
   }
 
   async function handleSendBroadcast() {
@@ -378,6 +432,39 @@ export default function ProfileScreen({ navigation, route }) {
               trackColor={{ false: colors.border, true: colors.violet }}
               thumbColor={colors.surface}
             />
+          </View>
+          {/* Real OAuth connection, not a stored preference — see
+              googleCalendarService.js and the google-calendar-* Edge
+              Functions. Status caption reflects `google_calendar_connected`
+              as last read from the DB (fetchProfile, refreshed on focus
+              above), not just local optimism. */}
+          <View style={[styles.navRow, hairline]}>
+            <View style={styles.navIconWrapSky}>
+              <Feather name="calendar" size={16} color={colors.sky} />
+            </View>
+            <View style={styles.calendarRowTextWrap}>
+              <Text style={styles.navRowLabel}>{t('profile.nav.calendar')}</Text>
+              <Text style={styles.calendarRowStatus}>
+                {t(googleCalendarConnected ? 'profile.calendar.connected' : 'profile.calendar.notConnected')}
+              </Text>
+            </View>
+            {googleCalendarConnected ? (
+              <TouchableOpacity onPress={handleDisconnectCalendar} disabled={isDisconnectingCalendar} activeOpacity={0.7}>
+                {isDisconnectingCalendar ? (
+                  <ActivityIndicator size="small" color={colors.textMuted} />
+                ) : (
+                  <Text style={styles.calendarActionTextMuted}>{t('profile.calendar.disconnect')}</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={handleConnectCalendar} disabled={isConnectingCalendar} activeOpacity={0.7}>
+                {isConnectingCalendar ? (
+                  <ActivityIndicator size="small" color={colors.violet} />
+                ) : (
+                  <Text style={styles.calendarActionText}>{t('profile.calendar.connect')}</Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
           <NavRow
             iconWrapStyle={styles.navIconWrapCoral}
@@ -743,6 +830,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   navRowLabel: { ...typography.rowTitle, flex: 1 },
+  calendarRowTextWrap: { flex: 1, gap: 1 },
+  calendarRowStatus: { ...typography.captionSecondary },
+  calendarActionText: { ...typography.rowTitle, color: colors.violet },
+  calendarActionTextMuted: { ...typography.rowTitle, color: colors.textMuted },
   navIconWrapViolet: {
     width: 32,
     height: 32,

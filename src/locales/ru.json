@@ -185,7 +185,17 @@
       "capsuleScore": "Гармоничность"
     },
     "nav": {
-      "notifications": "Уведомления"
+      "notifications": "Уведомления",
+      "calendar": "Google Calendar"
+    },
+    "calendar": {
+      "connected": "Подключён",
+      "notConnected": "Не подключён",
+      "connect": "Подключить",
+      "disconnect": "Отключить",
+      "connectError": "Не удалось открыть окно подключения. Попробуйте ещё раз.",
+      "disconnectSuccess": "Google Calendar отключён.",
+      "disconnectError": "Не удалось отключить календарь. Попробуйте ещё раз."
     },
     "admin": {
       "badge": "Админ",
@@ -224,11 +234,14 @@
       "suggested": "Предложено ИИ",
       "exportToCalendar": "Экспорт в календарь",
       "exportModalTitle": "Добавить в календарь",
-      "exportSuccess": "Сохранено в календаре!",
+      "downloadIcs": "Скачать .ics",
+      "exportSuccessGoogle": "Добавлено в Google Calendar!",
+      "exportSuccessIcs": "Файл .ics скачан — откройте его в приложении календаря.",
+      "exportNotConnected": "Google Calendar не подключён — скачиваем файл .ics вместо этого.",
+      "exportReconnectRequired": "Доступ к Google Calendar истёк — переподключите его в Профиле.",
       "exportPermissionDenied": "Нужен доступ к календарю — включите его для Shoom в настройках телефона.",
-      "exportWebUnavailable": "Экспорт в календарь недоступен в веб-версии — попробуйте на телефоне.",
-      "exportGenericError": "Не удалось экспортировать в календарь. Попробуйте ещё раз.",
-      "exportNoCalendars": "На устройстве не найден доступный для записи календарь."
+      "exportNoCalendars": "На устройстве не найден доступный для записи календарь.",
+      "exportGenericError": "Не удалось экспортировать в календарь. Попробуйте ещё раз."
     },
     "hub": {
       "title": "Ваш цифровой гардероб",
@@ -305,7 +318,7 @@
         "manualCityError": "Не удалось найти такой город. Попробуйте другое написание."
       },
       "capsuleScore": {
-        "subtitle": "Гармоничность гардероба",
+        "subtitle": "Гармоничность",
         "subtitleEmpty": "Добавьте вещи, чтобы узнать",
         "proBadge": "PRO",
         "premiumAlertMessage": "Откройте подробную аналитику гардероба с Pro."

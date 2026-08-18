@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Platform,
   StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -32,8 +33,9 @@ import {
   getAvailableCalendars,
   exportOutfitToCalendar,
   CalendarPermissionDeniedError,
-  CalendarWebUnavailableError,
 } from '../services/calendarService';
+import { exportToGoogleCalendar, isNotConnectedError } from '../services/googleCalendarService';
+import { buildOutfitIcs, downloadIcs } from '../utils/icsExport';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 const THUMB_SIZE = 64;
@@ -68,6 +70,7 @@ export default function InspirationDetailScreen() {
   const wardrobeById = useMemo(() => Object.fromEntries(wardrobe.map((item) => [item.id, item])), [wardrobe]);
   const removeInspiration = useWardrobeStore((state) => state.removeInspiration);
   const isPro = useUserStore((state) => state.isPro);
+  const googleCalendarConnected = useUserStore((state) => state.googleCalendarConnected);
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
   const { toastMessage, toastKey, showToast } = useToast();
   const { paywallMessage, showPaywall, closePaywall } = usePaywall();
@@ -81,6 +84,12 @@ export default function InspirationDetailScreen() {
   // already uses), not a confirm/cancel dialog.
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // 'auto' (Google if connected, else .ics — same default handleExportPress
+  // used before this dual path existed) vs 'ics' (always downloads a file,
+  // even when Google is connected — the always-available option the
+  // separate "Скачать .ics" button below sets explicitly). Only meaningful
+  // on web; native ignores it entirely and always uses the device picker.
+  const [exportMode, setExportMode] = useState('auto');
 
   async function performDelete() {
     setIsDeleting(true);
@@ -152,6 +161,22 @@ export default function InspirationDetailScreen() {
       showPaywall(t('paywall.calendarExportMessage'));
       return;
     }
+    setExportMode('auto');
+    setExportModalVisible(true);
+  }
+
+  // Always available on web regardless of Google Calendar connection state
+  // — same "give Apple Calendar/Outlook/anyone else a real option too"
+  // reasoning as PlannerScreen's own always-visible .ics link, just routed
+  // through this screen's existing day-picker instead of a second button,
+  // since a saved Lookbook look has no date of its own until one is picked.
+  function handleDownloadIcsPress() {
+    triggerHaptic();
+    if (!isPro) {
+      showPaywall(t('paywall.calendarExportMessage'));
+      return;
+    }
+    setExportMode('ics');
     setExportModalVisible(true);
   }
 
@@ -163,6 +188,34 @@ export default function InspirationDetailScreen() {
     setExportModalVisible(false);
     setExporting(true);
     try {
+      const itemNames = items.map((entry) => entry.name).filter(Boolean);
+
+      if (Platform.OS === 'web') {
+        if (exportMode === 'ics' || !googleCalendarConnected) {
+          downloadIcs(buildOutfitIcs({ itemNames, date }), `shoom-${toDateKey(date)}.ics`);
+          showToast(
+            t(
+              exportMode === 'ics'
+                ? 'closet.inspirationDetail.exportSuccessIcs'
+                : 'closet.inspirationDetail.exportNotConnected'
+            )
+          );
+          return;
+        }
+        try {
+          await exportToGoogleCalendar({ itemNames, date });
+          showToast(t('closet.inspirationDetail.exportSuccessGoogle'));
+        } catch (err) {
+          if (isNotConnectedError(err)) {
+            downloadIcs(buildOutfitIcs({ itemNames, date }), `shoom-${toDateKey(date)}.ics`);
+            showToast(t('closet.inspirationDetail.exportReconnectRequired'));
+            return;
+          }
+          throw err;
+        }
+        return;
+      }
+
       const calendars = await getAvailableCalendars();
       if (calendars.length === 0) {
         showToast(t('closet.inspirationDetail.exportNoCalendars'));
@@ -171,20 +224,16 @@ export default function InspirationDetailScreen() {
       const calendarId = await pickCalendar(calendars);
       if (!calendarId) return; // client backed out of the picker
 
-      const itemNames = items.map((entry) => entry.name).filter(Boolean);
       await exportOutfitToCalendar({ itemNames, date, calendarId });
-      showToast(t('closet.inspirationDetail.exportSuccess'));
+      showToast(t('closet.inspirationDetail.exportSuccessGoogle'));
     } catch (err) {
-      // Both calendarService error classes get their own translated copy
-      // (denied-permission clients need the Settings pointer, not a raw
-      // OS error string; web clients need to know this is a phone-only
-      // feature) — anything else falls back to whatever the OS/expo-
-      // calendar actually said, same convention ScanSheet's own save-error
-      // handling already follows.
+      // CalendarPermissionDeniedError gets its own translated copy (denied-
+      // permission clients need the Settings pointer, not a raw OS error
+      // string) — anything else falls back to whatever the OS/expo-calendar
+      // actually said, same convention ScanSheet's own save-error handling
+      // already follows.
       if (err instanceof CalendarPermissionDeniedError) {
         showToast(t('closet.inspirationDetail.exportPermissionDenied'));
-      } else if (err instanceof CalendarWebUnavailableError) {
-        showToast(t('closet.inspirationDetail.exportWebUnavailable'));
       } else {
         console.error('[InspirationDetailScreen] Calendar export failed:', err);
         showToast(err.message || t('closet.inspirationDetail.exportGenericError'));
@@ -199,10 +248,17 @@ export default function InspirationDetailScreen() {
       <ScrollView style={styles.flexFill} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.aiText}>{inspiration.aiText}</Text>
 
-        <TouchableOpacity style={styles.exportBtn} onPress={handleExportPress} activeOpacity={0.8}>
-          <Feather name="calendar" size={14} color={colors.textPrimary} />
-          <Text style={styles.exportBtnText}>{t('closet.inspirationDetail.exportToCalendar')}</Text>
-        </TouchableOpacity>
+        <View style={styles.exportBtnRow}>
+          <TouchableOpacity style={styles.exportBtn} onPress={handleExportPress} activeOpacity={0.8}>
+            <Feather name="calendar" size={14} color={colors.textPrimary} />
+            <Text style={styles.exportBtnText}>{t('closet.inspirationDetail.exportToCalendar')}</Text>
+          </TouchableOpacity>
+          {Platform.OS === 'web' && (
+            <TouchableOpacity onPress={handleDownloadIcsPress} activeOpacity={0.7} hitSlop={HIT_SLOP}>
+              <Text style={styles.exportIcsLinkText}>{t('closet.inspirationDetail.downloadIcs')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <Text style={styles.itemsHeading}>{t('closet.inspirationDetail.itemsHeading')}</Text>
 
@@ -336,10 +392,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
-    marginBottom: spacing.md,
     ...shadows.sm,
   },
   exportBtnText: { fontSize: 12, fontWeight: '700', color: colors.textPrimary },
+  exportBtnRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  exportIcsLinkText: { fontSize: 11.5, fontWeight: '600', color: colors.textSecondary, textDecorationLine: 'underline' },
 
   itemsHeading: { ...typography.label, marginBottom: spacing.sm },
 

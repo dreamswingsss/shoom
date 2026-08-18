@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -25,8 +25,13 @@ import {
   exportOutfitToCalendar,
   deleteCalendarEvent,
   CalendarPermissionDeniedError,
-  CalendarWebUnavailableError,
 } from '../services/calendarService';
+import {
+  exportToGoogleCalendar,
+  removeFromGoogleCalendar,
+  isNotConnectedError,
+} from '../services/googleCalendarService';
+import { buildOutfitIcs, downloadIcs } from '../utils/icsExport';
 import { FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
 
 const DAY_COUNT = 7;
@@ -78,6 +83,7 @@ export default function PlannerScreen() {
   const navigation = useNavigation();
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const isPro = useUserStore((state) => state.isPro);
+  const googleCalendarConnected = useUserStore((state) => state.googleCalendarConnected);
   const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
   const plannerLoading = usePlannerStore((state) => state.loading);
   const fetchOutfits = usePlannerStore((state) => state.fetchOutfits);
@@ -171,7 +177,14 @@ export default function PlannerScreen() {
 
     async function removeAndDeleteEvent() {
       try {
-        await deleteCalendarEvent(eventId);
+        // Native (a real, non-Telegram build) still goes through
+        // expo-calendar; web — the actual production case — goes through
+        // Google Calendar's API instead, same split handleExportPress uses.
+        if (Platform.OS === 'web') {
+          await removeFromGoogleCalendar(eventId);
+        } else {
+          await deleteCalendarEvent(eventId);
+        }
       } catch (err) {
         // The client may have already deleted this event by hand in their
         // own calendar app (or revoked calendar permission) since it was
@@ -213,6 +226,17 @@ export default function PlannerScreen() {
     navigation.navigate('AI Stylist', { initialPrompt: t('planner.askPrompt', { date: label }) });
   }
 
+  // Always available on web regardless of Google Calendar connection state
+  // — Apple Calendar/Outlook/anyone who'd rather not connect an account
+  // gets a real, working option no matter what handleExportPress's own
+  // Google-or-.ics branching decided to do.
+  function handleDownloadIcs() {
+    if (!selectedEntry) return;
+    const itemNames = getScheduledItemNames(selectedEntry, wardrobeById);
+    downloadIcs(buildOutfitIcs({ itemNames, date: selectedDate }), `shoom-${selectedKey}.ics`);
+    showToast(t('closet.inspirationDetail.exportSuccessIcs'));
+  }
+
   function handleShufflePress() {
     if (!canPlanSelectedDay) {
       showPaywall(t('paywall.plannerDaysLimitMessage'));
@@ -227,6 +251,14 @@ export default function PlannerScreen() {
   // needs its own day-picker since a saved Lookbook look isn't tied to any
   // one date; here the card already IS a specific date, so exporting is a
   // single tap with no extra picker).
+  //
+  // Web (the actual production case — this app runs as a Telegram Mini App,
+  // always Platform.OS === 'web') goes through real Google Calendar OAuth
+  // if connected (see ProfileScreen's Calendar row), or downloads a
+  // universal .ics file otherwise — expo-calendar has zero web
+  // implementation, so that path never worked here at all before this.
+  // Native (a genuine future non-Telegram build) keeps the original
+  // device-calendar-picker flow untouched.
   async function handleExportPress() {
     if (!isPro) {
       showPaywall(t('paywall.calendarExportMessage'));
@@ -235,6 +267,29 @@ export default function PlannerScreen() {
     if (exporting || !selectedEntry) return;
     setExporting(true);
     try {
+      const itemNames = getScheduledItemNames(selectedEntry, wardrobeById);
+
+      if (Platform.OS === 'web') {
+        if (!googleCalendarConnected) {
+          downloadIcs(buildOutfitIcs({ itemNames, date: selectedDate }), `shoom-${selectedKey}.ics`);
+          showToast(t('closet.inspirationDetail.exportNotConnected'));
+          return;
+        }
+        try {
+          const eventId = await exportToGoogleCalendar({ itemNames, date: selectedDate });
+          setOutfitEventId(selectedKey, eventId);
+          showToast(t('closet.inspirationDetail.exportSuccessGoogle'));
+        } catch (err) {
+          if (isNotConnectedError(err)) {
+            downloadIcs(buildOutfitIcs({ itemNames, date: selectedDate }), `shoom-${selectedKey}.ics`);
+            showToast(t('closet.inspirationDetail.exportReconnectRequired'));
+            return;
+          }
+          throw err;
+        }
+        return;
+      }
+
       const calendars = await getAvailableCalendars();
       if (calendars.length === 0) {
         showToast(t('closet.inspirationDetail.exportNoCalendars'));
@@ -243,20 +298,14 @@ export default function PlannerScreen() {
       const calendarId = await pickCalendar(calendars);
       if (!calendarId) return; // client backed out of the picker
 
-      const itemNames = getScheduledItemNames(selectedEntry, wardrobeById);
       const eventId = await exportOutfitToCalendar({ itemNames, date: selectedDate, calendarId });
       // Smart Delete's write side — lets a later handleRemove for this same
       // day find and offer to clean up this exact event.
       setOutfitEventId(selectedKey, eventId);
-      // Reuses closet.inspirationDetail's own calendar-export copy — same
-      // messages, same feature, just a different entry point onto it, not
-      // worth duplicating across 7 locales for an identical string.
-      showToast(t('closet.inspirationDetail.exportSuccess'));
+      showToast(t('closet.inspirationDetail.exportSuccessGoogle'));
     } catch (err) {
       if (err instanceof CalendarPermissionDeniedError) {
         showToast(t('closet.inspirationDetail.exportPermissionDenied'));
-      } else if (err instanceof CalendarWebUnavailableError) {
-        showToast(t('closet.inspirationDetail.exportWebUnavailable'));
       } else {
         console.error('[PlannerScreen] Calendar export failed:', err);
         showToast(err.message || t('closet.inspirationDetail.exportGenericError'));
@@ -395,16 +444,31 @@ export default function PlannerScreen() {
             {/* Export to Calendar — the whole point of this redesign's 3rd
                 task: a client shouldn't have to go hunting for this, it sits
                 right on the card it acts on. */}
-            <TouchableOpacity
-              style={styles.exportBtn}
-              onPress={handleExportPress}
-              activeOpacity={0.8}
-              disabled={exporting}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="calendar" size={13} color={colors.textPrimary} />
-              <Text style={styles.exportBtnText}>{t('planner.exportToCalendar')}</Text>
-            </TouchableOpacity>
+            <View style={styles.exportBtnGroup}>
+              <TouchableOpacity
+                style={styles.exportBtn}
+                onPress={handleExportPress}
+                activeOpacity={0.8}
+                disabled={exporting}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="calendar" size={13} color={colors.textPrimary} />
+                <Text style={styles.exportBtnText}>{t('planner.exportToCalendar')}</Text>
+              </TouchableOpacity>
+              {/* Always available on web, regardless of Google Calendar
+                  connection — see handleDownloadIcs's own comment. Native
+                  already has real device-calendar access via the button
+                  above, so this second option only adds value on web. */}
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  onPress={handleDownloadIcs}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.exportIcsLinkText}>{t('closet.inspirationDetail.downloadIcs')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           <View>
@@ -567,6 +631,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   exportBtnText: { fontSize: 11, fontWeight: '700', color: colors.textPrimary },
+  exportBtnGroup: { alignItems: 'flex-end', gap: 6 },
+  exportIcsLinkText: { fontSize: 10.5, fontWeight: '600', color: colors.textSecondary, textDecorationLine: 'underline' },
   // v7 — badge bg matches the mockup's `heroBadgeStyleSmall`
   // (`rgba(255,255,255,0.75)`), not the flat paper background — a
   // translucent white reads consistently across all three tint colors.

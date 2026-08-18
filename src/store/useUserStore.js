@@ -116,6 +116,12 @@ export const useUserStore = create(
       // Defaults true — opt-out, not opt-in, matching how the bot already
       // works (anyone who opened it can already be DMed by it).
       notificationsEnabled: true,
+      // Mirrors `users.google_calendar_connected` — real OAuth connection
+      // state (see src/services/googleCalendarService.js and the
+      // google-calendar-* Edge Functions), not a local preference. Only
+      // ever set from a fresh fetchProfile() read or right after a
+      // connect/disconnect call actually succeeds server-side.
+      googleCalendarConnected: false,
       // Mirrors the DB's `users.expo_push_token` column — the last token
       // this store either read from public.users (fetchProfile) or wrote
       // to it (syncPushToken). useSupabaseAuthSync compares a freshly
@@ -204,6 +210,7 @@ export const useUserStore = create(
           styleVibes: [],
           measurementUnit: 'cm',
           notificationsEnabled: true,
+          googleCalendarConnected: false,
           pushToken: null,
           isProfileStale: false,
           staleChangedFields: [],
@@ -249,10 +256,20 @@ export const useUserStore = create(
           styleVibes: row.style_vibes || [],
           measurementUnit: row.measurement_unit || 'cm',
           notificationsEnabled: row.notifications_enabled ?? true,
+          googleCalendarConnected: row.google_calendar_connected ?? false,
           pushToken: row.expo_push_token || null,
           profileSyncError: null,
         });
       },
+
+      // Set right after connectGoogleCalendar()/disconnectGoogleCalendar()
+      // actually succeed server-side (see ProfileScreen's own handlers) —
+      // no direct Supabase write here, unlike setNotificationsEnabled: the
+      // google-calendar-oauth-callback/google-calendar-sync Edge Functions
+      // are what own writing `users.google_calendar_connected`, since the
+      // callback runs outside any client session (Google's own redirect
+      // hits it directly) and has no client store to update in the moment.
+      setGoogleCalendarConnected: (value) => set({ googleCalendarConnected: value }),
 
       // The one write path for `users.expo_push_token` — called by
       // useSupabaseAuthSync after registerForPushNotificationsAsync()
