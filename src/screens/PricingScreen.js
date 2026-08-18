@@ -69,12 +69,18 @@ function TierCard({ tierKey, isPro, onPress }) {
 
   const isFounder = tierKey === 'founderLifetime';
   const isYearly = tierKey === 'proYearly';
+  const isMonthly = tierKey === 'proMonthly';
   const isOwned = tierKey === 'free' || (isPro && tierKey !== 'free');
 
   return (
     <AnimatedPressable
       onPress={onPress}
-      style={[styles.card, isFounder && styles.cardFounder]}
+      style={[
+        styles.card,
+        isMonthly && styles.cardMonthly,
+        isYearly && styles.cardYearly,
+        isFounder && styles.cardFounder,
+      ]}
     >
       {isYearly && (
         <View style={styles.badge}>
@@ -138,14 +144,31 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     ...shadows.soft,
   },
+  // Four tiers, only two real hues in this palette (ink + marigold — see
+  // tokens.js's own v11 comment on why violet/sky/sage all collapse to
+  // ink) — so each card is told apart by border weight/color instead of
+  // inventing off-palette hues per tier. Free stays the plain neutral
+  // `card` border above (nothing to upsell); the paid tiers step up in
+  // marigold border weight as the commitment/value goes up.
+  cardMonthly: {
+    borderColor: colors.marigold,
+    borderWidth: 1.5,
+  },
+  cardYearly: {
+    borderColor: colors.marigold,
+    borderWidth: 2,
+  },
   // Founder Lifetime — the one paid tier, so it gets the ink fill (same
   // "solid dark = the one deliberate accent moment" rule the rest of the
   // app already follows for its primary CTAs) instead of another neutral
   // card, so it reads as the standout option rather than a fourth
-  // identical row.
+  // identical row. Marigold ring on top of the fill keeps it in the same
+  // "step up in marigold" family as the other paid tiers rather than
+  // looking like an unrelated one-off.
   cardFounder: {
     backgroundColor: colors.inverseBackground,
-    borderColor: colors.inverseBackground,
+    borderColor: colors.marigold,
+    borderWidth: 2,
   },
 
   badge: {

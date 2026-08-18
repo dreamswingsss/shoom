@@ -3,8 +3,8 @@
 // integration sets it). One place for these numbers so a store's
 // enforcement and a screen's own pre-check (e.g. WardrobeScreen blocking
 // the scanner before even opening it) can't drift apart on the actual limit.
-export const FREE_WARDROBE_LIMIT = 30;
-export const FREE_CHAT_MESSAGE_LIMIT = 20;
+export const FREE_WARDROBE_LIMIT = 15;
+export const FREE_CHAT_MESSAGE_LIMIT = 10;
 // Max number of DAYS (any days, anywhere in the week — not "today and
 // tomorrow" specifically) a free-tier client can have an outfit scheduled
 // on at once. Every day pill in PlannerScreen's week row is clickable

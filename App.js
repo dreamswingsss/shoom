@@ -13,7 +13,7 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 import { AppTourProvider } from './src/components/AppTour';
 import { useUserStore } from './src/store/useUserStore';
 import { useSupabaseAuthSync } from './src/hooks/useSupabaseAuthSync';
-import { colors } from './src/theme/tokens';
+import { colors, fonts } from './src/theme/tokens';
 
 const navigationRef = createNavigationContainerRef();
 
@@ -65,6 +65,7 @@ function RootNavigator() {
         component={PricingScreen}
         options={{
           headerTitle: t('pricing.screenTitle'),
+          headerTitleStyle: { fontFamily: fonts.display, fontWeight: '800', fontSize: 17 },
           headerStyle: { backgroundColor: colors.premiumBackground },
           headerShadowVisible: false,
           headerTintColor: colors.textPrimary,
