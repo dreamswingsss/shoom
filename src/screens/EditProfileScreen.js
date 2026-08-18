@@ -1,13 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  LayoutAnimation,
-  Platform,
-  UIManager,
+  Animated,
+  Easing,
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,10 +27,6 @@ import {
 } from '../constants/profileOptions';
 import ColorSwatchPicker from '../components/ColorSwatchPicker';
 import BodyShapeSelector from '../components/BodyShapeSelector';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 // Display-only unit toggle, matching RegistrationFlow's own measurements
 // step exactly (see that file's own comment on `unitSystem`) — 'metric' is
@@ -90,7 +85,11 @@ export default function EditProfileScreen({ onDone }) {
 
   const [activeSection, setActiveSection] = useState('basicInfo');
   function toggleSection(key) {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    // AccordionSection itself now animates its own open/close (see its own
+    // comment) — LayoutAnimation used to drive this, but it's a documented
+    // no-op on react-native-web, and this app always runs as web (Telegram
+    // Mini App WebView), so every expand/collapse here was actually
+    // snapping instantly with zero animation.
     setActiveSection((current) => (current === key ? null : key));
   }
 
@@ -272,13 +271,79 @@ export default function EditProfileScreen({ onDone }) {
 // everywhere else in the app (WardrobeScreen's bento tiles, ScanSheet),
 // which this screen never had before, now doubling as the accordion's own
 // tap target. The whole header row (title + chevron) is one TouchableOpacity
-// so there's no small hidden hotspot; `children` only render when `isOpen`
-// — collapsed sections aren't just visually hidden, they're unmounted, so a
-// client scrolling past one never pays for its layout or has to tab through
-// its (still-focusable) inputs. Chevron rotates 90° open/closed instead of
-// swapping icons, so the state reads as a continuous motion rather than a
-// jump-cut.
+// so there's no small hidden hotspot. Chevron rotates 90° open/closed
+// instead of swapping icons, so the state reads as a continuous motion
+// rather than a jump-cut.
+//
+// Open/close used to be a plain conditional mount driven by LayoutAnimation
+// — that's a documented no-op on react-native-web, and this app always runs
+// as web (Telegram Mini App WebView), so every expand/collapse actually
+// snapped instantly: the client felt "thrown" straight to whatever the new
+// scroll position happened to be, with everything below the card jumping
+// with zero transition. Body content now stays mounted (its natural height
+// is measured once via onLayout, off in the very first, still-collapsed
+// render) and a real Animated.Value smoothly interpolates height + opacity
+// between 0 and that measured height on every toggle — this works
+// identically on native and web, unlike LayoutAnimation. `pointerEvents`
+// is still gated on `isOpen` so a collapsed section's (still-mounted)
+// inputs can't be tapped or tabbed into.
 function AccordionSection({ sectionKey, title, isOpen, onToggle, children }) {
+  const [measuredHeight, setMeasuredHeight] = useState(null);
+  const hasSnappedRef = useRef(false);
+  const animatedHeight = useRef(new Animated.Value(0)).current;
+  const animatedOpacity = useRef(new Animated.Value(0)).current;
+  // Chevron rotation rides its own Animated.Value (not tied to measured
+  // height at all) so it can start animating immediately on tap — no
+  // reason to wait on layout measurement for a rotation that doesn't
+  // depend on content size.
+  const animatedChevron = useRef(new Animated.Value(isOpen ? 1 : 0)).current;
+
+  function handleBodyLayout(event) {
+    const height = event.nativeEvent.layout.height;
+    if (height <= 0 || height === measuredHeight) return;
+    setMeasuredHeight(height);
+    if (!hasSnappedRef.current) {
+      // First real measurement — snap straight to the correct resting
+      // state (this may be the section that's open by default) instead of
+      // animating from 0, which would otherwise play an unwanted "grow"
+      // animation on initial mount.
+      hasSnappedRef.current = true;
+      animatedHeight.setValue(isOpen ? height : 0);
+      animatedOpacity.setValue(isOpen ? 1 : 0);
+    }
+  }
+
+  useEffect(() => {
+    Animated.timing(animatedChevron, {
+      toValue: isOpen ? 1 : 0,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    if (!hasSnappedRef.current || measuredHeight == null) return;
+    Animated.parallel([
+      Animated.timing(animatedHeight, {
+        toValue: isOpen ? measuredHeight : 0,
+        duration: 280,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(animatedOpacity, {
+        toValue: isOpen ? 1 : 0,
+        duration: isOpen ? 220 : 160,
+        delay: isOpen ? 70 : 0,
+        useNativeDriver: false,
+      }),
+    ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, measuredHeight]);
+
+  const chevronRotation = animatedChevron.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '90deg'],
+  });
+
   return (
     <View style={styles.card}>
       <TouchableOpacity
@@ -287,14 +352,18 @@ function AccordionSection({ sectionKey, title, isOpen, onToggle, children }) {
         activeOpacity={0.7}
       >
         <Text style={styles.cardTitle}>{title}</Text>
-        <Feather
-          name="chevron-right"
-          size={20}
-          color={colors.textSecondary}
-          style={isOpen && styles.accordionChevronOpen}
-        />
+        <Animated.View style={{ transform: [{ rotate: chevronRotation }] }}>
+          <Feather name="chevron-right" size={20} color={colors.textSecondary} />
+        </Animated.View>
       </TouchableOpacity>
-      {isOpen && <View style={styles.accordionBody}>{children}</View>}
+      <Animated.View
+        style={{ height: animatedHeight, opacity: animatedOpacity, overflow: 'hidden' }}
+        pointerEvents={isOpen ? 'auto' : 'none'}
+      >
+        <View style={styles.accordionBody} onLayout={handleBodyLayout}>
+          {children}
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -466,10 +535,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: spacing.md,
   },
-  // 90° rotation reads as "this section folds open downward" — a plain
-  // right-pointing chevron becomes a down-pointing one, the universal
-  // expand/collapse convention, without needing a second icon asset.
-  accordionChevronOpen: { transform: [{ rotate: '90deg' }] },
   accordionBody: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
@@ -545,7 +610,9 @@ const styles = StyleSheet.create({
   chipText: { color: colors.textPrimary, fontSize: 13.5, fontWeight: '600' },
   chipTextSelected: { color: colors.inverseText },
 
-  hwRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.lg, marginTop: spacing.xs },
+  // Stacked (was side-by-side) and centered per user feedback — height
+  // above weight, both centered under each other rather than as a 2-up row.
+  hwRow: { flexDirection: 'column', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
   hwField: { alignItems: 'center' },
   hwInput: {
     minWidth: 90,
@@ -556,6 +623,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderStrong,
     paddingVertical: spacing.xs,
+    // Web-only — react-native-web forwards unrecognized style keys like
+    // `cursor` straight to the underlying DOM node's CSS. Without it the
+    // hand/pointer cursor from an ancestor Pressable's own hover style can
+    // bleed onto a plain text field, when a normal desktop text-input
+    // I-beam cursor is what should show here on hover.
+    cursor: 'text',
   },
   hwUnit: { fontSize: 12.5, fontWeight: '600', color: colors.textSecondary, marginTop: spacing.xs },
 
@@ -575,6 +648,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'right',
     minWidth: 60,
+    cursor: 'text', // see hwInput's own comment
   },
   textArea: {
     width: '100%',
@@ -586,6 +660,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 15,
     lineHeight: 21,
+    cursor: 'text', // see hwInput's own comment
   },
 
   // Floating footer — width/centering matches RegistrationFlow's own
