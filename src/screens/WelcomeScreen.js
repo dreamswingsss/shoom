@@ -70,7 +70,6 @@ export default function WelcomeScreen() {
 
       <View style={styles.body}>
         <FadeInView key={stepIndex} delay={0}>
-          <Text style={styles.stepNumber}>{String(stepIndex + 1).padStart(2, '0')}</Text>
           <View style={styles.stepIconWrap}>
             <Feather name={step.icon} size={22} color={colors.inverseText} />
           </View>
@@ -129,17 +128,10 @@ const styles = StyleSheet.create({
   },
   skipText: { ...typography.bodySecondary, fontWeight: '600' },
 
-  // Vertically centered content block — each step's number/icon/title/text
-  // lands in the same spot as the last, so advancing steps reads as a
-  // straight swap, not content jumping around the screen.
+  // Vertically centered content block — each step's icon/title/text lands
+  // in the same spot as the last, so advancing steps reads as a straight
+  // swap, not content jumping around the screen.
   body: { flex: 1, justifyContent: 'center' },
-  stepNumber: {
-    fontFamily: fonts.display,
-    fontWeight: '800',
-    fontSize: 56,
-    color: colors.border,
-    marginBottom: spacing.md,
-  },
   stepIconWrap: {
     width: 44,
     height: 44,
