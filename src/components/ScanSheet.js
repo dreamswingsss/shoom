@@ -25,6 +25,7 @@ import { calculateColorDnaMatch } from '../utils/colorDna';
 import { useUserStore } from '../store/useUserStore';
 import { useToast } from '../hooks/useToast';
 import { CATEGORIES, COLOR_OPTIONS } from '../constants/wardrobeOptions';
+import { agreeColorWithNoun } from '../utils/colorAgreement';
 import {
   colors,
   spacing,
@@ -497,7 +498,10 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
               <View style={styles.resultOverlayContent}>
                 <Text style={styles.resultVerdict}>
                   {t('closet.scan.verdict', {
-                    color: t(`closet.colors.${scanResult.color}`, scanResult.color),
+                    color: agreeColorWithNoun(
+                      t(`closet.colors.${scanResult.color}`, scanResult.color),
+                      scanResult.subcategory
+                    ),
                     item: scanResult.subcategory,
                   })}
                 </Text>

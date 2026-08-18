@@ -375,11 +375,7 @@ export default function WardrobeScreen() {
               (InsightsCard/calculateInsights already existed, never wired
               in anywhere) rendered for real now. Hides itself when there's
               nothing to say yet (see InsightsCard's own guard). */}
-          <InsightsCard
-            mostWornItem={insights.mostWornItem}
-            neverWornCount={insights.neverWornCount}
-            totalCount={wardrobe.length}
-          />
+          <InsightsCard mostWornItem={insights.mostWornItem} />
 
           {/* `gap` here replaces the spacing bentoGrid's own `gap` would
               otherwise provide between these sections — was previously a

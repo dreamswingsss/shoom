@@ -373,11 +373,7 @@
       "addItem": "Добавить вещь"
     },
     "insightsCard": {
-      "mostWorn": "Чаще всего носите",
-      "neverWorn_one": "{{count}} вещь ни разу не надета",
-      "neverWorn_few": "{{count}} вещи ни разу не надеты",
-      "neverWorn_many": "{{count}} вещей ни разу не надеты",
-      "neverWorn_other": "{{count}} вещи ни разу не надеты"
+      "mostWorn": "Чаще всего носите"
     },
     "scan": {
       "permissionTitle": "Требуется разрешение",
