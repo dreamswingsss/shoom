@@ -12,6 +12,22 @@ function currentLanguageName() {
   return 'Russian';
 }
 
+// Russian verbs/adjectives addressing the client mark grammatical gender
+// ("надел" vs "надела", "ты выбрал" vs "ты выбрала") — unlike English,
+// there's no gender-neutral default that reads naturally, so the model
+// needs an explicit instruction tied to `profile.gender` (GENDERS in
+// constants/profileOptions.js: 'Men' | 'Women' | 'Other') rather than
+// guessing from name/phrasing.
+function genderAgreementInstruction(gender) {
+  if (gender === 'Men') {
+    return 'The client is male. Use masculine grammatical forms for every verb/adjective/participle that addresses or describes them ("ты надел", "выбрал", "тебе подойдёт" as masculine agreement) — never feminine forms.';
+  }
+  if (gender === 'Women') {
+    return 'The client is female. Use feminine grammatical forms for every verb/adjective/participle that addresses or describes them ("ты надела", "выбрала", "тебе подойдёт" as feminine agreement) — never masculine forms.';
+  }
+  return 'The client\'s gender is not specified (or "Other"). Avoid gender-marked verb forms addressing them entirely — rephrase around the gendered verb (e.g. "образ готов" instead of "ты подобрал/подобрала") rather than guessing a gender.';
+}
+
 function describeWardrobe(wardrobe) {
   if (!wardrobe || wardrobe.length === 0) {
     return '(empty — the client has not added any items to their closet yet)';
@@ -51,6 +67,8 @@ function buildSystemPrompt(profile, wardrobe, currentWeather) {
   return `${ctx.openingLine} Terse, decisive, expert — not a chatbot, not a hype machine.
 
 LANGUAGE (ABSOLUTE) — Write "text_response" entirely in ${currentLanguageName()}, no matter what language the client's own message is written in, what language the wardrobe/profile data below happens to be in, or what language earlier turns in this conversation used. Never mix languages within a single response.
+
+GENDER AGREEMENT (ABSOLUTE) — ${genderAgreementInstruction(profile.gender)}
 
 CLIENT PROFILE (use this to judge color-type / skin-hair-eye contrast / body-shape fit as styling knowledge — never dump these raw field values back at the client verbatim):
 ${ctx.profileText}
