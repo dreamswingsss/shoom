@@ -850,9 +850,10 @@ const styles = StyleSheet.create({
   // Gender step's answer grid. `justifyContent: 'center'` + `gap` (not the
   // old `space-between` + `rowGap`) is what actually keeps this symmetric
   // regardless of how many options there are — `space-between` only reads
-  // as centered when a row happens to fill completely; GENDERS has 3
-  // options, so the last row (1 chip) used to get shoved flush left with a
-  // big empty gap beside it instead of sitting centered under the two above.
+  // as centered when a row happens to fill completely, which broke back
+  // when GENDERS still had a third ('Other') option and its lone last-row
+  // chip got shoved flush left with a big empty gap beside it instead of
+  // sitting centered.
   genderChipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',

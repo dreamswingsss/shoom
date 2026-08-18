@@ -169,14 +169,17 @@ export const MALE_CUT_MATRIX = {
   },
 };
 
-// `gender: 'Other'` gets its body type options from
+// GENDERS is now just 'Men'/'Women' (a third 'Other' option existed before,
+// dropped at the user's request), but a legacy account that already saved
+// 'Other' — or any account with gender still unset — falls back to
 // dedupeUnion(BODY_TYPES_MEN, BODY_TYPES_WOMEN) (see getBodyTypeOptions in
-// constants/profileOptions.js) — a merged list, so a given bodyType may only
-// exist in one of the two tables above (e.g. 'Hourglass' or 'Oval'), or in
-// both under different rules (e.g. 'Rectangle'). For anything other than an
-// explicit 'Men'/'Women' gender, this tries the female table first, then
-// the male table — first one that actually has rules for this bodyType wins,
-// rather than guessing which was "meant."
+// constants/profileOptions.js) for its body type options — a merged list, so
+// a given bodyType may only exist in one of the two tables above (e.g.
+// 'Hourglass' or 'Oval'), or in both under different rules (e.g.
+// 'Rectangle'). For anything other than an explicit 'Men'/'Women' gender,
+// this tries the female table first, then the male table — first one that
+// actually has rules for this bodyType wins, rather than guessing which was
+// "meant."
 function resolveCutMatrix(gender, bodyType) {
   if (gender === 'Men') return MALE_CUT_MATRIX;
   if (gender === 'Women') return FEMALE_CUT_MATRIX;

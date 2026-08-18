@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Switch,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -17,8 +16,6 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../store/useUserStore';
 import { colors, spacing, radius, opacity, buttons, typography, shadows } from '../theme/tokens';
 import ScreenContainer from '../components/ScreenContainer';
-import PaywallModal from '../components/PaywallModal';
-import { usePaywall } from '../hooks/usePaywall';
 import {
   GENDERS,
   EYE_COLORS,
@@ -90,7 +87,6 @@ export default function EditProfileScreen({ onDone }) {
   const [formWaist, setFormWaist] = useState(toInputString(measurements?.waist));
   const [formHips, setFormHips] = useState(toInputString(measurements?.hips));
   const [formStylePreferences, setFormStylePreferences] = useState(stylePreferences || '');
-  const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
   const [activeSection, setActiveSection] = useState('basicInfo');
   function toggleSection(key) {
@@ -259,26 +255,6 @@ export default function EditProfileScreen({ onDone }) {
             textAlignVertical="top"
           />
         </AccordionSection>
-
-        <AccordionSection
-          sectionKey="integrations"
-          title={t('profile.sections.integrations')}
-          isOpen={activeSection === 'integrations'}
-          onToggle={toggleSection}
-        >
-          <Text style={styles.helperText}>{t('profile.integrations.helper')}</Text>
-          <IntegrationRow
-            icon="calendar"
-            label={t('profile.integrations.appleCalendar')}
-            onPress={() => showPaywall(t('paywall.calendarSyncMessage'))}
-          />
-          <IntegrationRow
-            icon="calendar"
-            label={t('profile.integrations.googleCalendar')}
-            onPress={() => showPaywall(t('paywall.calendarSyncMessage'))}
-            last
-          />
-        </AccordionSection>
       </ScrollView>
 
       <TouchableOpacity
@@ -288,34 +264,7 @@ export default function EditProfileScreen({ onDone }) {
       >
         <Text style={buttons.primaryText}>{t('profile.save')}</Text>
       </TouchableOpacity>
-
-      <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
     </ScreenContainer>
-  );
-}
-
-// A locked integration row — the Switch itself is purely decorative
-// (`pointerEvents="none"`, always off, always disabled): real interaction
-// happens on the row's own TouchableOpacity, which always opens the paywall
-// regardless of platform-specific quirks around whether a disabled Switch
-// still lets touches through to it. This guarantees the tap is never a dead
-// no-op, per the monetization spec ("clicking triggers the same Pro stub").
-function IntegrationRow({ icon, label, onPress, last }) {
-  return (
-    <TouchableOpacity
-      style={[styles.numberRow, last && styles.numberRowLast]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.integrationLabelWrap}>
-        <Feather name={icon} size={16} color={colors.textSecondary} />
-        <Text style={styles.numberLabel}>{label}</Text>
-      </View>
-      <View style={styles.integrationRight}>
-        <Feather name="lock" size={12} color={colors.textMuted} />
-        <Switch value={false} disabled pointerEvents="none" />
-      </View>
-    </TouchableOpacity>
   );
 }
 
@@ -627,9 +576,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     minWidth: 60,
   },
-  integrationLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  integrationRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, opacity: opacity.disabled },
-
   textArea: {
     width: '100%',
     minHeight: 120,

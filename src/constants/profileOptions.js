@@ -2,7 +2,7 @@
 // (single scrollable form) — both need the exact same option lists and
 // gender-dependent logic.
 
-export const GENDERS = ['Women', 'Men', 'Other'];
+export const GENDERS = ['Women', 'Men'];
 
 export const HAIR_COLORS_MEN = [
   { label: 'Black', hexColor: '#2A2724' },

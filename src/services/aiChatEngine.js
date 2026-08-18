@@ -16,8 +16,11 @@ function currentLanguageName() {
 // ("надел" vs "надела", "ты выбрал" vs "ты выбрала") — unlike English,
 // there's no gender-neutral default that reads naturally, so the model
 // needs an explicit instruction tied to `profile.gender` (GENDERS in
-// constants/profileOptions.js: 'Men' | 'Women' | 'Other') rather than
-// guessing from name/phrasing.
+// constants/profileOptions.js: 'Men' | 'Women' — 'Other' was a selectable
+// third option before, dropped at the user's request, but the fallback
+// branch below stays for the rare legacy account that already saved it,
+// or any account with gender still unset) rather than guessing from
+// name/phrasing.
 function genderAgreementInstruction(gender) {
   if (gender === 'Men') {
     return 'The client is male. Use masculine grammatical forms for every verb/adjective/participle that addresses or describes them ("ты надел", "выбрал", "тебе подойдёт" as masculine agreement) — never feminine forms.';
@@ -25,7 +28,7 @@ function genderAgreementInstruction(gender) {
   if (gender === 'Women') {
     return 'The client is female. Use feminine grammatical forms for every verb/adjective/participle that addresses or describes them ("ты надела", "выбрала", "тебе подойдёт" as feminine agreement) — never masculine forms.';
   }
-  return 'The client\'s gender is not specified (or "Other"). Avoid gender-marked verb forms addressing them entirely — rephrase around the gendered verb (e.g. "образ готов" instead of "ты подобрал/подобрала") rather than guessing a gender.';
+  return 'The client\'s gender is not specified. Avoid gender-marked verb forms addressing them entirely — rephrase around the gendered verb (e.g. "образ готов" instead of "ты подобрал/подобрала") rather than guessing a gender.';
 }
 
 function describeWardrobe(wardrobe) {
