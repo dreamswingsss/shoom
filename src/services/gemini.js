@@ -11,11 +11,18 @@ const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models
 // independent free-tier quota (Google AI Studio grants quota per model, not
 // per project) — so when a testing surge exhausts the primary model's
 // quota, retrying the identical request against the next model here gets a
-// fresh quota pool instead of failing outright. All three are current
-// (mid-2026) stable, GA models in the 2.5 family and all support
-// multimodal (vision) input. gemini-1.5-flash/-pro are deliberately not
-// used — Google retired the 1.x line ahead of this date.
-export const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'];
+// fresh quota pool instead of failing outright. gemini-1.5-flash/-pro are
+// deliberately not used — Google retired the 1.x line before this date.
+//
+// `gemini-2.5-pro` (the previous last resort here) started hard-failing
+// with "This model models/gemini-2.5-pro is no longer available to new
+// users" — a real 400 from Gemini's own API, not a rate limit, so it
+// doesn't get retried by isRateLimitError below; it just threw straight to
+// the client as a raw, untranslated error the moment flash/flash-lite were
+// both already rate-limited (see the ScanSheet screenshot this was
+// reported from). Google's own error message names the direct
+// replacement — swapped in as-is.
+export const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-pro-preview'];
 
 // Thrown by fetchWithFallback only when every model in FALLBACK_MODELS came
 // back rate-limited or overloaded (see isRateLimitError above — both count).
