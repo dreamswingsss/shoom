@@ -24,6 +24,7 @@ import { deleteAccount } from '../services/accountService';
 import { sendBroadcast } from '../services/broadcastService';
 import { isAdminTelegramId } from '../utils/admin';
 import { connectGoogleCalendar, disconnectGoogleCalendar } from '../services/googleCalendarService';
+import { CALENDAR_EXPORT_ENABLED } from '../constants/featureFlags';
 import { SUPPORT_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../constants/legal';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
@@ -437,35 +438,41 @@ export default function ProfileScreen({ navigation, route }) {
               googleCalendarService.js and the google-calendar-* Edge
               Functions. Status caption reflects `google_calendar_connected`
               as last read from the DB (fetchProfile, refreshed on focus
-              above), not just local optimism. */}
-          <View style={[styles.navRow, hairline]}>
-            <View style={styles.navIconWrapSky}>
-              <Feather name="calendar" size={16} color={colors.sky} />
+              above), not just local optimism. Hidden behind
+              CALENDAR_EXPORT_ENABLED — see that flag's own comment for why
+              (Google verification pending, not a code issue) — but left
+              fully wired, not deleted, so flipping the flag back is the
+              only step needed once verification clears. */}
+          {CALENDAR_EXPORT_ENABLED && (
+            <View style={[styles.navRow, hairline]}>
+              <View style={styles.navIconWrapSky}>
+                <Feather name="calendar" size={16} color={colors.sky} />
+              </View>
+              <View style={styles.calendarRowTextWrap}>
+                <Text style={styles.navRowLabel}>{t('profile.nav.calendar')}</Text>
+                <Text style={styles.calendarRowStatus}>
+                  {t(googleCalendarConnected ? 'profile.calendar.connected' : 'profile.calendar.notConnected')}
+                </Text>
+              </View>
+              {googleCalendarConnected ? (
+                <TouchableOpacity onPress={handleDisconnectCalendar} disabled={isDisconnectingCalendar} activeOpacity={0.7}>
+                  {isDisconnectingCalendar ? (
+                    <ActivityIndicator size="small" color={colors.textMuted} />
+                  ) : (
+                    <Text style={styles.calendarActionTextMuted}>{t('profile.calendar.disconnect')}</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={handleConnectCalendar} disabled={isConnectingCalendar} activeOpacity={0.7}>
+                  {isConnectingCalendar ? (
+                    <ActivityIndicator size="small" color={colors.violet} />
+                  ) : (
+                    <Text style={styles.calendarActionText}>{t('profile.calendar.connect')}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
-            <View style={styles.calendarRowTextWrap}>
-              <Text style={styles.navRowLabel}>{t('profile.nav.calendar')}</Text>
-              <Text style={styles.calendarRowStatus}>
-                {t(googleCalendarConnected ? 'profile.calendar.connected' : 'profile.calendar.notConnected')}
-              </Text>
-            </View>
-            {googleCalendarConnected ? (
-              <TouchableOpacity onPress={handleDisconnectCalendar} disabled={isDisconnectingCalendar} activeOpacity={0.7}>
-                {isDisconnectingCalendar ? (
-                  <ActivityIndicator size="small" color={colors.textMuted} />
-                ) : (
-                  <Text style={styles.calendarActionTextMuted}>{t('profile.calendar.disconnect')}</Text>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={handleConnectCalendar} disabled={isConnectingCalendar} activeOpacity={0.7}>
-                {isConnectingCalendar ? (
-                  <ActivityIndicator size="small" color={colors.violet} />
-                ) : (
-                  <Text style={styles.calendarActionText}>{t('profile.calendar.connect')}</Text>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
+          )}
           <NavRow
             iconWrapStyle={styles.navIconWrapCoral}
             icon={<Feather name="star" size={16} color={colors.coral} />}

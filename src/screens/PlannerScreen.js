@@ -32,6 +32,7 @@ import {
   isNotConnectedError,
 } from '../services/googleCalendarService';
 import { buildOutfitIcs, downloadIcs } from '../utils/icsExport';
+import { CALENDAR_EXPORT_ENABLED } from '../constants/featureFlags';
 import { FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
 
 const DAY_COUNT = 7;
@@ -441,9 +442,12 @@ export default function PlannerScreen() {
                 {selectedKey === todayKey ? t('planner.today') : formatWeekdayShort(selectedDate)}
               </Text>
             </View>
-            {/* Export to Calendar — the whole point of this redesign's 3rd
-                task: a client shouldn't have to go hunting for this, it sits
-                right on the card it acts on. */}
+            {/* Export to Calendar — hidden behind CALENDAR_EXPORT_ENABLED
+                (Google verification pending, Apple has no OAuth at all —
+                see that flag's own comment), but left fully wired rather
+                than deleted so flipping it back on is the only step needed
+                later. */}
+            {CALENDAR_EXPORT_ENABLED && (
             <View style={styles.exportBtnGroup}>
               <TouchableOpacity
                 style={styles.exportBtn}
@@ -469,6 +473,7 @@ export default function PlannerScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            )}
           </View>
 
           <View>

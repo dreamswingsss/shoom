@@ -36,6 +36,7 @@ import {
 } from '../services/calendarService';
 import { exportToGoogleCalendar, isNotConnectedError } from '../services/googleCalendarService';
 import { buildOutfitIcs, downloadIcs } from '../utils/icsExport';
+import { CALENDAR_EXPORT_ENABLED } from '../constants/featureFlags';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 const THUMB_SIZE = 64;
@@ -248,6 +249,11 @@ export default function InspirationDetailScreen() {
       <ScrollView style={styles.flexFill} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.aiText}>{inspiration.aiText}</Text>
 
+        {/* Hidden behind CALENDAR_EXPORT_ENABLED (Google verification
+            pending, Apple has no OAuth at all — see that flag's own
+            comment), but left fully wired rather than deleted so flipping
+            it back on is the only step needed later. */}
+        {CALENDAR_EXPORT_ENABLED && (
         <View style={styles.exportBtnRow}>
           <TouchableOpacity style={styles.exportBtn} onPress={handleExportPress} activeOpacity={0.8}>
             <Feather name="calendar" size={14} color={colors.textPrimary} />
@@ -259,6 +265,7 @@ export default function InspirationDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
+        )}
 
         <Text style={styles.itemsHeading}>{t('closet.inspirationDetail.itemsHeading')}</Text>
 
