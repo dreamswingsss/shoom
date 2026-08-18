@@ -108,6 +108,14 @@ export const useUserStore = create(
       stylePreferences: '',
       styleVibes: [],
       measurementUnit: 'cm',
+      // App-level "send me messages" preference — NOT an OS push permission
+      // (expo-notifications is a no-op on web, and this Mini App always
+      // runs as `Platform.OS === 'web'`; see src/utils/notifications.js).
+      // The real delivery channel is the bot DM itself
+      // (broadcast-notification Edge Function), gated by this column.
+      // Defaults true — opt-out, not opt-in, matching how the bot already
+      // works (anyone who opened it can already be DMed by it).
+      notificationsEnabled: true,
       // Mirrors the DB's `users.expo_push_token` column — the last token
       // this store either read from public.users (fetchProfile) or wrote
       // to it (syncPushToken). useSupabaseAuthSync compares a freshly
@@ -195,6 +203,7 @@ export const useUserStore = create(
           stylePreferences: '',
           styleVibes: [],
           measurementUnit: 'cm',
+          notificationsEnabled: true,
           pushToken: null,
           isProfileStale: false,
           staleChangedFields: [],
@@ -239,6 +248,7 @@ export const useUserStore = create(
           stylePreferences: row.style_preferences || '',
           styleVibes: row.style_vibes || [],
           measurementUnit: row.measurement_unit || 'cm',
+          notificationsEnabled: row.notifications_enabled ?? true,
           pushToken: row.expo_push_token || null,
           profileSyncError: null,
         });
@@ -259,6 +269,27 @@ export const useUserStore = create(
         supabase
           .from('users')
           .update({ expo_push_token: token })
+          .eq('id', userId)
+          .then(({ error }) => {
+            if (error) set({ profileSyncError: error.message });
+          });
+      },
+
+      // ProfileScreen's Notifications toggle — same immediate-commit shape
+      // as syncPushToken above (no Save gate, this IS the commit action).
+      // Local-only for a guest (no userId yet), same as updateColorDna
+      // below — the toggle still works and persists to AsyncStorage via
+      // this store's own `persist` middleware, it just has no `public.users`
+      // row to write to until they sign in.
+      setNotificationsEnabled: (value) => {
+        set({ notificationsEnabled: value });
+
+        const userId = get().user?.id;
+        if (!userId) return;
+
+        supabase
+          .from('users')
+          .update({ notifications_enabled: value })
           .eq('id', userId)
           .then(({ error }) => {
             if (error) set({ profileSyncError: error.message });

@@ -31,6 +31,14 @@ export function mapSupabaseUser(user) {
     // shows this in place of `email` (a real Google address is meaningful
     // to show there; the synthetic tg_<id>@telegram.local one isn't).
     username: user.user_metadata?.telegram_username || null,
+    // Raw numeric Telegram id — telegram-verify writes it into
+    // user_metadata at createUser/updateUserById time (see
+    // supabase/functions/telegram-verify/index.ts). Not sensitive (it's
+    // the same id Telegram itself shows in the chat) — only used
+    // client-side to decide whether to render ProfileScreen's admin
+    // broadcast card; the actual broadcast Edge Function re-checks this
+    // server-side and never trusts the client.
+    telegramId: user.user_metadata?.telegram_id ?? null,
     createdAt: user.created_at || null,
   };
 }

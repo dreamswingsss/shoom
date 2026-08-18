@@ -236,8 +236,12 @@ export const radius = {
   card: 20,
   cardLg: 24,
   iconWrap: 10,
-  avatarSm: 13,
-  avatarLg: 22,
+  // True circles (half of each avatar's own width/height — 38px in
+  // WardrobeScreen's header, 64px in ProfileScreen's) — was a squircle-ish
+  // 13/22 before, which read as "sharp-cornered" rather than rounded on a
+  // real device.
+  avatarSm: 19,
+  avatarLg: 32,
 };
 
 export const opacity = {
@@ -254,14 +258,22 @@ export const hairline = {
 // Redesign v11 — Manrope-for-everything had no real contrast between
 // headline and body type. Unbounded (geometric, distinctive) + Golos Text
 // (built for Cyrillic UI text by a Russian foundry — this app is
-// Russian-only, see AGENTS.md) gives that contrast without reaching for a
+// Russian-only, see AGENTS.md) gave that contrast without reaching for a
 // serif, which design-taste-frontend flags as the single most-tested "AI
-// default" for anything reading as premium/editorial. Both registered in
-// App.js's `useFonts` call; verified against ui-ux-pro-max's own font
-// database for full Cyrillic + Cyrillic-extended coverage before picking
-// them, not assumed.
+// default" for anything reading as premium/editorial.
+//
+// v11.1 — Unbounded swapped for Onest. Unbounded's letterforms run
+// unusually wide/heavy even at its own lighter weights, and Russian words
+// run longer than their English equivalents to begin with — several
+// headline/label spots were overflowing or clipping invisible in the real
+// app. Onest is the calmer, narrower pick the redesign article itself
+// recommends ("Onest на всё, контраст через 700 и 400"); still distinct
+// from Golos Text via weight, still nothing like Inter/Roboto. Both
+// registered in App.js's `useFonts` call; verified against ui-ux-pro-max's
+// own font database for full Cyrillic + Cyrillic-extended coverage before
+// picking them, not assumed.
 export const fonts = {
-  display: 'Unbounded',
+  display: 'Onest',
   body: 'Golos Text',
   serif: 'CormorantGaramond',
 };

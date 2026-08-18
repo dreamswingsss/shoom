@@ -11,7 +11,7 @@ import StylistScreen from '../screens/StylistScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { TourTarget } from '../components/AppTour';
 import { useTelegramBottomSafeArea } from '../hooks/useTelegramSafeArea';
-import { colors, spacing, radius, shadows, withAlpha } from '../theme/tokens';
+import { colors, spacing, radius, shadows, fonts, withAlpha } from '../theme/tokens';
 
 const Tab = createBottomTabNavigator();
 
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tabLabel: {
+    fontFamily: fonts.body,
     fontSize: 12.5,
     fontWeight: '800',
     color: colors.inverseText,

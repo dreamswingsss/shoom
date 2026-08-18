@@ -20,7 +20,10 @@ import { useChatStore } from '../store/useChatStore';
 // caller — and the Alert in ProfileScreen's handleDeleteAccount — actually
 // see the real reason (e.g. "Unauthorized.", a Storage error, or whatever
 // the server-side try/catch caught), not just "non-2xx".
-async function extractFunctionErrorMessage(error) {
+// Exported — broadcastService.js's sendBroadcast() needs the exact same
+// "unwrap the Edge Function's real error body" logic as deleteAccount()
+// below, not a second copy of it.
+export async function extractFunctionErrorMessage(error) {
   const response = error?.context;
   if (!response || typeof response.clone !== 'function') {
     return error?.message || 'Unknown Edge Function error.';

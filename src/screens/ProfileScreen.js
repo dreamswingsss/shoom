@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  Animated,
+  TouchableOpacity,
+  ActivityIndicator,
+  Switch,
+  TextInput,
+  StyleSheet,
+} from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -9,12 +19,13 @@ import { usePlannerStore, getStyleStreak } from '../store/usePlannerStore';
 import { calculateCohesionScore } from '../utils/wardrobeUtils';
 import { supabase } from '../services/supabaseClient';
 import { deleteAccount } from '../services/accountService';
+import { sendBroadcast } from '../services/broadcastService';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { formatMemberSince } from '../utils/dateFormat';
-import { colors, cardTints, spacing, radius, shadows, hairline, typography, buttons } from '../theme/tokens';
+import { colors, cardTints, spacing, radius, shadows, hairline, typography, fonts, buttons, opacity } from '../theme/tokens';
 import EditProfileScreen from './EditProfileScreen';
 import ScreenContainer from '../components/ScreenContainer';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -24,11 +35,21 @@ import { getInitials } from '../utils/getInitials';
 // Redesign v3 — Profile is a scannable vertical list (avatar row, a stats
 // card, then icon nav rows) instead of the old stacked-sections layout.
 // The mockup's nav rows (Notifications, Style Vibes, Fit Profile, Wear
-// History, Language & Region) each open their own screen there; this app
-// doesn't have Notifications or Wear History as real features yet, so
-// those two stay stubs (an alert) while Style Vibes/Fit Profile expand
-// the same data the old layout showed inline. Language & Region was
-// dropped entirely — the app is Russian-only, nothing left to switch.
+// History, Language & Region) each opened their own screen there; Style
+// Vibes/Fit Profile expand the same data the old layout showed inline,
+// Language & Region was dropped entirely (the app is Russian-only, nothing
+// left to switch), and Wear History was dropped too (never became a real
+// feature). Notifications is no longer a stub — see `notificationsEnabled`
+// below.
+//
+// v4 — an admin-only broadcast card was added beneath the regular nav
+// list, visible only when the signed-in user's telegramId matches
+// EXPO_PUBLIC_ADMIN_TELEGRAM_ID (see broadcastService.js's own comment for
+// why the real authorization check lives server-side, not here).
+const ADMIN_TELEGRAM_ID = process.env.EXPO_PUBLIC_ADMIN_TELEGRAM_ID
+  ? Number(process.env.EXPO_PUBLIC_ADMIN_TELEGRAM_ID)
+  : null;
+
 export default function ProfileScreen({ navigation, route }) {
   const { t } = useTranslation();
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
@@ -38,6 +59,8 @@ export default function ProfileScreen({ navigation, route }) {
   const eyeColor = useUserStore((state) => state.eyeColor);
   const skinTone = useUserStore((state) => state.skinTone);
   const bodyType = useUserStore((state) => state.bodyType);
+  const notificationsEnabled = useUserStore((state) => state.notificationsEnabled);
+  const setNotificationsEnabled = useUserStore((state) => state.setNotificationsEnabled);
   const measurements = useUserStore((state) => state.measurements);
   const stylePreferences = useUserStore((state) => state.stylePreferences);
   const styleVibes = useUserStore((state) => state.styleVibes);
@@ -66,6 +89,9 @@ export default function ProfileScreen({ navigation, route }) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const isAdmin = ADMIN_TELEGRAM_ID != null && user?.telegramId === ADMIN_TELEGRAM_ID;
   // Deferred Registration guest CTA — same shared flow as ScanSheet's
   // Save-to-Closet auth prompt (see useTelegramSignIn.js). No extra branching
   // needed here after signIn() resolves: it already restores/persists
@@ -146,6 +172,23 @@ export default function ProfileScreen({ navigation, route }) {
     setIsPro(!isPro);
   }
 
+  async function handleSendBroadcast() {
+    const trimmed = broadcastMessage.trim();
+    if (!trimmed || isBroadcasting) return;
+
+    setIsBroadcasting(true);
+    try {
+      const { sent, failed } = await sendBroadcast(trimmed);
+      showToast(t('profile.admin.broadcastResult', { sent, failed }));
+      setBroadcastMessage('');
+    } catch (err) {
+      console.log('[handleSendBroadcast] failed:', err.message);
+      showToast(err.message);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  }
+
   async function performDeleteAccount() {
     setIsDeleting(true);
     try {
@@ -177,10 +220,6 @@ export default function ProfileScreen({ navigation, route }) {
 
   function toggleSection(key) {
     setExpandedSection((current) => (current === key ? null : key));
-  }
-
-  function showComingSoon(titleKey, messageKey) {
-    showToast(t(messageKey));
   }
 
   const hasMeasurements =
@@ -306,12 +345,22 @@ export default function ProfileScreen({ navigation, route }) {
         </View>
 
         <View style={styles.navListCard}>
-          <NavRow
-            iconWrapStyle={styles.navIconWrapViolet}
-            icon={<Feather name="bell" size={16} color={colors.violet} />}
-            label={t('profile.nav.notifications')}
-            onPress={() => showComingSoon('profile.comingSoon.title', 'profile.comingSoon.notifications')}
-          />
+          {/* Not a NavRow — nothing to expand or navigate to, just a
+              straight on/off. See useUserStore's setNotificationsEnabled
+              for what this actually gates (the bot's own DM channel, not
+              an OS push permission — see that setter's own comment). */}
+          <View style={[styles.navRow, hairline]}>
+            <View style={styles.navIconWrapViolet}>
+              <Feather name="bell" size={16} color={colors.violet} />
+            </View>
+            <Text style={styles.navRowLabel}>{t('profile.nav.notifications')}</Text>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={setNotificationsEnabled}
+              trackColor={{ false: colors.border, true: colors.violet }}
+              thumbColor={colors.surface}
+            />
+          </View>
           <NavRow
             iconWrapStyle={styles.navIconWrapCoral}
             icon={<Feather name="star" size={16} color={colors.coral} />}
@@ -341,6 +390,7 @@ export default function ProfileScreen({ navigation, route }) {
           )}
 
           <NavRow
+            last
             iconWrapStyle={styles.navIconWrapSky}
             icon={<Feather name="user" size={16} color={colors.sky} />}
             label={t('profile.sections.fitProfile')}
@@ -378,15 +428,41 @@ export default function ProfileScreen({ navigation, route }) {
               )}
             </View>
           )}
-
-          <NavRow
-            last
-            iconWrapStyle={styles.navIconWrapSage}
-            icon={<Feather name="clock" size={16} color={colors.sage} />}
-            label={t('profile.nav.wearHistory')}
-            onPress={() => showComingSoon('profile.comingSoon.title', 'profile.comingSoon.wearHistory')}
-          />
         </View>
+
+        {isAdmin && (
+          <View style={styles.adminCard}>
+            <View style={styles.adminBadge}>
+              <Feather name="shield" size={11} color={colors.violet} />
+              <Text style={styles.adminBadgeText}>{t('profile.admin.badge')}</Text>
+            </View>
+            <Text style={styles.adminTitle}>{t('profile.admin.title')}</Text>
+            <TextInput
+              style={styles.adminInput}
+              value={broadcastMessage}
+              onChangeText={setBroadcastMessage}
+              placeholder={t('profile.admin.placeholder')}
+              placeholderTextColor={colors.textMuted}
+              multiline
+              editable={!isBroadcasting}
+            />
+            <TouchableOpacity
+              style={[
+                styles.adminSendBtn,
+                (!broadcastMessage.trim() || isBroadcasting) && styles.adminSendBtnDisabled,
+              ]}
+              onPress={handleSendBroadcast}
+              disabled={!broadcastMessage.trim() || isBroadcasting}
+              activeOpacity={0.85}
+            >
+              {isBroadcasting ? (
+                <ActivityIndicator size="small" color={colors.inverseText} />
+              ) : (
+                <Text style={styles.adminSendBtnText}>{t('profile.admin.send')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Guest: none of these apply — no account to edit, no session to
             end, nothing to delete. The guestCtaCard above is this screen's
@@ -526,7 +602,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.avatarLg,
   },
-  avatarFallbackText: { color: colors.textPrimary, fontSize: 26, fontWeight: '700' },
+  avatarFallbackText: { fontFamily: fonts.display, color: colors.textPrimary, fontSize: 26, fontWeight: '700' },
   headerTextWrap: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { ...typography.title, flexShrink: 1 },
@@ -643,14 +719,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: cardTints.sky,
   },
-  navIconWrapSage: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.iconWrap,
+
+  // Admin broadcast card — deliberately NOT another `navListCard`-style
+  // row: a thin accent border + the small "Админ" badge mark this as a
+  // different KIND of control (an action with real side effects, not a
+  // stored preference), not just one more settings row.
+  adminCard: {
+    backgroundColor: colors.glassCard,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: cardTints.violetBorder,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadows.soft,
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: cardTints.violet,
+    borderRadius: radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    marginBottom: spacing.xs,
+  },
+  adminBadgeText: { fontFamily: fonts.body, fontSize: 10.5, fontWeight: '700', color: colors.violet },
+  adminTitle: { ...typography.rowTitle, marginBottom: spacing.sm },
+  adminInput: {
+    ...typography.body,
+    minHeight: 72,
+    textAlignVertical: 'top',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  adminSendBtn: {
+    width: '100%',
+    backgroundColor: colors.violet,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: cardTints.sage,
   },
+  adminSendBtnDisabled: { opacity: opacity.disabled },
+  adminSendBtnText: { ...buttons.primaryText },
 
   // Accordion content for the Style Vibes / Fit Profile rows — sits inside
   // the same nav-list card, directly under the row it belongs to.
@@ -734,7 +850,7 @@ const styles = StyleSheet.create({
   devProBannerDot: { width: 8, height: 8, borderRadius: 4 },
   devProBannerDotOn: { backgroundColor: colors.success },
   devProBannerDotOff: { backgroundColor: colors.textMuted },
-  devProBannerText: { flex: 1, fontSize: 12.5, fontWeight: '700', color: colors.textPrimary },
+  devProBannerText: { fontFamily: fonts.body, flex: 1, fontSize: 12.5, fontWeight: '700', color: colors.textPrimary },
   devResetTourBtn: {
     alignSelf: 'center',
     marginTop: spacing.md,

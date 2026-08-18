@@ -190,13 +190,14 @@
       "capsuleScore": "Капсульный балл"
     },
     "nav": {
-      "notifications": "Уведомления",
-      "wearHistory": "История носки"
+      "notifications": "Уведомления"
     },
-    "comingSoon": {
-      "title": "Скоро",
-      "notifications": "Настройки уведомлений появятся совсем скоро.",
-      "wearHistory": "История носки появится совсем скоро."
+    "admin": {
+      "badge": "Админ",
+      "title": "Рассылка уведомлений",
+      "placeholder": "Текст сообщения для всех пользователей",
+      "send": "Отправить",
+      "broadcastResult": "Отправлено: {{sent}}, не доставлено: {{failed}}"
     },
     "editProfile": "Редактировать профиль",
     "logOut": "Выйти",
