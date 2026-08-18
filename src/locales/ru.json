@@ -187,7 +187,7 @@
     "stats": {
       "items": "Вещи",
       "dayStreak": "Серия дней",
-      "capsuleScore": "Капсульный балл"
+      "capsuleScore": "Гармоничность"
     },
     "nav": {
       "notifications": "Уведомления"
@@ -278,7 +278,7 @@
         "count_many": "{{count}} дней",
         "count_other": "{{count}} дня",
         "subtitleActive": "Так держать!",
-        "subtitleEmpty": "Спланируйте образ, чтобы начать",
+        "subtitleEmpty": "Начните стрик",
         "alertTitle": "Стрик стиля",
         "alertMessage": "Планируйте образы с AI-стилистом несколько дней подряд, чтобы нарастить стрик. Пропустите день целиком — и он обнулится."
       },
