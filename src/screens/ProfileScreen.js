@@ -20,6 +20,7 @@ import { calculateCohesionScore } from '../utils/wardrobeUtils';
 import { supabase } from '../services/supabaseClient';
 import { deleteAccount } from '../services/accountService';
 import { sendBroadcast } from '../services/broadcastService';
+import { isAdminTelegramId } from '../utils/admin';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
 import { useConfirm } from '../hooks/useConfirm';
@@ -44,12 +45,9 @@ import { getInitials } from '../utils/getInitials';
 //
 // v4 — an admin-only broadcast card was added beneath the regular nav
 // list, visible only when the signed-in user's telegramId matches
-// EXPO_PUBLIC_ADMIN_TELEGRAM_ID (see broadcastService.js's own comment for
-// why the real authorization check lives server-side, not here).
-const ADMIN_TELEGRAM_ID = process.env.EXPO_PUBLIC_ADMIN_TELEGRAM_ID
-  ? Number(process.env.EXPO_PUBLIC_ADMIN_TELEGRAM_ID)
-  : null;
-
+// EXPO_PUBLIC_ADMIN_TELEGRAM_ID (see utils/admin.js and
+// broadcastService.js's own comment for why the real authorization check
+// lives server-side, not here).
 export default function ProfileScreen({ navigation, route }) {
   const { t } = useTranslation();
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
@@ -91,7 +89,7 @@ export default function ProfileScreen({ navigation, route }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const isAdmin = ADMIN_TELEGRAM_ID != null && user?.telegramId === ADMIN_TELEGRAM_ID;
+  const isAdmin = isAdminTelegramId(user?.telegramId);
   // Deferred Registration guest CTA — same shared flow as ScanSheet's
   // Save-to-Closet auth prompt (see useTelegramSignIn.js). No extra branching
   // needed here after signIn() resolves: it already restores/persists

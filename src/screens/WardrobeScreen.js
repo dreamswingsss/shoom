@@ -16,7 +16,6 @@ import {
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import Reanimated, {
   useSharedValue,
@@ -29,8 +28,6 @@ import { readImageAsBase64 } from '../utils/imageBase64';
 import { getPalette } from '../utils/colorDna';
 import { calculateCohesionScore } from '../utils/wardrobeUtils';
 import { generateDailyChallenge } from '../utils/dailyChallengeEngine';
-import { formatWeekdayShortWithDate } from '../utils/dateFormat';
-import { getInitials } from '../utils/getInitials';
 import { useUserStore } from '../store/useUserStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { useChatStore } from '../store/useChatStore';
@@ -76,7 +73,6 @@ const INSPIRATION_TAGS = [
 export default function WardrobeScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const user = useUserStore((state) => state.user);
   const wardrobe = useWardrobeStore((state) => state.items);
   const wardrobeLoading = useWardrobeStore((state) => state.loading);
   const wardrobeError = useWardrobeStore((state) => state.error);
@@ -323,25 +319,6 @@ export default function WardrobeScreen() {
         style={styles.flexFill}
         contentContainerStyle={[styles.hubScroll, { paddingTop: spacing.sm }]}
       >
-        <TourTarget id="header" style={styles.headerRow}>
-          <LinearGradient
-            colors={[colors.violet, colors.violetLight]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
-          </LinearGradient>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.headerGreeting} numberOfLines={1}>
-              {t('closet.hub.greeting', { name: user?.name?.split(' ')[0] || t('closet.hub.greetingFallback') })}
-            </Text>
-            <Text style={styles.headerDate} numberOfLines={1}>
-              {formatWeekdayShortWithDate(new Date())}
-            </Text>
-          </View>
-        </TourTarget>
-
         <View style={styles.bentoGrid}>
           <FadeInView delay={0}>
             <WeatherWidget />
@@ -1278,13 +1255,6 @@ const styles = StyleSheet.create({
     // floating Add Item bar instead of disappearing under it.
     paddingBottom: spacing.xxxl + 64,
   },
-
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 10, marginBottom: 22 },
-  avatar: { width: 38, height: 38, borderRadius: radius.avatarSm, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontFamily: fonts.display, color: colors.inverseText, fontSize: 13, fontWeight: '800' },
-  headerTextWrap: { flex: 1, minWidth: 0 },
-  headerGreeting: { fontFamily: typography.title.fontFamily, fontWeight: '800', fontSize: 16, color: colors.textPrimary },
-  headerDate: { fontFamily: fonts.body, fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 1 },
 
   // Vertical stack: Weather, hero challenge, stat row, planner link,
   // catalog/copilot row, color DNA — all spaced by the same 16px gap used

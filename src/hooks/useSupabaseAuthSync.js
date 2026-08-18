@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
 import { signInWithTelegram } from './useTelegramSignIn';
+import { isAdminTelegramId } from '../utils/admin';
 import { useUserStore } from '../store/useUserStore';
 import { useWardrobeStore } from '../store/useWardrobeStore';
 import { usePlannerStore } from '../store/usePlannerStore';
@@ -52,10 +53,21 @@ export function mapSupabaseUser(user) {
 // both the cold-start case (Step 2's explicit ask) and the sign-out ->
 // sign-back-in-without-restarting case (the client-reported symptom).
 async function syncSession(session) {
-  const { login, fetchProfile } = useUserStore.getState();
+  const { login, fetchProfile, setIsPro } = useUserStore.getState();
   await fetchProfile(session.user.id);
 
-  login(mapSupabaseUser(session.user));
+  const mappedUser = mapSupabaseUser(session.user);
+  login(mappedUser);
+
+  // Permanent Pro for the admin account specifically — independent of
+  // `isPro`'s own current default (see useUserStore.js's own comment: that
+  // default is a TEMPORARY blanket true for QA and is meant to flip back
+  // to false once that pass is done). Set unconditionally on every sign-in
+  // so the admin keeps full access regardless of what that default is
+  // doing at the time, rather than riding along with it by coincidence.
+  if (isAdminTelegramId(mappedUser.telegramId)) {
+    setIsPro(true);
+  }
 
   // Fire-and-forget, deliberately not awaited: registering for push
   // notifications can mean showing the OS permission prompt, and nothing
