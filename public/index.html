@@ -36,6 +36,17 @@
         height: 100%;
         flex: 1;
       }
+      /* Every RN <TextInput> renders as a real <input>/<textarea> here on
+         web, and browsers draw their own default focus ring on those —
+         a thick blue box around the whole field, unrelated to (and far
+         more obtrusive than) the actual blinking text caret that already
+         marks where typing happens. Dropping just the ring, not the
+         caret, is what the client actually needs to see "where I'm
+         typing" without the box around the entire field. */
+      input:focus,
+      textarea:focus {
+        outline: none;
+      }
     </style>
   </head>
 
