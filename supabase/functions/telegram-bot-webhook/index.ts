@@ -32,13 +32,33 @@ const PRIVACY_POLICY_URL = 'https://telegra.ph/Politika-konfidencialnosti-08-18-
 const TERMS_OF_SERVICE_URL = 'https://telegra.ph/Polzovatelskoe-soglashenie-08-18-25';
 const SUPPORT_URL = 'https://t.me/shoom_help';
 
+// Longer than the original one-paragraph pitch on purpose — modeled on
+// @sgxplanner_bot's own `/start` reply (mechanism explanation + a bullet
+// capability list + Free/Pro line, all before the CTA), which reads as a
+// real answer in the chat rather than a single line pushing straight to
+// the Mini App. Free-tier numbers here must stay in sync with
+// PricingScreen's own free-tier copy (src/locales/ru.json's
+// `pricing.tiers.free.features`) and the real caps in
+// constants/monetization.js — this is marketing copy of the same facts,
+// not a second source of truth for them.
 const WELCOME_TEXT =
   '👗 *Shoom — твой личный ИИ-стилист*\n\n' +
-  'Это не просто гардероб. Shoom учитывает твой цветотип и форму тела: ' +
-  'подскажет, что тебе идёт, а что нет — и что надеть вместо.\n\n' +
-  '• Выбрала вещь не своего цветотипа — предупредим заранее\n' +
-  '• Хочешь оверсайз, а фигуре идёт приталенное — подскажем и что взять вместо\n\n' +
-  'Нажми кнопку ниже, чтобы начать 👇';
+  'Это не просто гардероб. Shoom учитывает твой цветотип и форму тела — ' +
+  'подскажет, что тебе идёт, а что нет, и что надеть вместо.\n\n' +
+  '*Как это работает*\n' +
+  'Сфотографируй вещь — Shoom разберёт её и добавит в твой цифровой гардероб. ' +
+  'Дальше можно спросить ИИ-стилиста, спланировать образы на неделю или свериться ' +
+  'с помощником покупок перед новой вещью.\n\n' +
+  '*Что умеет*\n' +
+  '• 📸 Сканирует вещи и собирает гардероб\n' +
+  '• 🎨 Проверяет вещи по твоему цветотипу\n' +
+  '• 👤 Советует с учётом формы тела\n' +
+  '• 💬 ИИ-стилист отвечает на вопросы об образах\n' +
+  '• 📅 Планировщик — образы на каждый день недели\n' +
+  '• 🛍 Помощник покупок — проверка вещи перед покупкой\n\n' +
+  'Free — все разделы открыты: до 15 вещей в гардеробе, 10 сообщений ИИ-стилисту, ' +
+  'планирование 2 раза в неделю. Pro снимает все лимиты.\n\n' +
+  'Жми кнопку ниже, чтобы начать 👇';
 
 async function sendMessage(chatId: number, text: string): Promise<void> {
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -50,12 +70,10 @@ async function sendMessage(chatId: number, text: string): Promise<void> {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '✨ Открыть Shoom', web_app: { url: MINI_APP_URL } }],
+          [{ text: '🚀 Войти в приложение', web_app: { url: MINI_APP_URL } }],
           [
             { text: '📄 Политика конфиденциальности', url: PRIVACY_POLICY_URL },
-          ],
-          [
-            { text: '📃 Пользовательское соглашение', url: TERMS_OF_SERVICE_URL },
+            { text: '📃 Соглашение', url: TERMS_OF_SERVICE_URL },
           ],
           [{ text: '💬 Поддержка', url: SUPPORT_URL }],
         ],
