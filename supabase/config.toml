@@ -377,6 +377,14 @@ allow_dynamic_registration = false
 # (see its own header comment), not Supabase's.
 verify_jwt = false
 
+[functions.google-calendar-oauth-callback]
+# Same situation as telegram-bot-webhook above — Google's own browser
+# redirect back to this URL carries no Supabase JWT at all (there's no
+# client session in play at that point, just Google's `code`/`state` query
+# params). Identity here comes from verifying the signed `state` param
+# instead (see the function's own comment).
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
