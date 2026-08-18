@@ -377,7 +377,6 @@ export default function WardrobeScreen() {
               nothing to say yet (see InsightsCard's own guard). */}
           <InsightsCard
             mostWornItem={insights.mostWornItem}
-            leastWornItem={insights.leastWornItem}
             neverWornCount={insights.neverWornCount}
             totalCount={wardrobe.length}
           />

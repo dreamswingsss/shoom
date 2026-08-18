@@ -2,32 +2,32 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, typography } from '../theme/tokens';
 
-// Two-column "Most Worn" / "Hidden Gems" strip, fed by calculateInsights().
-// Hides itself entirely when there's not enough planner history to say
-// anything meaningful yet, rather than showing an empty/placeholder card.
-// `neverWornCount` is a separate, Planner-independent signal (see
-// calculateInsights' own comment) — shown as a footer line when the card
-// renders at all, or on its own (no columns) when there's no Planner
-// history yet but the wardrobe already has un-worn items to flag.
-export default function InsightsCard({ mostWornItem, leastWornItem, neverWornCount = 0, totalCount = 0 }) {
+// "Most Worn" strip, fed by calculateInsights(). Hides itself entirely
+// when there's not enough planner history to say anything meaningful yet,
+// rather than showing an empty/placeholder card. `neverWornCount` is a
+// separate, Planner-independent signal (see calculateInsights' own
+// comment) — shown as a footer line when the card renders at all, or on
+// its own (no column) when there's no Planner history yet but the
+// wardrobe already has un-worn items to flag.
+//
+// Used to also show a second "Hidden Gems" (least-worn) column — dropped
+// at the user's request (read as visual clutter, not useful information).
+export default function InsightsCard({ mostWornItem, neverWornCount = 0, totalCount = 0 }) {
   const { t } = useTranslation();
 
-  const hasColumns = mostWornItem || leastWornItem;
-  if (!hasColumns && neverWornCount === 0) {
+  if (!mostWornItem && neverWornCount === 0) {
     return null;
   }
 
   return (
     <View style={styles.card}>
-      {hasColumns && (
+      {mostWornItem && (
         <View style={styles.columnsRow}>
-          {mostWornItem && <InsightColumn label={t('closet.insightsCard.mostWorn')} item={mostWornItem} />}
-          {mostWornItem && leastWornItem && <View style={styles.divider} />}
-          {leastWornItem && <InsightColumn label={t('closet.insightsCard.hiddenGems')} item={leastWornItem} />}
+          <InsightColumn label={t('closet.insightsCard.mostWorn')} item={mostWornItem} />
         </View>
       )}
       {neverWornCount > 0 && (
-        <Text style={[styles.neverWornText, hasColumns && styles.neverWornTextWithColumns]}>
+        <Text style={[styles.neverWornText, mostWornItem && styles.neverWornTextWithColumns]}>
           {t('closet.insightsCard.neverWorn', { count: neverWornCount, total: totalCount })}
         </Text>
       )}
@@ -57,7 +57,6 @@ const styles = StyleSheet.create({
   },
   columnsRow: { flexDirection: 'row' },
   column: { flex: 1, alignItems: 'center' },
-  divider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginHorizontal: spacing.sm },
   image: {
     width: 56,
     height: 56,
