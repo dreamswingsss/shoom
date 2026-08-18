@@ -69,18 +69,12 @@ function TierCard({ tierKey, isPro, onPress }) {
 
   const isFounder = tierKey === 'founderLifetime';
   const isYearly = tierKey === 'proYearly';
-  const isMonthly = tierKey === 'proMonthly';
   const isOwned = tierKey === 'free' || (isPro && tierKey !== 'free');
 
   return (
     <AnimatedPressable
       onPress={onPress}
-      style={[
-        styles.card,
-        isMonthly && styles.cardMonthly,
-        isYearly && styles.cardYearly,
-        isFounder && styles.cardFounder,
-      ]}
+      style={[styles.card, isFounder && styles.cardFounder]}
     >
       {isYearly && (
         <View style={styles.badge}>
@@ -109,6 +103,7 @@ function TierCard({ tierKey, isPro, onPress }) {
           styles.ctaBtn,
           isFounder && styles.ctaBtnOnDark,
           isOwned && styles.ctaBtnOwned,
+          isOwned && isFounder && styles.ctaBtnOwnedOnDark,
         ]}
       >
         <Text
@@ -116,6 +111,7 @@ function TierCard({ tierKey, isPro, onPress }) {
             styles.ctaBtnText,
             isFounder && styles.ctaBtnTextOnDark,
             isOwned && styles.ctaBtnTextOwned,
+            isOwned && isFounder && styles.ctaBtnTextOwnedOnDark,
           ]}
         >
           {isOwned ? t('pricing.ctaFree') : t('pricing.ctaSubscribe')}
@@ -136,39 +132,27 @@ const styles = StyleSheet.create({
   lede: { ...typography.bodySecondary, marginBottom: spacing.lg },
 
   cardWrap: { marginBottom: spacing.sm },
+  // Free/Pro-month/Pro-year all share this plain white card with a solid
+  // ink (black) outline — Founder Lifetime is the one visual outlier
+  // (dark fill + white outline below), so the other three reading as one
+  // consistent family is deliberate, not a missed differentiation.
   card: {
     backgroundColor: colors.glassCard,
     borderRadius: radius.cardLg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: colors.textPrimary,
     padding: spacing.md,
     ...shadows.soft,
-  },
-  // Four tiers, only two real hues in this palette (ink + marigold — see
-  // tokens.js's own v11 comment on why violet/sky/sage all collapse to
-  // ink) — so each card is told apart by border weight/color instead of
-  // inventing off-palette hues per tier. Free stays the plain neutral
-  // `card` border above (nothing to upsell); the paid tiers step up in
-  // marigold border weight as the commitment/value goes up.
-  cardMonthly: {
-    borderColor: colors.marigold,
-    borderWidth: 1.5,
-  },
-  cardYearly: {
-    borderColor: colors.marigold,
-    borderWidth: 2,
   },
   // Founder Lifetime — the one paid tier, so it gets the ink fill (same
   // "solid dark = the one deliberate accent moment" rule the rest of the
   // app already follows for its primary CTAs) instead of another neutral
-  // card, so it reads as the standout option rather than a fourth
-  // identical row. Marigold ring on top of the fill keeps it in the same
-  // "step up in marigold" family as the other paid tiers rather than
-  // looking like an unrelated one-off.
+  // card. White outline instead of black — a black-on-black border would
+  // be invisible against this card's own ink fill.
   cardFounder: {
     backgroundColor: colors.inverseBackground,
-    borderColor: colors.marigold,
-    borderWidth: 2,
+    borderColor: colors.inverseText,
+    borderWidth: 1.5,
   },
 
   badge: {
@@ -210,8 +194,14 @@ const styles = StyleSheet.create({
   ctaBtnText: { ...buttons.primaryText },
   ctaBtnOnDark: { backgroundColor: colors.surface },
   ctaBtnTextOnDark: { color: colors.textPrimary },
-  ctaBtnOwned: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
-  ctaBtnTextOwned: { color: colors.textMuted },
+  // "Текущий тариф" state — black border/text on the three light cards,
+  // flipped to white via ctaBtnOwnedOnDark/ctaBtnTextOwnedOnDark for
+  // Founder Lifetime's dark fill (see TierCard's style arrays — the
+  // isFounder&&isOwned variants are listed last so they win).
+  ctaBtnOwned: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.textPrimary },
+  ctaBtnTextOwned: { color: colors.textPrimary },
+  ctaBtnOwnedOnDark: { borderColor: colors.inverseText },
+  ctaBtnTextOwnedOnDark: { color: colors.inverseText },
 });
 
 // Small helper so the founder card's feature text (white-on-dark) doesn't
