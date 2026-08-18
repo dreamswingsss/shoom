@@ -39,7 +39,6 @@ import { colors, cardTints, spacing, radius, hairline, shadows, opacity, typogra
 import WardrobeCatalogScreen from './WardrobeCatalogScreen';
 import ScreenContainer from '../components/ScreenContainer';
 import { FadeInView, AnimatedPressable } from '../components/AnimatedPressable';
-import HorizontalFadeScroll from '../components/HorizontalFadeScroll';
 import GeneratedItemThumb from '../components/GeneratedItemThumb';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useConfirm } from '../hooks/useConfirm';
@@ -59,17 +58,6 @@ import { FREE_WARDROBE_LIMIT } from '../constants/monetization';
 // v2) — this constant lives on for the pieces that didn't move (icon chips,
 // the confirm-scan flow).
 const BENTO_RADIUS = 20;
-
-// "Style Inspiration" strip — mood-only placeholder cards (no saved-board
-// backend exists), replacing the old standalone Inspiration tab's full
-// Pinterest-style grid with a compact taste of the same idea.
-const INSPIRATION_TAGS = [
-  { id: 'minimalism', icon: 'square' },
-  { id: 'streetwear', icon: 'shopping-bag' },
-  { id: 'office', icon: 'briefcase' },
-  { id: 'casual', icon: 'sun' },
-  { id: 'eveningwear', icon: 'moon' },
-];
 
 export default function WardrobeScreen() {
   const { t } = useTranslation();
@@ -344,8 +332,12 @@ export default function WardrobeScreen() {
                 statTile
                 tint="sky"
                 icon={<Feather name="star" size={14} color={colors.textPrimary} />}
-                title={`${cohesionScore}%`}
-                subtitle={t('closet.hub.capsuleScore.subtitle')}
+                title={wardrobe.length === 0 ? '—' : `${cohesionScore}%`}
+                subtitle={
+                  wardrobe.length === 0
+                    ? t('closet.hub.capsuleScore.subtitleEmpty')
+                    : t('closet.hub.capsuleScore.subtitle')
+                }
                 // Was unconditional — a real Pro client tapping this still
                 // saw the lock badge and got sent to the paywall every
                 // time, since neither the badge nor onPress ever checked
@@ -455,29 +447,6 @@ export default function WardrobeScreen() {
           )}
         </View>
 
-        <FadeInView delay={400}>
-          <LockableTile locked={isEmptyCloset} onLockedPress={handleLockedTilePress}>
-            <View style={styles.inspirationSection}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionLabel}>{t('closet.hub.inspiration.title')}</Text>
-                <Text style={styles.sectionHeaderNote}>{t('closet.hub.inspiration.comingSoon')}</Text>
-              </View>
-              <HorizontalFadeScroll
-                fadeColor={colors.background}
-                style={styles.carouselBleed}
-                contentContainerStyle={styles.inspirationScroll}
-              >
-                {INSPIRATION_TAGS.map((tag) => (
-                  <InspirationMiniCard
-                    key={tag.id}
-                    icon={tag.icon}
-                    label={t(`closet.hub.inspiration.tags.${tag.id}`)}
-                  />
-                ))}
-              </HorizontalFadeScroll>
-            </View>
-          </LockableTile>
-        </FadeInView>
       </ScrollView>
       </View>
 
@@ -600,21 +569,6 @@ function BentoTile({ wide, square, statTile, icon, title, subtitle, badge, onPre
         </>
       )}
     </AnimatedPressable>
-  );
-}
-
-// "Style Inspiration" mini card — same mood-board idea as the old
-// standalone Inspiration tab's placeholder grid, shrunk to a single
-// horizontal-scroll row so it reads as a taste-setting strip, not a
-// destination screen of its own.
-function InspirationMiniCard({ icon, label }) {
-  return (
-    <View style={styles.inspirationMiniCard}>
-      <View style={styles.inspirationMiniIconWrap}>
-        <Feather name={icon} size={20} color={colors.textMuted} />
-      </View>
-      <Text style={styles.inspirationMiniLabel}>{label}</Text>
-    </View>
   );
 }
 
@@ -913,9 +867,13 @@ function StyleStreakTile({ showToast }) {
 // the same day (e.g. weather resolving from 'loading' to 'ready') can shift
 // which signal wins, but never on every render.
 //
-// Completion is a plain dateKey -> true map in usePlannerStore
-// (toggleChallenge), independent of *what* the target is — that's what makes
-// it survive an app restart on the same day.
+// Completion used to be a manual self-report tap (toggleChallenge, a plain
+// dateKey -> true map with no real signal behind it) — a client could mark
+// it "done" without doing anything. Now it reads the same real data the
+// Style Streak tile already tracks: usePlannerStore's scheduledOutfits keyed
+// by date, i.e. "did they actually plan today's outfit". Tapping the card
+// always opens Planner (whether done or not) instead of toggling a
+// checkbox, since there's no self-report state left to flip.
 //
 // The done/not-done card, icon-wrap, title and caption colors used to
 // cross-fade via Reanimated's `interpolateColor` — diagnostic bisection
@@ -933,12 +891,12 @@ function StyleStreakTile({ showToast }) {
 
 function DailyChallengeTile() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
   const skinTone = useUserStore((state) => state.skinTone);
   const hairColor = useUserStore((state) => state.hairColor);
   const eyeColor = useUserStore((state) => state.eyeColor);
   const bodyType = useUserStore((state) => state.bodyType);
-  const completedChallenges = usePlannerStore((state) => state.completedChallenges);
-  const toggleChallenge = usePlannerStore((state) => state.toggleChallenge);
+  const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
   const weather = useWeather();
 
   const todayKey = useMemo(() => toDateKey(new Date()), []);
@@ -946,7 +904,7 @@ function DailyChallengeTile() {
     () => generateDailyChallenge({ skinTone, hairColor, eyeColor, bodyType }, weather),
     [skinTone, hairColor, eyeColor, bodyType, weather.status, weather.condition, weather.temperature]
   );
-  const isDone = Boolean(completedChallenges[todayKey]);
+  const isDone = Boolean(scheduledOutfits[todayKey]);
 
   const bounce = useSharedValue(1);
   const animatedBounceStyle = useAnimatedStyle(() => ({
@@ -956,7 +914,7 @@ function DailyChallengeTile() {
   function handlePress() {
     triggerHaptic();
     bounce.value = withSequence(withTiming(0.98, { duration: 90 }), withTiming(1, { duration: 160 }));
-    toggleChallenge(todayKey);
+    navigation.navigate('Planner');
   }
 
   const cardBackground = isDone ? colors.accent : cardTints.violet;
@@ -1347,8 +1305,6 @@ const styles = StyleSheet.create({
   // Shared small section header — matches typography.label styling used
   // elsewhere in the app for section eyebrows.
   sectionLabel: { ...typography.label, marginBottom: spacing.xs },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  sectionHeaderNote: { fontSize: 11, color: colors.textMuted },
 
   // Hero challenge card — full-width, violet-tinted (solid, not glass),
   // with a soft decorative "blob" in the top-right corner. True CSS
@@ -1392,37 +1348,6 @@ const styles = StyleSheet.create({
   heroFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heroIconWrap: { width: 26, height: 26, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   heroCaption: { fontFamily: fonts.body, fontSize: 12, fontWeight: '600' },
-
-  // Pulls the ScrollView back out to the true screen edge, canceling the
-  // 16px margin ScreenContainer applies at the shell level, so the row can
-  // scroll flush-edge-to-edge on both sides instead of stopping dead at an
-  // invisible wall 16px in. `inspirationScroll` below re-applies that 16px
-  // as `paddingHorizontal` on the CONTENT instead, so cards still start at
-  // the same visual inset at rest.
-  carouselBleed: { marginHorizontal: -spacing.screenH },
-
-  // "Style Inspiration" — mood-board taster strip (ex-Inspiration tab).
-  inspirationSection: { marginTop: spacing.lg },
-  inspirationScroll: { gap: spacing.xs, paddingHorizontal: spacing.screenH, paddingBottom: spacing.xs },
-  inspirationMiniCard: {
-    width: 104,
-    height: 128,
-    backgroundColor: colors.glassCard,
-    borderRadius: radius.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    ...shadows.soft,
-  },
-  inspirationMiniIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inspirationMiniLabel: { fontFamily: fonts.body, fontSize: 12, fontWeight: '600', color: colors.textPrimary },
 
   // Now rendered as a fixed sibling above the horizontal swipe pager (see
   // the main return), not inside either page's own ScrollView — needs its

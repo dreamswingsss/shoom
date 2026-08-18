@@ -285,8 +285,8 @@
       "dailyChallenge": {
         "badge": "Задание дня",
         "doneBadge": "Выполнено",
-        "subtitle": "Нажмите, когда выполните",
-        "doneSubtitle": "Выполнено сегодня"
+        "subtitle": "Спланировать образ",
+        "doneSubtitle": "Образ на сегодня готов"
       },
       "weather": {
         "dressMe": "Одень меня",
@@ -311,6 +311,7 @@
       },
       "capsuleScore": {
         "subtitle": "Гармоничность гардероба",
+        "subtitleEmpty": "Добавьте вещи, чтобы узнать",
         "proBadge": "PRO",
         "premiumAlertMessage": "Откройте подробную аналитику гардероба с Pro."
       },
@@ -329,17 +330,6 @@
           "title": "Узнайте свой цветотип",
           "subtitle": "Чтобы подобрать идеальную палитру, расскажите немного больше о себе.",
           "saveButton": "Показать мою палитру"
-        }
-      },
-      "inspiration": {
-        "title": "Вдохновение",
-        "comingSoon": "Скоро",
-        "tags": {
-          "minimalism": "Минимализм",
-          "streetwear": "Стритвир",
-          "office": "Офис",
-          "casual": "Кэжуал",
-          "eveningwear": "Вечер"
         }
       }
     },

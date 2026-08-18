@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from './useUserStore';
 import { FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
@@ -32,25 +30,17 @@ function fromRow(row) {
 }
 
 // Persists the weekly outfit plan to `public.outfits` / `public.outfit_items`
-// (see supabase/migrations/0001_init.sql) instead of AsyncStorage.
-// `completedChallenges` (Daily Challenge gamification) stays local-only —
-// it's device/session flavor, not real user data worth a table — so this
-// store ends up with a hybrid persistence: `persist` still covers
-// `completedChallenges` via its own `partialize`, while `scheduledOutfits`
-// is an in-memory cache populated by fetchOutfits(), same pattern as
-// useWardrobeStore's `items`.
-export const usePlannerStore = create(
-  persist(
-    (set, get) => ({
+// (see supabase/migrations/0001_init.sql) instead of AsyncStorage —
+// `scheduledOutfits` is an in-memory cache populated by fetchOutfits(), same
+// pattern as useWardrobeStore's `items`. No `persist` middleware here: there
+// used to be a `completedChallenges` local-only field worth keeping across
+// restarts, but the Daily Challenge tile now derives its done state from
+// `scheduledOutfits` itself (did the client actually plan today's outfit),
+// so nothing in this store needs on-disk persistence anymore.
+export const usePlannerStore = create((set, get) => ({
       scheduledOutfits: {},
       loading: false,
       error: null,
-
-      // Gamification: dateKey -> true for each day the client marked their
-      // Daily Challenge widget done. A plain presence map (like
-      // scheduledOutfits) rather than a boolean, so toggling off just
-      // deletes the key instead of leaving stale `false` entries around.
-      completedChallenges: {},
 
       // Called from WeeklyPlanner's and WardrobeScreen's mount effects (the
       // Style Streak tile needs this too, and Closet is often opened before
@@ -188,36 +178,12 @@ export const usePlannerStore = create(
           };
         }),
 
-      toggleChallenge: (date) =>
-        set((state) => {
-          const next = { ...state.completedChallenges };
-          if (next[date]) {
-            delete next[date];
-          } else {
-            next[date] = true;
-          }
-          return { completedChallenges: next };
-        }),
-
       // Called on sign-out (see useSupabaseAuthSync.js) / account deletion
-      // (accountService.js) — clears both the Supabase-backed cache and the
-      // local gamification state, so a second account signing in on the
-      // same device never briefly sees the first account's plan, and never
-      // shows "today's challenge done" for a challenge it never completed.
-      reset: () => set({ scheduledOutfits: {}, completedChallenges: {}, loading: false, error: null }),
-    }),
-    {
-      name: 'planner-storage',
-      storage: createJSONStorage(() => AsyncStorage),
-      // `scheduledOutfits`/`loading`/`error` are a Supabase-backed cache,
-      // not local source of truth — persisting them would let a stale
-      // on-disk copy flash before fetchOutfits() overwrites it. Only
-      // `completedChallenges` (genuinely local-only) is worth keeping
-      // across app restarts.
-      partialize: (state) => ({ completedChallenges: state.completedChallenges }),
-    }
-  )
-);
+      // (accountService.js) — clears the Supabase-backed cache, so a second
+      // account signing in on the same device never briefly sees the first
+      // account's plan.
+      reset: () => set({ scheduledOutfits: {}, loading: false, error: null }),
+}));
 
 // Freemium gate's own count — every key in `scheduledOutfits` IS a unique
 // planned date already (it's keyed by dateKey, one row per day), so this is

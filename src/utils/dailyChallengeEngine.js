@@ -68,8 +68,9 @@ const FALLBACK_TARGETS = [
 // day so the tile doesn't always lean on the same signal. `isCompleted`
 // always starts `false`: this function only decides *what* today's target
 // is, not whether the client already did it — that's tracked separately
-// (usePlannerStore.completedChallenges, keyed by date) so the target and its
-// completion state persist independently across app restarts on the same day.
+// (usePlannerStore.scheduledOutfits, keyed by date: "done" means the client
+// actually planned today's outfit) so the target and its completion state
+// stay independent.
 export function generateDailyChallenge(userProfile = {}, weather = {}) {
   const dayIndex = getDayIndex();
   const signals = [];
