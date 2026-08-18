@@ -14,6 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
+import { agreeColorWithNoun } from '../utils/colorAgreement';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -165,7 +166,7 @@ export default function ItemDetailScreen() {
 
         <View style={styles.detailPad}>
           <Text style={styles.title}>
-            {t(`closet.colors.${item.color}`)} {item.subcategory}
+            {agreeColorWithNoun(t(`closet.colors.${item.color}`), item.subcategory)} {item.subcategory}
           </Text>
           <Text style={styles.subtitle}>
             {t(`closet.colors.${item.color}`)} · {t(`closet.categories.${item.category}`)}

@@ -45,6 +45,7 @@ import PaywallModal from '../components/PaywallModal';
 import ActionSheetModal from '../components/ActionSheetModal';
 import { triggerHaptic } from '../utils/haptics';
 import { FREE_CHAT_MESSAGE_LIMIT, FREE_PLANNED_DAYS_LIMIT } from '../constants/monetization';
+import { agreeColorWithNoun } from '../utils/colorAgreement';
 
 // Injected as a hidden ("sender: 'user'", not rendered) turn once the
 // client confirms — buildContents() in aiChatEngine replays chat history
@@ -233,7 +234,8 @@ export default function StylistScreen() {
     const targetItem = route.params?.targetItem;
     if (!targetItem) return;
     navigation.setParams({ targetItem: undefined });
-    const itemLabel = `${t(`closet.colors.${targetItem.color}`)} ${targetItem.subcategory}`;
+    const colorLabel = agreeColorWithNoun(t(`closet.colors.${targetItem.color}`), targetItem.subcategory);
+    const itemLabel = `${colorLabel} ${targetItem.subcategory}`;
     // baseItemId rides along to the resulting AI message so a later "Save
     // Inspiration" tap on it knows which wardrobe item this look started
     // from (see handleSend's own comment on why it takes this as a param

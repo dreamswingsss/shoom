@@ -9,6 +9,7 @@ import { useChatStore } from '../store/useChatStore';
 import { useUserStore } from '../store/useUserStore';
 import { formatWeekdayShort, formatWeekdayLong, formatWeekdayShortWithDate } from '../utils/dateFormat';
 import { colors, cardTints, spacing, radius, typography, withAlpha } from '../theme/tokens';
+import { agreeColorWithNoun } from '../utils/colorAgreement';
 import Skeleton from '../components/Skeleton';
 import ScreenContainer from '../components/ScreenContainer';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -70,11 +71,14 @@ function summarizeOutfit(scheduled, wardrobeById) {
 // card title, the calendar event has room for the full list, so this pulls
 // color + subcategory for wardrobe pieces (a plain subcategory alone reads
 // as "Top", not "the top I meant") plus every suggested-to-buy item's name.
-function getScheduledItemNames(scheduled, wardrobeById) {
+function getScheduledItemNames(scheduled, wardrobeById, t) {
   const wardrobeNames = (scheduled.outfitIds || [])
     .map((id) => wardrobeById[id])
     .filter(Boolean)
-    .map((item) => `${item.color} ${item.subcategory}`);
+    .map((item) => {
+      const colorLabel = agreeColorWithNoun(t(`closet.colors.${item.color}`), item.subcategory);
+      return `${colorLabel} ${item.subcategory}`;
+    });
   const suggestedNames = (scheduled.newItems || []).map((entry) => entry.name).filter(Boolean);
   return [...wardrobeNames, ...suggestedNames];
 }
@@ -233,7 +237,7 @@ export default function PlannerScreen() {
   // Google-or-.ics branching decided to do.
   function handleDownloadIcs() {
     if (!selectedEntry) return;
-    const itemNames = getScheduledItemNames(selectedEntry, wardrobeById);
+    const itemNames = getScheduledItemNames(selectedEntry, wardrobeById, t);
     downloadIcs(buildOutfitIcs({ itemNames, date: selectedDate }), `shoom-${selectedKey}.ics`);
     showToast(t('closet.inspirationDetail.exportSuccessIcs'));
   }
@@ -268,7 +272,7 @@ export default function PlannerScreen() {
     if (exporting || !selectedEntry) return;
     setExporting(true);
     try {
-      const itemNames = getScheduledItemNames(selectedEntry, wardrobeById);
+      const itemNames = getScheduledItemNames(selectedEntry, wardrobeById, t);
 
       if (Platform.OS === 'web') {
         if (!googleCalendarConnected) {
