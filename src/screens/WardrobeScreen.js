@@ -334,27 +334,26 @@ export default function WardrobeScreen() {
               <BentoTile
                 square
                 statTile
+                dimmed
                 tint="sky"
                 icon={<Feather name="star" size={14} color={colors.textPrimary} />}
                 title={wardrobe.length === 0 ? '—' : `${cohesionScore}%`}
-                subtitle={
-                  wardrobe.length === 0
-                    ? t('closet.hub.capsuleScore.subtitleEmpty')
-                    : t('closet.hub.capsuleScore.subtitle')
-                }
-                // Was unconditional — a real Pro client tapping this still
-                // saw the lock badge and got sent to the paywall every
-                // time, since neither the badge nor onPress ever checked
-                // `isPro`. Gating both like every other Pro tile in this
-                // file (Shopping Copilot's own `handleShoppingCopilot`
-                // right below is the pattern this now matches).
+                // Always "Гармоничность" — used to swap to a distinct
+                // empty-wardrobe subtitle, but this tile is now a
+                // permanent, static Pro teaser regardless of wardrobe
+                // state or tier (see `dimmed`/badge below), so the label
+                // itself stays fixed too.
+                subtitle={t('closet.hub.capsuleScore.subtitle')}
+                // Badge and dimming are now unconditional, not gated on
+                // `isPro` — there's no real unlocked state to switch into
+                // for EITHER tier (no detailed-breakdown screen exists),
+                // so this reads as a permanent "Pro" teaser tile rather
+                // than a real toggle between two states.
                 badge={
-                  !isPro ? (
-                    <>
-                      <Feather name="lock" size={10} color={colors.inverseText} />
-                      <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
-                    </>
-                  ) : null
+                  <>
+                    <Feather name="lock" size={10} color={colors.inverseText} />
+                    <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
+                  </>
                 }
                 // Teaser only — the score itself already shows above
                 // regardless of tier. There's no real detailed-breakdown
@@ -540,7 +539,7 @@ export default function WardrobeScreen() {
 // Copilot) keeps the original icon-chip-then-title layout — that shape
 // still fits a real label like "Каталог", it's specifically the stat pair
 // with a bare number as `title` that reads better this way.
-function BentoTile({ wide, square, statTile, icon, title, subtitle, badge, onPress, tint }) {
+function BentoTile({ wide, square, statTile, icon, title, subtitle, badge, onPress, tint, dimmed }) {
   function handlePress() {
     triggerHaptic();
     onPress?.();
@@ -555,6 +554,7 @@ function BentoTile({ wide, square, statTile, icon, title, subtitle, badge, onPre
         square && styles.bentoSquare,
         tint === 'coral' && styles.bentoTileCoral,
         tint === 'sky' && styles.bentoTileSky,
+        dimmed && styles.bentoDimmed,
       ]}
     >
       {badge && <View style={styles.proBadge}>{badge}</View>}
@@ -1300,6 +1300,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
+  // Same opacity LockableTile's own `dimmed` style uses on a locked Hub
+  // tile — the capsule-score tile has no real unlocked state to switch
+  // into regardless of tier (see its own onPress comment), so it stays
+  // visually "locked preview" permanently rather than only dimming for
+  // free clients.
+  bentoDimmed: { opacity: 0.5 },
   // PRO lock badge — top-right corner of a gated tile. Monochrome so it
   // never reads as a second primary action.
   proBadge: {
