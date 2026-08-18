@@ -550,29 +550,33 @@ export default function ProfileScreen({ navigation, route }) {
           />
           {expandedSection === 'fitProfile' && (
             <View style={styles.expandPanel}>
-              <InfoRow label={t('profile.fields.gender')} value={gender} />
-              <InfoRow label={t('profile.fields.hairColor')} value={hairColor} />
-              <InfoRow label={t('profile.fields.eyeColor')} value={eyeColor} />
-              <InfoRow label={t('profile.fields.skinTone')} value={skinTone} />
-              <InfoRow label={t('profile.fields.bodyShape')} value={bodyType} last={!hasMeasurements} />
+              <InfoRow label={t('profile.fields.gender')} value={gender && t(`onboarding.options.${gender}`, gender)} />
+              <InfoRow label={t('profile.fields.hairColor')} value={hairColor && t(`profile.options.${hairColor}`, hairColor)} />
+              <InfoRow label={t('profile.fields.eyeColor')} value={eyeColor && t(`profile.options.${eyeColor}`, eyeColor)} />
+              <InfoRow label={t('profile.fields.skinTone')} value={skinTone && t(`profile.options.${skinTone}`, skinTone)} />
+              <InfoRow
+                label={t('profile.fields.bodyShape')}
+                value={bodyType && t(`onboarding.options.${bodyType}`, bodyType)}
+                last={!hasMeasurements}
+              />
 
               {hasMeasurements && (
                 <>
                   <InfoRow
                     label={t('profile.fields.shoulders')}
-                    value={measurements.shoulders != null ? `${measurements.shoulders} cm` : null}
+                    value={measurements.shoulders != null ? `${measurements.shoulders} ${t('common.units.cm')}` : null}
                   />
                   <InfoRow
                     label={t('profile.fields.chest')}
-                    value={measurements.chest != null ? `${measurements.chest} cm` : null}
+                    value={measurements.chest != null ? `${measurements.chest} ${t('common.units.cm')}` : null}
                   />
                   <InfoRow
                     label={t('profile.fields.waist')}
-                    value={measurements.waist != null ? `${measurements.waist} cm` : null}
+                    value={measurements.waist != null ? `${measurements.waist} ${t('common.units.cm')}` : null}
                   />
                   <InfoRow
                     label={t('profile.fields.hips')}
-                    value={measurements.hips != null ? `${measurements.hips} cm` : null}
+                    value={measurements.hips != null ? `${measurements.hips} ${t('common.units.cm')}` : null}
                     last
                   />
                 </>
@@ -967,7 +971,7 @@ const styles = StyleSheet.create({
   rowValue: { ...typography.rowTitle },
   stylePreferencesText: { ...typography.body },
   notSetText: { ...typography.bodySecondary, color: colors.textMuted },
-  vibeChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  vibeChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.sm },
   vibeChip: {
     backgroundColor: cardTints.violet,
     borderWidth: 1,
