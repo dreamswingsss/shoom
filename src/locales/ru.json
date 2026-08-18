@@ -325,7 +325,7 @@
       "capsuleScore": {
         "subtitle": "Гармоничность",
         "proBadge": "PRO",
-        "premiumAlertMessage": "Откройте подробную аналитику гардероба с Pro.",
+        "premiumAlertMessage": "Гармоничность гардероба доступна только в Pro версии.",
         "breakdown": {
           "title": "Гармоничность гардероба",
           "categoryLabel": "Разнообразие категорий",

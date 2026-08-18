@@ -337,7 +337,10 @@ export default function WardrobeScreen() {
                 dimmed
                 tint="sky"
                 icon={<Feather name="star" size={14} color={colors.textPrimary} />}
-                title={wardrobe.length === 0 ? '—' : `${cohesionScore}%`}
+                // Value itself is Pro-only — free tier always sees the
+                // placeholder dash, never the real score, regardless of
+                // wardrobe state.
+                title={!isPro || wardrobe.length === 0 ? '—' : `${cohesionScore}%`}
                 // Always "Гармоничность" — used to swap to a distinct
                 // empty-wardrobe subtitle, but this tile is now a
                 // permanent, static Pro teaser regardless of wardrobe
@@ -514,7 +517,15 @@ export default function WardrobeScreen() {
       />
 
       <Toast key={toastKey} message={toastMessage} holdMs={toastHoldMs} />
-      <PaywallModal visible={!!paywallMessage} message={paywallMessage} onClose={closePaywall} />
+      <PaywallModal
+        visible={!!paywallMessage}
+        message={paywallMessage}
+        onClose={closePaywall}
+        onUpgrade={() => {
+          closePaywall();
+          navigation.navigate('Pricing');
+        }}
+      />
       </Animated.View>
     </ScreenContainer>
   );
