@@ -629,6 +629,8 @@
     "deleteCancel": "Отмена",
     "deleteConfirm": "Удалить",
     "deleteErrorTitle": "Не удалось удалить вещь",
+    "deleting": "Удаляем...",
+    "deleted": "Вещь удалена",
     "editCategoryLabel": "Категория",
     "editColorLabel": "Цвет",
     "editSave": "Сохранить",

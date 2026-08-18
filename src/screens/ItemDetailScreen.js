@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -39,6 +39,7 @@ export default function ItemDetailScreen() {
   const [draftCategory, setDraftCategory] = useState(item?.category);
   const [draftColor, setDraftColor] = useState(item?.color);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDone, setDeleteDone] = useState(false);
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
   const { toastMessage, toastKey, showToast } = useToast();
 
@@ -61,6 +62,12 @@ export default function ItemDetailScreen() {
   }
 
   async function performDelete() {
+    // Guards against a second confirm somehow firing while the first
+    // delete is still in flight (e.g. a fast double-tap on the dialog's
+    // own confirm button) — without this, two concurrent removeItem calls
+    // for the same id could race, with the second surfacing a spurious
+    // error toast even though the item was already gone.
+    if (isDeleting) return;
     setIsDeleting(true);
     // removeItem is optimistic-with-rollback (see useWardrobeStore) — it
     // never throws, so a failed delete/Storage call surfaces as `error` in
@@ -69,15 +76,29 @@ export default function ItemDetailScreen() {
     // action worth confirming actually succeeded before leaving the screen;
     // otherwise a failed network call would silently leave the item intact
     // while the client already navigated off believing it was gone.
+    //
+    // The DeleteStatusOverlay below (shown for the whole duration of
+    // isDeleting) is what actually fixes the real complaint this replaces:
+    // before it existed, the only visible sign a delete was in progress was
+    // the header's tiny icon-row swapping to a spinner — easy to miss
+    // entirely, since the rest of the screen kept showing the item exactly
+    // as before. A client who didn't notice it would assume the tap did
+    // nothing, back out, and only discover the item really was deleted
+    // later from the catalog.
     await removeItem(item.id);
-    setIsDeleting(false);
 
     const syncError = useWardrobeStore.getState().error;
     if (syncError) {
-      showToast(syncError);
+      setIsDeleting(false);
+      showToast(t('itemDetail.deleteErrorTitle'));
       return;
     }
-    navigation.goBack();
+
+    // Success — swap the overlay's spinner for a checkmark and hold it
+    // just long enough to register before navigating away, instead of
+    // snapping straight to goBack() the instant the network call resolves.
+    setDeleteDone(true);
+    setTimeout(() => navigation.goBack(), 700);
   }
 
   function handleDeletePress() {
@@ -237,7 +258,35 @@ export default function ItemDetailScreen() {
         <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
       )}
       <Toast key={toastKey} message={toastMessage} />
+      <DeleteStatusOverlay visible={isDeleting} done={deleteDone} />
     </ScreenContainer>
+  );
+}
+
+// Full-screen, untappable overlay covering the whole delete round-trip —
+// see performDelete's own comment for why this exists (the header's tiny
+// spinner alone wasn't a strong enough signal that anything was happening).
+// Swaps a spinner for a checkmark once the delete actually succeeds, then
+// performDelete navigates back shortly after.
+function DeleteStatusOverlay({ visible, done }) {
+  const { t } = useTranslation();
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View style={styles.deleteOverlayRoot}>
+        <View style={styles.deleteOverlayCard}>
+          {done ? (
+            <View style={styles.deleteOverlayIconWrap}>
+              <Feather name="check" size={26} color={colors.inverseText} />
+            </View>
+          ) : (
+            <ActivityIndicator size="large" color={colors.textPrimary} />
+          )}
+          <Text style={styles.deleteOverlayText}>
+            {done ? t('itemDetail.deleted') : t('itemDetail.deleting')}
+          </Text>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -344,4 +393,30 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   notFoundText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+
+  deleteOverlayRoot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: withAlpha(colors.textPrimary, 0.4),
+  },
+  deleteOverlayCard: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    minWidth: 160,
+    backgroundColor: colors.surface,
+    borderRadius: radius.cardLg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    ...shadows.navBar,
+  },
+  deleteOverlayIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteOverlayText: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
 });
