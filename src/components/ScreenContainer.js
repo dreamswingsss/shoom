@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '../theme/tokens';
+import { useTelegramTopSafeArea } from '../hooks/useTelegramSafeArea';
 
 // The one root wrapper every screen renders through — replaces each
 // screen's own ad hoc SafeAreaView/useSafeAreaInsets combo (several
@@ -37,9 +38,18 @@ const ScreenContainer = forwardRef(function ScreenContainer(
   { children, edges = ['top', 'bottom'], scroll = true, style, contentStyle, ...rest },
   ref
 ) {
+  // Only relevant when this screen actually insets its own top edge —
+  // ['bottom']-only screens (detail screens pushed under a stack header)
+  // never asked for a top inset in the first place, so adding Telegram's
+  // header height on top of nothing would just be dead space under a
+  // header that isn't there.
+  const telegramTopInset = useTelegramTopSafeArea();
+  const extraTopPadding = edges.includes('top') ? telegramTopInset : 0;
+
   if (!scroll) {
     return (
       <SafeAreaView edges={edges} style={[styles.safeArea, style]}>
+        {extraTopPadding > 0 && <View style={{ height: extraTopPadding }} />}
         {/* `flexShrink: 1, minHeight: 0` on top of `content`'s own
             `flexGrow: 1` — the actual bug, not decoration. React Native's
             own layout engine (Yoga) defaults `flexShrink` to 0, unlike
@@ -74,6 +84,7 @@ const ScreenContainer = forwardRef(function ScreenContainer(
 
   return (
     <SafeAreaView edges={edges} style={[styles.safeArea, style]}>
+      {extraTopPadding > 0 && <View style={{ height: extraTopPadding }} />}
       <ScrollView
         ref={ref}
         style={styles.flexFill}

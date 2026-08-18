@@ -36,3 +36,36 @@ export function useTelegramBottomSafeArea() {
 
   return bottom;
 }
+
+// Same idea as the bottom variant above, but for Telegram's OWN header bar
+// (its Close/collapse/menu row) — `contentSafeAreaInset.top` is exactly that
+// bar's height, which react-native-safe-area-context's device-only inset has
+// no way to know about. Without this, every ScreenContainer('top') screen's
+// own first row of content starts right where Telegram draws that header,
+// so the two visually collide/merge on top of each other as soon as the
+// screen has anything scrolled under it. Same 0-outside-Telegram contract as
+// the bottom hook, so callers can add it straight into their own top-inset
+// calculation unconditionally.
+export function useTelegramTopSafeArea() {
+  const [top, setTop] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const webApp = window.Telegram?.WebApp;
+    if (!webApp) return undefined;
+
+    function readInset() {
+      setTop(webApp.contentSafeAreaInset?.top ?? webApp.safeAreaInset?.top ?? 0);
+    }
+
+    readInset();
+    webApp.onEvent('contentSafeAreaChanged', readInset);
+    webApp.onEvent('safeAreaChanged', readInset);
+    return () => {
+      webApp.offEvent('contentSafeAreaChanged', readInset);
+      webApp.offEvent('safeAreaChanged', readInset);
+    };
+  }, []);
+
+  return top;
+}

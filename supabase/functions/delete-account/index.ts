@@ -11,11 +11,30 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const CLOTHES_BUCKET = 'clothes-photos';
 
+// Same cross-origin situation as telegram-verify/index.ts — the Mini App's
+// web build calls this from its own origin, not *.supabase.co.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header.' }), { status: 401 });
+      return json({ error: 'Missing Authorization header.' }, 401);
     }
 
     // Scoped to the caller's own JWT — used only to find out *who* is
@@ -30,7 +49,7 @@ Deno.serve(async (req) => {
       error: userError,
     } = await callerClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized.' }), { status: 401 });
+      return json({ error: 'Unauthorized.' }, 401);
     }
 
     // Admin client — the ONLY place SUPABASE_SERVICE_ROLE_KEY is used. Set
@@ -61,14 +80,8 @@ Deno.serve(async (req) => {
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id);
     if (deleteUserError) throw deleteUserError;
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ success: true }, 200);
   } catch (err) {
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

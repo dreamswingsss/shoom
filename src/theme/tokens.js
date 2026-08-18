@@ -47,17 +47,24 @@ const ink = '#1F2235';
 const inkDark = '#12141F';
 const inkSecondary = '#474C63';
 const inkMuted = '#8A8FA3';
-const paper = '#F3E4D8';
+// Redesign v11 ("Hidden Gem") — `paper` moved off the original v10 prototype's
+// saturated peach-tan to a desaturated warm bone. The old `#F3E4D8` sat
+// inside the exact "premium-consumer beige" family the design-taste-frontend
+// skill bans by name (neighbors of its own banned `#efeae0`/`#e8dfcb`
+// examples) — every premium-consumer app defaults here, which is the whole
+// problem. `#F2ECE1` keeps the same warm-not-cold family (still reads as
+// "bone", not Acloset's cold white) while landing outside that banned range.
+const paper = '#F2ECE1';
 const white = '#FFFFFF';
 
-// The prototype's own color-name card calls this swatch "Marigold" at
-// `#E3A419` — but that's a brand/logo-concept reference, not what's actually
-// painted on screen. The real functional accent (the active bottom-nav
-// tab's own filled pill, `getComputedStyle`'d directly off the rendered
-// Profile tab) is a noticeably darker, richer amber: `#C98A12`. Using the
-// verified rendered value, not the brand swatch, per this file's whole
-// point of reading the actual prototype rather than its supporting docs.
-const marigold = '#C98A12';
+// Redesign v11 — replaces v10's `marigold` (`#C98A12`, a saturated brass/
+// ochre — the other half of that same banned beige+brass pairing) with
+// Behr's 2026 Color of the Year "Hidden Gem", a desaturated blue-green.
+// Kept the `marigold` constant/export name for call-site stability (every
+// screen already reads `colors.marigold`) even though the hue itself is now
+// jade, not gold — same pattern this file already used once before for
+// `violetLight` after ITS role changed color.
+const marigold = '#596D69';
 
 // `violet`/`coral`/`sky`/`sage` — legacy role names from the original
 // 4-accent system (violet/coral/sky/sage, each a distinct hue). The
@@ -146,13 +153,19 @@ export const colors = {
 // plain ink-at-alpha regardless of tint hue, same as before.
 //
 // Unlike the old 4-hue system, this prototype really only cycles through
-// two tint FAMILIES — a warm marigold-tinted cream (violet/coral/sage
-// below) and one cool grey-lavender (sky) — reused across roles rather than
-// one distinct hue per role. `sage` is set apart from `violet`/`coral` by a
-// shade, not a different hue, to keep 4 distinguishable tokens without
-// inventing a hue that isn't actually in the source.
+// two tint FAMILIES — a warm neutral bone (violet/coral/sage below) and one
+// cool grey-lavender (sky) — reused across roles rather than one distinct
+// hue per role. `sage` is set apart from `violet`/`coral` by a shade, not a
+// different hue, to keep 4 distinguishable tokens without inventing a hue
+// that isn't actually in the source.
+//
+// v11: these three were golden-cream literals independent of `marigold`
+// (`#FBEBC4`/`#F3E7CD`/`#EFE0BE`) — recomputed as light neutral tints of the
+// new bone family so they don't clash now that the accent moved from gold
+// to jade. The blob fills below stay derived FROM `marigold` itself, so they
+// shift to jade automatically with no separate edit needed here.
 export const cardTints = {
-  violet: '#FBEBC4',
+  violet: '#EFEAE1',
   violetBorder: withAlpha(ink, 0.2),
   // Decorative hero-card "blob" fill — tinted with the marigold accent
   // (not ink) since a warm highlight reads right on a warm tan card; this
@@ -161,7 +174,7 @@ export const cardTints = {
   // viewport), so it's a reasoned carryover from the layout spec rather
   // than a getComputedStyle reading like the rest of this file.
   violetBlob: withAlpha(marigold, 0.24),
-  coral: '#F3E7CD',
+  coral: '#EAE6DB',
   coralBorder: withAlpha(ink, 0.18),
   coralBlob: withAlpha(marigold, 0.3),
   // Text color for copy set on a WHITE badge sitting on top of the coral
@@ -170,7 +183,7 @@ export const cardTints = {
   coralInk: ink,
   sky: '#E6E8F0',
   skyBorder: withAlpha(ink, 0.3),
-  sage: '#EFE0BE',
+  sage: '#E3E6E1',
   sageBorder: withAlpha(ink, 0.22),
 };
 
@@ -238,9 +251,18 @@ export const hairline = {
   borderBottomColor: colors.divider,
 };
 
+// Redesign v11 — Manrope-for-everything had no real contrast between
+// headline and body type. Unbounded (geometric, distinctive) + Golos Text
+// (built for Cyrillic UI text by a Russian foundry — this app is
+// Russian-only, see AGENTS.md) gives that contrast without reaching for a
+// serif, which design-taste-frontend flags as the single most-tested "AI
+// default" for anything reading as premium/editorial. Both registered in
+// App.js's `useFonts` call; verified against ui-ux-pro-max's own font
+// database for full Cyrillic + Cyrillic-extended coverage before picking
+// them, not assumed.
 export const fonts = {
-  display: 'Manrope',
-  body: 'Manrope',
+  display: 'Unbounded',
+  body: 'Golos Text',
   serif: 'CormorantGaramond',
 };
 
@@ -283,9 +305,11 @@ export const typography = {
     letterSpacing: 0.3,
     color: colors.textPrimary,
   },
-  // Nav-row label / form field label. Spec: 13-13.5px/700/Ink.
+  // Nav-row label / form field label. Spec: 13-13.5px/700/Ink. Golos Text,
+  // not Unbounded — `fonts.display` is for genuinely display-sized headings
+  // (17px+); Unbounded's geometric weight reads heavy/clunky at this size.
   rowTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.body,
     fontWeight: '700',
     fontSize: 13.5,
     lineHeight: 17,
@@ -306,26 +330,30 @@ export const typography = {
     lineHeight: 21,
     color: colors.textSecondary,
   },
-  // Overline (screen category tag). Spec: 11px/700/letter-spacing 0.14em/
-  // uppercase/Violet — the one label role that's always accent-colored.
+  // Overline (screen category tag) — the one label role that's always
+  // accent-colored. Was 700/uppercase/letterSpacing 1.5 — the small-caps
+  // wide-tracking combo design-taste-frontend names as one of the two most
+  // recognizable AI-design tells by itself; this app used it ~6x on the
+  // Wardrobe hub alone, well past that skill's "max 1 eyebrow per 3
+  // sections" rule. Softened at the token level (quieter weight, no
+  // uppercase, tight tracking) so it reads as a quiet label instead of a
+  // shouted one everywhere it's already used, no call-site changes needed.
   overline: {
-    fontFamily: fonts.display,
-    fontWeight: '700',
+    fontFamily: fonts.body,
+    fontWeight: '600',
     fontSize: 11,
     lineHeight: 14,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    letterSpacing: 0.2,
     color: colors.violet,
   },
   // Neutral section eyebrow (used above rows/cards throughout the app) —
   // same geometry as `overline`, ink-secondary instead of accent-colored.
   label: {
-    fontFamily: fonts.display,
-    fontWeight: '700',
+    fontFamily: fonts.body,
+    fontWeight: '600',
     fontSize: 11,
     lineHeight: 14,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    letterSpacing: 0.2,
     color: colors.textSecondary,
   },
   // Secondary caption. Spec: 11-12.5px/600/Ink secondary.
@@ -344,9 +372,10 @@ export const typography = {
     lineHeight: 14,
     color: colors.textMuted,
   },
-  // Tag / badge. Spec: 10-11.5px/700/accent color by context.
+  // Tag / badge. Spec: 10-11.5px/700/accent color by context. Golos Text —
+  // same small-size reasoning as `rowTitle` above.
   tag: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.body,
     fontWeight: '700',
     fontSize: 10.5,
     lineHeight: 13,

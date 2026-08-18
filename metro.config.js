@@ -20,4 +20,13 @@ const config = getDefaultConfig(__dirname);
 // classic "main"/"browser" field resolution for every package.
 config.resolver.unstable_enablePackageExports = false;
 
+// `.agents`/`.claude` hold Claude Code skill packages, not app source —
+// `npx skills add` (re)writes files under them independently of any app
+// change, and Metro's file watcher has already crashed once mid-install
+// (ENOENT on a skill dir it was watching that got renamed out from under
+// it — FallbackWatcher has no tolerance for that race, unlike Watchman).
+// Excluding them from the watch/bundle graph entirely removes the crash
+// path, and they were never resolvable app imports to begin with.
+config.resolver.blockList = [/\.agents\/.*/, /\.claude\/.*/];
+
 module.exports = config;

@@ -19,6 +19,19 @@ const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
 // valid before it should be rejected as stale.
 const AUTH_MAX_AGE_SECONDS = 24 * 60 * 60;
 
+// The Mini App is a React Native Web build served from its own origin
+// (Vercel/ngrok), not from *.supabase.co — every call here is cross-origin.
+// Without these on BOTH the OPTIONS preflight and the real response, the
+// browser never surfaces this function's actual JSON body/status to
+// supabase-js at all; it fails the fetch itself, which is exactly what
+// surfaces client-side as "Failed to send a request to the Edge Function"
+// (see useTelegramSignIn.js) regardless of what this function returns.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 async function hmacSha256(keyBytes: Uint8Array | ArrayBuffer, message: string): Promise<ArrayBuffer> {
   const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
@@ -47,16 +60,34 @@ async function computeInitDataHash(botToken: string, dataCheckString: string): P
   return toHex(signature);
 }
 
+// Every response (success or error) needs the same CORS headers — a plain
+// `{ status }` object like the old code used only sends `Content-Type`,
+// which is exactly what left the browser with nothing to authorize the
+// response against.
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req) => {
+  // The browser sends this before the real POST on every cross-origin
+  // request — must return 2xx with the CORS headers and no body, or the
+  // actual POST below never gets sent at all.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   try {
     if (!BOT_TOKEN) {
-      return new Response(JSON.stringify({ error: 'TELEGRAM_BOT_TOKEN is not configured.' }), { status: 500 });
+      return json({ error: 'TELEGRAM_BOT_TOKEN is not configured.' }, 500);
     }
 
     const body = await req.json();
     const initData = body?.initData;
     if (!initData || typeof initData !== 'string') {
-      return new Response(JSON.stringify({ error: 'Missing initData.' }), { status: 400 });
+      return json({ error: 'Missing initData.' }, 400);
     }
 
     const params = new URLSearchParams(initData);
@@ -64,29 +95,29 @@ Deno.serve(async (req) => {
     const authDate = params.get('auth_date');
     const userRaw = params.get('user');
     if (!hash || !authDate || !userRaw) {
-      return new Response(JSON.stringify({ error: 'Missing required initData fields.' }), { status: 400 });
+      return json({ error: 'Missing required initData fields.' }, 400);
     }
 
     const dataCheckString = buildDataCheckString(params);
     const computedHash = await computeInitDataHash(BOT_TOKEN, dataCheckString);
     if (computedHash !== hash) {
-      return new Response(JSON.stringify({ error: 'Invalid Telegram signature.' }), { status: 401 });
+      return json({ error: 'Invalid Telegram signature.' }, 401);
     }
 
     const authDateSeconds = Number(authDate);
     if (!Number.isFinite(authDateSeconds) || Date.now() / 1000 - authDateSeconds > AUTH_MAX_AGE_SECONDS) {
-      return new Response(JSON.stringify({ error: 'Telegram login expired, please reopen the app.' }), { status: 401 });
+      return json({ error: 'Telegram login expired, please reopen the app.' }, 401);
     }
 
     let telegramUser: { id?: number; first_name?: string; last_name?: string; username?: string; photo_url?: string };
     try {
       telegramUser = JSON.parse(userRaw);
     } catch {
-      return new Response(JSON.stringify({ error: 'Malformed Telegram user data.' }), { status: 400 });
+      return json({ error: 'Malformed Telegram user data.' }, 400);
     }
     const { id, first_name, last_name, username, photo_url } = telegramUser ?? {};
     if (!id) {
-      return new Response(JSON.stringify({ error: 'Missing Telegram user id.' }), { status: 400 });
+      return json({ error: 'Missing Telegram user id.' }, 400);
     }
 
     // Admin client — service_role, same pattern as delete-account/index.ts.
@@ -174,14 +205,8 @@ Deno.serve(async (req) => {
     const tokenHash = linkData?.properties?.hashed_token;
     if (!tokenHash) throw new Error('Could not generate a session token.');
 
-    return new Response(JSON.stringify({ token_hash: tokenHash }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ token_hash: tokenHash }, 200);
   } catch (err) {
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

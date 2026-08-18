@@ -186,6 +186,8 @@ export default function App() {
     // asset files wasn't something this pass was explicitly asked to do.
     Manrope: require('./assets/fonts/Manrope-Variable.ttf'),
     CormorantGaramond: require('./assets/fonts/CormorantGaramond-Variable.ttf'),
+    Unbounded: require('./assets/fonts/Unbounded-Variable.ttf'),
+    'Golos Text': require('./assets/fonts/GolosText-Variable.ttf'),
   });
 
   // Root routing rule (in priority order):

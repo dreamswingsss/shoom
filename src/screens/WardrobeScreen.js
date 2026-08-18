@@ -27,7 +27,7 @@ import Reanimated, {
 import { analyzeShoppingItem } from '../services/aiShoppingCopilot';
 import { readImageAsBase64 } from '../utils/imageBase64';
 import { getPalette } from '../utils/colorDna';
-import { calculateCohesionScore, calculateEcoScore, calculateWardrobeLifecycle } from '../utils/wardrobeUtils';
+import { calculateCohesionScore } from '../utils/wardrobeUtils';
 import { generateDailyChallenge } from '../utils/dailyChallengeEngine';
 import { formatWeekdayShortWithDate } from '../utils/dateFormat';
 import { getInitials } from '../utils/getInitials';
@@ -125,8 +125,6 @@ export default function WardrobeScreen() {
   // results, no separate "done" callback needed.
   const needsColorDnaCalibration = !hairColor || !eyeColor || !skinTone;
   const cohesionScore = useMemo(() => calculateCohesionScore(wardrobe), [wardrobe]);
-  const ecoScore = useMemo(() => calculateEcoScore(wardrobe), [wardrobe]);
-  const lifecycle = useMemo(() => calculateWardrobeLifecycle(wardrobe), [wardrobe]);
   // Gated on !wardrobeLoading too — otherwise the very first render (before
   // the fetch resolves, `wardrobe` still `[]`) would flash the empty-state
   // hero even for a client who actually has items, right before the real
@@ -454,32 +452,6 @@ export default function WardrobeScreen() {
             </FadeInView>
           </View>
 
-          <FadeInView delay={340}>
-            <View style={styles.impactSection}>
-              <Text style={styles.sectionLabel}>{t('closet.hub.impact.title')}</Text>
-              <HorizontalFadeScroll
-                fadeColor={colors.background}
-                style={styles.carouselBleed}
-                contentContainerStyle={styles.impactScroll}
-              >
-                <ImpactMiniCard
-                  icon="award"
-                  // An empty (or not-yet-loaded) closet scoring "0" reads as
-                  // "this wardrobe is bad" rather than "there's nothing to
-                  // score yet" — an em dash reads as neither loading nor a
-                  // real zero.
-                  value={wardrobe.length === 0 ? '—' : `${ecoScore}`}
-                  label={t('closet.hub.impact.ecoScore')}
-                />
-                <ImpactMiniCard
-                  icon="refresh-cw"
-                  value={wardrobe.length === 0 ? '—' : `${lifecycle.activePercent}%`}
-                  label={t('closet.hub.impact.inRotation')}
-                />
-              </HorizontalFadeScroll>
-            </View>
-          </FadeInView>
-
           {wardrobeError && (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{wardrobeError}</Text>
@@ -607,25 +579,6 @@ function BentoTile({ wide, square, icon, title, subtitle, badge, onPress, tint }
         </Text>
       </View>
     </TouchableOpacity>
-  );
-}
-
-// Compact "Wardrobe Impact" strip — Eco-Score + Lifecycle (ex-ImpactScreen
-// logic, via calculateEcoScore/calculateWardrobeLifecycle in wardrobeUtils),
-// folded into the Hub as a horizontal-scroll pair of mini stat cards instead
-// of its own tab. Sage (colors.success) rather than the Hub's violet accent —
-// keeps the "sustainability" read distinct from ordinary CTAs.
-function ImpactMiniCard({ icon, value, label }) {
-  return (
-    <View style={styles.impactMiniCard}>
-      <View style={styles.impactMiniIconWrap}>
-        <Feather name={icon} size={14} color={colors.success} />
-      </View>
-      <Text style={styles.impactMiniValue}>{value}</Text>
-      <Text style={styles.impactMiniLabel} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
   );
 }
 
@@ -1383,46 +1336,13 @@ const styles = StyleSheet.create({
   heroIconWrap: { width: 26, height: 26, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   heroCaption: { fontSize: 12, fontWeight: '600' },
 
-  // "Wardrobe Impact" — Eco-Score + Lifecycle mini cards (ex-ImpactScreen).
-  impactSection: { width: '100%' },
   // Pulls the ScrollView back out to the true screen edge, canceling the
   // 16px margin ScreenContainer applies at the shell level, so the row can
   // scroll flush-edge-to-edge on both sides instead of stopping dead at an
-  // invisible wall 16px in — the same fix applies to inspirationScroll
-  // below. `impactScroll`/`inspirationScroll` re-apply that 16px as
-  // `paddingHorizontal` on the CONTENT instead, so cards still start at the
-  // same visual inset at rest.
+  // invisible wall 16px in. `inspirationScroll` below re-applies that 16px
+  // as `paddingHorizontal` on the CONTENT instead, so cards still start at
+  // the same visual inset at rest.
   carouselBleed: { marginHorizontal: -spacing.screenH },
-  impactScroll: { gap: spacing.xs, paddingHorizontal: spacing.screenH },
-  impactMiniCard: {
-    width: 132,
-    backgroundColor: colors.glassCard,
-    borderRadius: radius.card,
-    padding: spacing.sm,
-    gap: 6,
-    ...shadows.soft,
-  },
-  impactMiniIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: withAlpha(colors.sage, 0.1),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // `typography.title` isn't spread here (its lineHeight:21 is tuned for a
-  // 17px title — reusing it at fontSize:26 without overriding lineHeight
-  // left this number's own glyph box taller than its line box, so it
-  // visually clipped into the icon above and the label below).
-  impactMiniValue: {
-    fontFamily: typography.title.fontFamily,
-    fontWeight: '800',
-    fontSize: 26,
-    lineHeight: 31,
-    letterSpacing: -0.3,
-    color: colors.textPrimary,
-  },
-  impactMiniLabel: { fontSize: 10, color: colors.textMuted },
 
   // "Style Inspiration" — mood-board taster strip (ex-Inspiration tab).
   inspirationSection: { marginTop: spacing.lg },
