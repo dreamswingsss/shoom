@@ -26,7 +26,8 @@ import Reanimated, {
 import { analyzeShoppingItem } from '../services/aiShoppingCopilot';
 import { readImageAsBase64 } from '../utils/imageBase64';
 import { getPalette } from '../utils/colorDna';
-import { calculateCohesionScore } from '../utils/wardrobeUtils';
+import { getCohesionBreakdown, calculateInsights } from '../utils/wardrobeUtils';
+import InsightsCard from '../components/InsightsCard';
 import { generateDailyChallenge } from '../utils/dailyChallengeEngine';
 import { useUserStore } from '../store/useUserStore';
 import { isAdminTelegramId } from '../utils/admin';
@@ -51,6 +52,7 @@ import PaywallModal from '../components/PaywallModal';
 import Skeleton from '../components/Skeleton';
 import { TourTarget } from '../components/AppTour';
 import ColorDnaCalibrationSheet from '../components/ColorDnaCalibrationSheet';
+import CohesionBreakdownSheet from '../components/CohesionBreakdownSheet';
 import { triggerHaptic } from '../utils/haptics';
 import { FREE_WARDROBE_LIMIT } from '../constants/monetization';
 
@@ -72,11 +74,13 @@ export default function WardrobeScreen() {
   const inspirationsLoading = useWardrobeStore((state) => state.inspirationsLoading);
   const fetchInspirations = useWardrobeStore((state) => state.fetchInspirations);
   const fetchOutfits = usePlannerStore((state) => state.fetchOutfits);
+  const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
   const skinTone = useUserStore((state) => state.skinTone);
   const hairColor = useUserStore((state) => state.hairColor);
   const eyeColor = useUserStore((state) => state.eyeColor);
   const styleVibes = useUserStore((state) => state.styleVibes);
   const isPro = useUserStore((state) => state.isPro);
+  const bonusWardrobeSlots = useUserStore((state) => state.bonusWardrobeSlots);
   const fadeOpacity = useFadeOnFocus();
 
   // 'hub' is the landing view (title/description + the two actions below);
@@ -97,6 +101,7 @@ export default function WardrobeScreen() {
   const [scanSheetVisible, setScanSheetVisible] = useState(false);
   const [copilotAnalyzing, setCopilotAnalyzing] = useState(false);
   const [colorDnaModalVisible, setColorDnaModalVisible] = useState(false);
+  const [cohesionSheetVisible, setCohesionSheetVisible] = useState(false);
   const { toastMessage, toastKey, toastHoldMs, showToast } = useToast();
   const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
@@ -110,7 +115,9 @@ export default function WardrobeScreen() {
   // (reactive selectors above) and the very next render swaps to the real
   // results, no separate "done" callback needed.
   const needsColorDnaCalibration = !hairColor || !eyeColor || !skinTone;
-  const cohesionScore = useMemo(() => calculateCohesionScore(wardrobe), [wardrobe]);
+  const cohesionBreakdown = useMemo(() => getCohesionBreakdown(wardrobe), [wardrobe]);
+  const cohesionScore = cohesionBreakdown.total;
+  const insights = useMemo(() => calculateInsights(wardrobe, scheduledOutfits), [wardrobe, scheduledOutfits]);
   // Gated on !wardrobeLoading too — otherwise the very first render (before
   // the fetch resolves, `wardrobe` still `[]`) would flash the empty-state
   // hero even for a client who actually has items, right before the real
@@ -183,7 +190,7 @@ export default function WardrobeScreen() {
     // useWardrobeStore's own addItem). Checked against the live `wardrobe`
     // this component already subscribes to, so it can never go stale the
     // way a value captured once at mount would.
-    if (!isPro && wardrobe.length >= FREE_WARDROBE_LIMIT) {
+    if (!isPro && wardrobe.length >= FREE_WARDROBE_LIMIT + bonusWardrobeSlots) {
       showPaywall(t('paywall.wardrobeLimitMessage'));
       return;
     }
@@ -338,12 +345,12 @@ export default function WardrobeScreen() {
                     ? t('closet.hub.capsuleScore.subtitleEmpty')
                     : t('closet.hub.capsuleScore.subtitle')
                 }
-                // Was unconditional — a real Pro client tapping this still
-                // saw the lock badge and got sent to the paywall every
-                // time, since neither the badge nor onPress ever checked
-                // `isPro`. Gating both like every other Pro tile in this
-                // file (Shopping Copilot's own `handleShoppingCopilot`
-                // right below is the pattern this now matches).
+                // "PRO" badge stays visible for free clients even though the
+                // tap now opens something for everyone — it's flagging that
+                // the sheet's Рекомендации section is locked, not that the
+                // tap itself is. Real breakdown sheet, not a paywall alert —
+                // see CohesionBreakdownSheet's own comment for why free and
+                // Pro both see the real numbers now, only the tips differ.
                 badge={
                   !isPro ? (
                     <>
@@ -352,18 +359,21 @@ export default function WardrobeScreen() {
                     </>
                   ) : null
                 }
-                // Teaser only — the score itself already shows above
-                // regardless of tier. There's no real detailed-breakdown
-                // screen built yet (see this tile's own history — "Real
-                // paywall (subscription screen) TBD"), so a Pro tap has
-                // nothing further to open; only a free tap does anything,
-                // same "onPress only exists for the paywalled case" shape
-                // WardrobeScreen's LookbookCard onDelete-adjacent taps use
-                // elsewhere.
-                onPress={isPro ? undefined : () => showPaywall(t('closet.hub.capsuleScore.premiumAlertMessage'))}
+                onPress={wardrobe.length === 0 ? undefined : () => setCohesionSheetVisible(true)}
               />
             </FadeInView>
           </View>
+
+          {/* Free-tier stats — dead code from an earlier pass
+              (InsightsCard/calculateInsights already existed, never wired
+              in anywhere) rendered for real now. Hides itself when there's
+              nothing to say yet (see InsightsCard's own guard). */}
+          <InsightsCard
+            mostWornItem={insights.mostWornItem}
+            leastWornItem={insights.leastWornItem}
+            neverWornCount={insights.neverWornCount}
+            totalCount={wardrobe.length}
+          />
 
           {/* `gap` here replaces the spacing bentoGrid's own `gap` would
               otherwise provide between these sections — was previously a
@@ -469,6 +479,17 @@ export default function WardrobeScreen() {
           onClose={() => setColorDnaModalVisible(false)}
         />
       )}
+
+      <CohesionBreakdownSheet
+        visible={cohesionSheetVisible}
+        onClose={() => setCohesionSheetVisible(false)}
+        breakdown={cohesionBreakdown}
+        isPro={isPro}
+        onUpgradePress={() => {
+          setCohesionSheetVisible(false);
+          showPaywall(t('closet.hub.capsuleScore.premiumAlertMessage'));
+        }}
+      />
 
       {/* `addItemFloating` (plain View, not the TourTarget) owns the
           absolute floating position — it sets BOTH `left` and `right`, so

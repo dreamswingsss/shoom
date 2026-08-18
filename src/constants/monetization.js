@@ -25,3 +25,10 @@ export const FREE_PLANNED_DAYS_LIMIT = 2;
 export const PRICE_PRO_MONTHLY_RUB = 249;
 export const PRICE_PRO_YEARLY_RUB = 2490;
 export const PRICE_FOUNDER_LIFETIME_RUB = 4490;
+
+// Bonus wardrobe slots / AI messages credited to BOTH sides of a completed
+// referral (see supabase/functions/telegram-verify/index.ts's own
+// REFERRAL_BONUS — that's the value that actually gets written to the DB;
+// this is only the client-side copy of the same number, for ProfileScreen's
+// "Пригласить друга" row). Keep both in sync if this ever changes.
+export const REFERRAL_BONUS = 3;

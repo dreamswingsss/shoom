@@ -122,6 +122,14 @@ export const useUserStore = create(
       // ever set from a fresh fetchProfile() read or right after a
       // connect/disconnect call actually succeeds server-side.
       googleCalendarConnected: false,
+      // Mirror `users.bonus_wardrobe_slots`/`bonus_chat_messages` — credited
+      // server-side (telegram-verify/index.ts) when someone signs up via
+      // this account's referral link. Added on top of the flat
+      // FREE_WARDROBE_LIMIT/FREE_CHAT_MESSAGE_LIMIT constants at every
+      // enforcement point (useWardrobeStore.js, WardrobeScreen.js,
+      // StylistScreen.js) rather than changing those constants themselves.
+      bonusWardrobeSlots: 0,
+      bonusChatMessages: 0,
       // Mirrors the DB's `users.expo_push_token` column — the last token
       // this store either read from public.users (fetchProfile) or wrote
       // to it (syncPushToken). useSupabaseAuthSync compares a freshly
@@ -211,6 +219,8 @@ export const useUserStore = create(
           measurementUnit: 'cm',
           notificationsEnabled: true,
           googleCalendarConnected: false,
+          bonusWardrobeSlots: 0,
+          bonusChatMessages: 0,
           pushToken: null,
           isProfileStale: false,
           staleChangedFields: [],
@@ -257,6 +267,8 @@ export const useUserStore = create(
           measurementUnit: row.measurement_unit || 'cm',
           notificationsEnabled: row.notifications_enabled ?? true,
           googleCalendarConnected: row.google_calendar_connected ?? false,
+          bonusWardrobeSlots: row.bonus_wardrobe_slots ?? 0,
+          bonusChatMessages: row.bonus_chat_messages ?? 0,
           pushToken: row.expo_push_token || null,
           profileSyncError: null,
         });

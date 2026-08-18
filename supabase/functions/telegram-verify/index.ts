@@ -15,6 +15,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
+// Bonus wardrobe slots / AI messages credited to BOTH sides of a completed
+// referral — kept as a literal here (not an env var) since it's a product
+// number, not a secret; mirrored on the client in
+// src/constants/monetization.js's REFERRAL_BONUS for the Profile screen's
+// own copy. Keep both in sync if this ever changes.
+const REFERRAL_BONUS = 3;
 // Telegram's own recommendation for how long an initData payload stays
 // valid before it should be rejected as stale.
 const AUTH_MAX_AGE_SECONDS = 24 * 60 * 60;
@@ -163,6 +169,54 @@ Deno.serve(async (req) => {
       // Any other failure is real.
       if (createError && !createError.message?.toLowerCase().includes('already been registered')) {
         throw createError;
+      }
+
+      // Referral credit — only for a genuinely brand-new account (this
+      // whole branch only runs once per Telegram user, ever). Looks up the
+      // pending_referrals row telegram-bot-webhook/index.ts wrote when this
+      // same telegram_id sent `/start ref_<code>`; a miss (organic signup,
+      // no referral link) is the normal case and just no-ops. Credits BOTH
+      // sides (+3 wardrobe slots, +3 chat messages each — see
+      // constants/monetization.js's REFERRAL_BONUS_* for the client-side
+      // mirror of this number) rather than only the referrer, since a
+      // reward on both ends is what actually makes someone tap the link.
+      const { data: pendingReferral } = await adminClient
+        .from('pending_referrals')
+        .select('referrer_telegram_id')
+        .eq('telegram_id', telegramId)
+        .maybeSingle();
+
+      if (pendingReferral) {
+        const { data: newUserRow } = await adminClient
+          .from('users')
+          .select('id')
+          .eq('telegram_id', telegramId)
+          .maybeSingle();
+        const { data: referrerRow } = await adminClient
+          .from('users')
+          .select('id, bonus_wardrobe_slots, bonus_chat_messages')
+          .eq('telegram_id', pendingReferral.referrer_telegram_id)
+          .maybeSingle();
+
+        // Referrer must already have an account (they're the one who sent
+        // the link from inside the app) — a pending row whose referrer
+        // never actually signed up themselves is stale/unusable, skipped
+        // rather than crediting a referred-by relationship to nobody.
+        if (newUserRow && referrerRow) {
+          await adminClient
+            .from('users')
+            .update({ referred_by: referrerRow.id, bonus_wardrobe_slots: REFERRAL_BONUS, bonus_chat_messages: REFERRAL_BONUS })
+            .eq('id', newUserRow.id);
+          await adminClient
+            .from('users')
+            .update({
+              bonus_wardrobe_slots: (referrerRow.bonus_wardrobe_slots || 0) + REFERRAL_BONUS,
+              bonus_chat_messages: (referrerRow.bonus_chat_messages || 0) + REFERRAL_BONUS,
+            })
+            .eq('id', referrerRow.id);
+        }
+
+        await adminClient.from('pending_referrals').delete().eq('telegram_id', telegramId);
       }
     } else {
       // Returning client — Telegram's own name/username/photo can have

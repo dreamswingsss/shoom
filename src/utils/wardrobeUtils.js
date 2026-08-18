@@ -63,7 +63,15 @@ export function calculateInsights(wardrobeItems, scheduledOutfits = {}) {
   // that field exists; kept here so the shape is ready for when it does.
   const totalValue = wardrobeItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
 
-  return { mostWornItem, leastWornItem, totalValue };
+  // Free-tier stat that doesn't need any Planner history to be meaningful —
+  // `item.wornCount` is the direct "mark as worn" counter (ItemDetailScreen/
+  // WardrobeCatalogScreen), a separate signal from the scheduledOutfits-
+  // derived most/least-worn above, but the simplest honest "how much of
+  // your wardrobe actually gets used" number for a client with zero Planner
+  // activity yet.
+  const neverWornCount = wardrobeItems.filter((item) => !(item.wornCount > 0)).length;
+
+  return { mostWornItem, leastWornItem, totalValue, neverWornCount };
 }
 
 // "Wardrobe cohesion" — replaces the old hardcoded 78%. There's no explicit
@@ -83,14 +91,25 @@ const CORE_CATEGORIES = ['Tops', 'Bottoms', 'Shoes'];
 const NEUTRAL_COLORS = new Set(['Black', 'White', 'Gray', 'Beige', 'Brown']);
 const IDEAL_NEUTRAL_RATIO = 0.8;
 
-export function calculateCohesionScore(items = []) {
-  if (!Array.isArray(items) || items.length === 0) return 0;
+// Same three components calculateCohesionScore always computed internally,
+// just returned individually instead of pre-summed — CohesionBreakdownSheet
+// shows these as three separate bars (the "visible half" of the free-tier
+// preview; see that component's own comment), calculateCohesionScore below
+// stays a thin wrapper around this so its existing call sites (the hub
+// tile's `N%`, ProfileScreen's stat cell) don't need to change at all.
+export function getCohesionBreakdown(items = []) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { categoryScore: 0, colorBalanceScore: 0, wornScore: 0, total: 0 };
+  }
 
   // Too few items to form real outfits regardless of how well they'd
   // theoretically coordinate — capped low (30-38%) rather than let a lucky
-  // 2-3 item combo score as if it were a real capsule.
+  // 2-3 item combo score as if it were a real capsule. No per-component
+  // breakdown is meaningful at this size, so it's split evenly across the
+  // three just so the bars render something proportionate rather than 0/0/0.
   if (items.length < MIN_ITEMS_FOR_FULL_SCORE) {
-    return Math.round(30 + (items.length / MIN_ITEMS_FOR_FULL_SCORE) * 10);
+    const total = Math.round(30 + (items.length / MIN_ITEMS_FOR_FULL_SCORE) * 10);
+    return { categoryScore: total * 0.4, colorBalanceScore: total * 0.3, wornScore: total * 0.3, total };
   }
 
   // Category coverage — 0-40 pts.
@@ -110,7 +129,11 @@ export function calculateCohesionScore(items = []) {
   const wornRatio = items.filter((item) => (item.wornCount || 0) > 0).length / items.length;
   const wornScore = wornRatio * 30;
 
-  const total = categoryScore + colorBalanceScore + wornScore;
-  return Math.round(Math.min(100, Math.max(0, total)));
+  const total = Math.round(Math.min(100, Math.max(0, categoryScore + colorBalanceScore + wornScore)));
+  return { categoryScore, colorBalanceScore, wornScore, total };
+}
+
+export function calculateCohesionScore(items = []) {
+  return getCohesionBreakdown(items).total;
 }
 

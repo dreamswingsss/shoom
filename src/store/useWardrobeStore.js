@@ -124,7 +124,11 @@ export const useWardrobeStore = create((set, get) => ({
     // the real backstop: no write happens past the cap regardless of how
     // the call got here. Checked against the CURRENT store count, not
     // whatever `handleScan` saw when it opened the sheet.
-    if (!useUserStore.getState().isPro && get().items.length >= FREE_WARDROBE_LIMIT) {
+    // + bonusWardrobeSlots — referral credit (see useUserStore's own
+    // comment on that field) raises the effective cap without touching the
+    // flat FREE_WARDROBE_LIMIT constant itself.
+    const { isPro, bonusWardrobeSlots } = useUserStore.getState();
+    if (!isPro && get().items.length >= FREE_WARDROBE_LIMIT + bonusWardrobeSlots) {
       throw new Error(
         'Wardrobe limit reached. Upgrade to Pro to add unlimited items and unlock bulk scanning.'
       );

@@ -145,6 +145,7 @@ export default function StylistScreen() {
   const confirmProfileUpdate = useUserStore((state) => state.confirmProfileUpdate);
   const dismissProfileStale = useUserStore((state) => state.dismissProfileStale);
   const isPro = useUserStore((state) => state.isPro);
+  const bonusChatMessages = useUserStore((state) => state.bonusChatMessages);
   const messages = useChatStore((state) => state.messages);
   const addMessage = useChatStore((state) => state.addMessage);
   const updateMessage = useChatStore((state) => state.updateMessage);
@@ -163,7 +164,7 @@ export default function StylistScreen() {
   // Freemium chat cap — once hit, the input bar itself is replaced by an
   // upgrade prompt (see the render below), not just disabled in place, per
   // the monetization spec. `isPro` always wins regardless of count.
-  const chatLimitReached = !isPro && freeMessagesUsed >= FREE_CHAT_MESSAGE_LIMIT;
+  const chatLimitReached = !isPro && freeMessagesUsed >= FREE_CHAT_MESSAGE_LIMIT + bonusChatMessages;
 
   const [inputText, setInputText] = useState('');
   // Draft photo attached via the camera/gallery menu, waiting to go out

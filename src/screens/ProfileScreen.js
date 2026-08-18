@@ -9,6 +9,7 @@ import {
   Switch,
   TextInput,
   Linking,
+  Share,
   StyleSheet,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { sendBroadcast } from '../services/broadcastService';
 import { isAdminTelegramId } from '../utils/admin';
 import { connectGoogleCalendar, disconnectGoogleCalendar } from '../services/googleCalendarService';
 import { CALENDAR_EXPORT_ENABLED } from '../constants/featureFlags';
+import { REFERRAL_BONUS } from '../constants/monetization';
 import { SUPPORT_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../constants/legal';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
@@ -37,6 +39,11 @@ import ScreenContainer from '../components/ScreenContainer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { getInitials } from '../utils/getInitials';
+
+// Public info (the bot's own @handle, visible to anyone who opens it in
+// Telegram) — safe as a plain EXPO_PUBLIC_ var, unlike the server-only
+// TELEGRAM_BOT_TOKEN/TELEGRAM_BOT_USERNAME secrets the Edge Functions use.
+const TELEGRAM_BOT_USERNAME = process.env.EXPO_PUBLIC_TELEGRAM_BOT_USERNAME;
 
 // Redesign v3 — Profile is a scannable vertical list (avatar row, a stats
 // card, then icon nav rows) instead of the old stacked-sections layout.
@@ -65,6 +72,8 @@ export default function ProfileScreen({ navigation, route }) {
   const notificationsEnabled = useUserStore((state) => state.notificationsEnabled);
   const setNotificationsEnabled = useUserStore((state) => state.setNotificationsEnabled);
   const googleCalendarConnected = useUserStore((state) => state.googleCalendarConnected);
+  const bonusWardrobeSlots = useUserStore((state) => state.bonusWardrobeSlots);
+  const bonusChatMessages = useUserStore((state) => state.bonusChatMessages);
   const setGoogleCalendarConnected = useUserStore((state) => state.setGoogleCalendarConnected);
   const measurements = useUserStore((state) => state.measurements);
   const stylePreferences = useUserStore((state) => state.stylePreferences);
@@ -165,6 +174,18 @@ export default function ProfileScreen({ navigation, route }) {
       return;
     }
     Linking.openURL(url);
+  }
+
+  // Referral "code" is just the referrer's own telegram_id — already
+  // unique, no separate code column needed (see
+  // supabase/migrations/0011_referrals.sql's own comment). Only rendered
+  // for a logged-in user (see the row's own guard below), so `user.telegramId`
+  // is always present here. Native Share sheet rather than a plain copy
+  // button — for an invite link, "share directly to a chat" beats "copy,
+  // then go paste it yourself" as the default action.
+  function handleInvite() {
+    const link = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=ref_${user.telegramId}`;
+    Share.share({ message: t('profile.referral.shareMessage', { link, bonus: REFERRAL_BONUS }) }).catch(() => {});
   }
 
   // App Store Guideline 5.1.1(v) — irreversible, so this confirms once
@@ -434,6 +455,24 @@ export default function ProfileScreen({ navigation, route }) {
               thumbColor={colors.surface}
             />
           </View>
+          {/* Referral row — only meaningful for a signed-in account
+              (needs a real telegram_id to build the invite link from).
+              Bonus caption always shows, even at +0, so the mechanic is
+              discoverable before anyone's actually used it. */}
+          {isLoggedIn && user?.telegramId && (
+            <TouchableOpacity style={[styles.navRow, hairline]} onPress={handleInvite} activeOpacity={0.7}>
+              <View style={styles.navIconWrapCoral}>
+                <Feather name="user-plus" size={16} color={colors.coral} />
+              </View>
+              <View style={styles.calendarRowTextWrap}>
+                <Text style={styles.navRowLabel}>{t('profile.referral.rowLabel')}</Text>
+                <Text style={styles.calendarRowStatus}>
+                  {t('profile.referral.bonusCaption', { bonusWardrobeSlots, bonusChatMessages })}
+                </Text>
+              </View>
+              <Feather name="share" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
           {/* Real OAuth connection, not a stored preference — see
               googleCalendarService.js and the google-calendar-* Edge
               Functions. Status caption reflects `google_calendar_connected`

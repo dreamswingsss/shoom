@@ -20,6 +20,8 @@
 // passed as `secret_token` above — Telegram echoes it back on every webhook
 // POST as the `X-Telegram-Bot-Api-Secret-Token` header, which is what lets
 // this function reject requests that didn't actually come from Telegram.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
 const WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '';
 const MINI_APP_URL = Deno.env.get('TELEGRAM_MINI_APP_URL') ?? 'https://shoom-dusky.vercel.app';
@@ -109,12 +111,37 @@ Deno.serve(async (req) => {
     const update = await req.json();
     const message = update?.message;
     const chatId = message?.chat?.id;
+    const senderId = message?.from?.id;
     // Telegram only retries a webhook that times out or errors — an update
     // shape this function doesn't otherwise handle (edited messages,
     // reactions, chat migrations, group-chat non-command text, etc.) still
     // needs a plain 200 so Telegram doesn't mistake "we chose not to reply"
     // for "delivery failed" and keep resending the same update.
     if (chatId && typeof message?.text === 'string') {
+      // Referral link is `/start ref_<referrer's telegram_id>` — logged
+      // here (the bot side, which sees every /start regardless of whether
+      // the client ever opens the Mini App) rather than only in the Mini
+      // App itself, since a client who clicks the link but never signs in
+      // would otherwise leave no trace of the referral at all.
+      // telegram-verify/index.ts is what actually credits both accounts,
+      // once/if this same telegram_id completes a real sign-in — this row
+      // is just "someone with this id was referred by this other id",
+      // consumed and deleted there.
+      const referralMatch = message.text.match(/^\/start ref_(\d+)/);
+      if (referralMatch && senderId) {
+        const referrerTelegramId = Number(referralMatch[1]);
+        if (referrerTelegramId !== senderId) {
+          const adminClient = createClient(
+            Deno.env.get('SUPABASE_URL')!,
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+          );
+          const { error: referralError } = await adminClient
+            .from('pending_referrals')
+            .upsert({ telegram_id: senderId, referrer_telegram_id: referrerTelegramId });
+          if (referralError) console.error('[telegram-bot-webhook] pending_referrals upsert failed:', referralError);
+        }
+      }
+
       await sendWelcomePhoto(chatId, WELCOME_TEXT);
     }
     return new Response('OK', { status: 200 });
