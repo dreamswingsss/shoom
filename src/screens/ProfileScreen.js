@@ -25,7 +25,7 @@ import { deleteAccount } from '../services/accountService';
 import { sendBroadcast } from '../services/broadcastService';
 import { isAdminTelegramId } from '../utils/admin';
 import { connectGoogleCalendar, disconnectGoogleCalendar } from '../services/googleCalendarService';
-import { CALENDAR_EXPORT_ENABLED } from '../constants/featureFlags';
+import { CALENDAR_EXPORT_ENABLED, REFERRAL_ENABLED } from '../constants/featureFlags';
 import { REFERRAL_BONUS } from '../constants/monetization';
 import { SUPPORT_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../constants/legal';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
@@ -459,7 +459,7 @@ export default function ProfileScreen({ navigation, route }) {
               (needs a real telegram_id to build the invite link from).
               Bonus caption always shows, even at +0, so the mechanic is
               discoverable before anyone's actually used it. */}
-          {isLoggedIn && user?.telegramId && (
+          {REFERRAL_ENABLED && isLoggedIn && user?.telegramId && (
             <TouchableOpacity style={[styles.navRow, hairline]} onPress={handleInvite} activeOpacity={0.7}>
               <View style={styles.navIconWrapCoral}>
                 <Feather name="user-plus" size={16} color={colors.coral} />

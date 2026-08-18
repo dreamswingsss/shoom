@@ -13,3 +13,13 @@
 // and the underlying services/Edge Functions are still fully wired, just
 // not shown.
 export const CALENDAR_EXPORT_ENABLED = false;
+
+// Kill switch for the referral program (invite link, bonus wardrobe slots/
+// AI messages — see ProfileScreen's "Пригласить друга" row,
+// supabase/migrations/0011_referrals.sql, and the referral-crediting logic
+// in telegram-bot-webhook/index.ts + telegram-verify/index.ts). Turned off
+// at the user's request, not deleted — the DB schema and Edge Function
+// logic stay fully wired (harmless when unused: with no link anywhere for
+// anyone to click, /start ref_<id> just never fires, and the bonus_*
+// columns stay 0 for everyone). Flip back to true to re-show the row.
+export const REFERRAL_ENABLED = false;
