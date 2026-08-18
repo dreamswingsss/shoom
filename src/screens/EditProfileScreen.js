@@ -40,6 +40,24 @@ function toInputString(value) {
   return value != null ? String(value) : '';
 }
 
+// This screen is a long ScrollView with many text fields spread across
+// three accordion sections — tapping one deep in "Параметры тела" or
+// "Стилевые предпочтения" left the browser to decide what (if anything) to
+// scroll, which on a Telegram Mini App's WebView keyboard is often nothing
+// at all: the field (and the blinking text caret inside it) ends up hidden
+// behind the on-screen keyboard, reading as "the screen doesn't react to
+// what I tapped." `event.target` in a React Native Web focus event is the
+// real underlying DOM node, so `scrollIntoView` centers the EXACT field
+// that was focused, not just some generic scroll position. Native
+// (iOS/Android) event targets are opaque handles with no such method, so
+// this silently no-ops there instead of needing a Platform.OS check.
+function scrollFieldIntoView(event) {
+  const node = event.target;
+  if (typeof node?.scrollIntoView === 'function') {
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
 // Redesigned to share RegistrationFlow's visual language (Manrope weights,
 // big/bold/centered titles, pill chips, floating full-width Save button)
 // instead of this screen's old plain hairline-row list — see this file's
@@ -247,6 +265,7 @@ export default function EditProfileScreen({ onDone }) {
             style={styles.textArea}
             value={formStylePreferences}
             onChangeText={setFormStylePreferences}
+            onFocus={scrollFieldIntoView}
             placeholder={t('onboarding.stylePreferencesStep.placeholder')}
             placeholderTextColor={colors.textMuted}
             multiline
@@ -472,6 +491,7 @@ function MeasurementField({ value, onChangeText, unit }) {
         style={styles.hwInput}
         value={value}
         onChangeText={onChangeText}
+        onFocus={scrollFieldIntoView}
         keyboardType="numeric"
         maxLength={3}
         placeholder="—"
@@ -490,6 +510,7 @@ function NumberRow({ label, value, onChangeText, last }) {
         style={styles.numberInput}
         value={value}
         onChangeText={onChangeText}
+        onFocus={scrollFieldIntoView}
         keyboardType="numeric"
         maxLength={3}
         placeholder="—"
