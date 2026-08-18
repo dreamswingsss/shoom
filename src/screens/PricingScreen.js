@@ -50,6 +50,13 @@ export default function PricingScreen() {
         </FadeInView>
       ))}
 
+      {/* Temporary payment-provider verification codeword (requested during
+          bank approval, same one as public/index.html's meta tag) — placed
+          here too so it's visible in the actual rendered app, not just the
+          raw HTML a crawler might fetch. Safe to remove once the kassa is
+          registered. */}
+      <Text style={styles.verificationCode}>PLAT</Text>
+
       <Toast key={toastKey} message={toastMessage} />
     </ScreenContainer>
   );
@@ -114,6 +121,12 @@ function TierCard({ tierKey, isPro, onPress }) {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxxl },
+  verificationCode: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    letterSpacing: 2,
+  },
   lede: { ...typography.bodySecondary, marginBottom: spacing.lg },
 
   cardWrap: { marginBottom: spacing.sm },
