@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import TabNavigator from './src/navigation/TabNavigator';
 import ItemDetailScreen from './src/screens/ItemDetailScreen';
 import InspirationDetailScreen from './src/screens/InspirationDetailScreen';
+import PricingScreen from './src/screens/PricingScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import { AppTourProvider } from './src/components/AppTour';
 import { useUserStore } from './src/store/useUserStore';
@@ -35,6 +36,7 @@ const isTelegramMiniApp =
 const RootStack = createNativeStackNavigator();
 
 function RootNavigator() {
+  const { t } = useTranslation();
   return (
     <RootStack.Navigator screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
       <RootStack.Screen name="Main" component={TabNavigator} options={{ headerShown: false }} />
@@ -53,6 +55,16 @@ function RootNavigator() {
         component={InspirationDetailScreen}
         options={{
           headerTitle: '',
+          headerStyle: { backgroundColor: colors.premiumBackground },
+          headerShadowVisible: false,
+          headerTintColor: colors.textPrimary,
+        }}
+      />
+      <RootStack.Screen
+        name="Pricing"
+        component={PricingScreen}
+        options={{
+          headerTitle: t('pricing.screenTitle'),
           headerStyle: { backgroundColor: colors.premiumBackground },
           headerShadowVisible: false,
           headerTintColor: colors.textPrimary,

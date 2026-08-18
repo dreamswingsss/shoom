@@ -23,6 +23,14 @@
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
 const WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '';
 const MINI_APP_URL = Deno.env.get('TELEGRAM_MINI_APP_URL') ?? 'https://shoom-dusky.vercel.app';
+// Payment-provider review requirement — Privacy Policy/Terms must be
+// reachable from a permanent button in the bot itself, not just linked
+// once somewhere. Same two telegra.ph pages ProfileScreen's "Документы и
+// поддержка" section links to (src/constants/legal.js) — keep both in
+// sync if either URL changes.
+const PRIVACY_POLICY_URL = 'https://telegra.ph/Politika-konfidencialnosti-08-18-78';
+const TERMS_OF_SERVICE_URL = 'https://telegra.ph/Polzovatelskoe-soglashenie-08-18-25';
+const SUPPORT_URL = 'https://t.me/shoom_help';
 
 const WELCOME_TEXT =
   '👗 *Shoom — твой личный ИИ-стилист*\n\n' +
@@ -41,7 +49,16 @@ async function sendMessage(chatId: number, text: string): Promise<void> {
       text,
       parse_mode: 'Markdown',
       reply_markup: {
-        inline_keyboard: [[{ text: '✨ Открыть Shoom', web_app: { url: MINI_APP_URL } }]],
+        inline_keyboard: [
+          [{ text: '✨ Открыть Shoom', web_app: { url: MINI_APP_URL } }],
+          [
+            { text: '📄 Политика конфиденциальности', url: PRIVACY_POLICY_URL },
+          ],
+          [
+            { text: '📃 Пользовательское соглашение', url: TERMS_OF_SERVICE_URL },
+          ],
+          [{ text: '💬 Поддержка', url: SUPPORT_URL }],
+        ],
       },
     }),
   });

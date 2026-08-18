@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Switch,
   TextInput,
+  Linking,
   StyleSheet,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import { supabase } from '../services/supabaseClient';
 import { deleteAccount } from '../services/accountService';
 import { sendBroadcast } from '../services/broadcastService';
 import { isAdminTelegramId } from '../utils/admin';
+import { SUPPORT_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../constants/legal';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
 import { useConfirm } from '../hooks/useConfirm';
@@ -131,6 +133,18 @@ export default function ProfileScreen({ navigation, route }) {
   // whether a real session still exists.
   function handleLogout() {
     supabase.auth.signOut();
+  }
+
+  // Shared opener for the Документы/поддержка row — `url` is `null` until
+  // the Privacy Policy/Terms telegra.ph pages are actually published (see
+  // constants/legal.js's own comment), so this degrades to a toast instead
+  // of Linking.openURL(null) throwing.
+  function handleOpenLink(url) {
+    if (!url) {
+      showToast(t('legal.linkUnavailable'));
+      return;
+    }
+    Linking.openURL(url);
   }
 
   // App Store Guideline 5.1.1(v) — irreversible, so this confirms once
@@ -343,6 +357,12 @@ export default function ProfileScreen({ navigation, route }) {
         </View>
 
         <View style={styles.navListCard}>
+          <NavRow
+            iconWrapStyle={styles.navIconWrapCoral}
+            icon={<Feather name="zap" size={16} color={colors.coral} />}
+            label={t('pricing.screenTitle')}
+            onPress={() => navigation.navigate('Pricing')}
+          />
           {/* Not a NavRow — nothing to expand or navigate to, just a
               straight on/off. See useUserStore's setNotificationsEnabled
               for what this actually gates (the bot's own DM channel, not
@@ -426,6 +446,35 @@ export default function ProfileScreen({ navigation, route }) {
               )}
             </View>
           )}
+        </View>
+
+        {/* Bank/payment-provider requirement, not just a nice-to-have —
+            Privacy Policy and Terms must be reachable from inside the
+            product itself, permanently, not just linked once somewhere.
+            See constants/legal.js: the two document URLs are `null` until
+            published on telegra.ph, in which case handleOpenLink degrades
+            to a toast instead of a dead tap. */}
+        <View style={styles.navListCard}>
+          <Text style={styles.legalSectionTitle}>{t('legal.sectionTitle')}</Text>
+          <NavRow
+            iconWrapStyle={styles.navIconWrapSky}
+            icon={<Feather name="shield" size={16} color={colors.sky} />}
+            label={t('legal.privacyPolicy')}
+            onPress={() => handleOpenLink(PRIVACY_POLICY_URL)}
+          />
+          <NavRow
+            iconWrapStyle={styles.navIconWrapSky}
+            icon={<Feather name="file-text" size={16} color={colors.sky} />}
+            label={t('legal.termsOfService')}
+            onPress={() => handleOpenLink(TERMS_OF_SERVICE_URL)}
+          />
+          <NavRow
+            last
+            iconWrapStyle={styles.navIconWrapCoral}
+            icon={<Feather name="message-circle" size={16} color={colors.coral} />}
+            label={t('legal.support')}
+            onPress={() => handleOpenLink(SUPPORT_URL)}
+          />
         </View>
 
         {isAdmin && (
@@ -686,6 +735,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     ...shadows.soft,
   },
+  legalSectionTitle: { ...typography.label, marginTop: spacing.sm, marginBottom: 2 },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',

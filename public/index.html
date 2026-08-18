@@ -5,6 +5,12 @@
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <title>MyApp</title>
+    <!-- Temporary payment-provider verification codeword, requested during
+         bank approval — safe to remove once the kassa is registered (see
+         the conversation this was added in for context). Present in the
+         raw HTML response regardless of JS execution, unlike anything
+         rendered by the RN app into #root below. -->
+    <meta name="payment-verification" content="PLAT" />
     <!-- Telegram Mini App bridge — must load before the app bundle so
          window.Telegram.WebApp is available the moment App.js mounts (see
          App.js's own ready()/expand() call and
