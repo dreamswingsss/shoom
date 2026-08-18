@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { usePlannerStore, toDateKey, getStyleStreak, getPlannedDaysCount } from '../store/usePlannerStore';
@@ -9,7 +8,6 @@ import { useWardrobeStore } from '../store/useWardrobeStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUserStore } from '../store/useUserStore';
 import { formatWeekdayShort, formatWeekdayLong, formatWeekdayShortWithDate } from '../utils/dateFormat';
-import { getInitials } from '../utils/getInitials';
 import { colors, cardTints, spacing, radius, typography, withAlpha } from '../theme/tokens';
 import Skeleton from '../components/Skeleton';
 import ScreenContainer from '../components/ScreenContainer';
@@ -78,7 +76,6 @@ function getScheduledItemNames(scheduled, wardrobeById) {
 export default function PlannerScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const user = useUserStore((state) => state.user);
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const isPro = useUserStore((state) => state.isPro);
   const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
@@ -272,9 +269,6 @@ export default function PlannerScreen() {
   return (
     <ScreenContainer edges={['top']} contentStyle={[styles.content, { paddingTop: spacing.sm }]}>
       <View style={styles.headerRow}>
-        <LinearGradient colors={[colors.violet, colors.violetLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
-        </LinearGradient>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle} numberOfLines={1}>
             {t('planner.screenTitle')}
@@ -473,14 +467,6 @@ const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xl },
 
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 22 },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: colors.inverseText, fontSize: 13, fontWeight: '800' },
   headerTextWrap: { flex: 1, minWidth: 0 },
   headerTitle: { fontFamily: typography.title.fontFamily, fontWeight: '800', fontSize: 16, color: colors.textPrimary },
   headerSubtitle: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 1 },
