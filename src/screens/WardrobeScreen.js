@@ -358,15 +358,15 @@ export default function WardrobeScreen() {
                     <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
                   </>
                 }
-                // Teaser only — the score itself already shows above
-                // regardless of tier. There's no real detailed-breakdown
-                // screen built yet (see this tile's own history — "Real
-                // paywall (subscription screen) TBD"), so a Pro tap has
-                // nothing further to open; only a free tap does anything,
-                // same "onPress only exists for the paywalled case" shape
-                // WardrobeScreen's LookbookCard onDelete-adjacent taps use
-                // elsewhere.
-                onPress={isPro ? undefined : () => showPaywall(t('closet.hub.capsuleScore.premiumAlertMessage'))}
+                // Unconditional, not gated on `isPro` — there's no real
+                // detailed-breakdown screen built yet for EITHER tier, so a
+                // tap always opens the paywall nudge (which itself routes to
+                // Pricing). Was `isPro ? undefined : ...` before, which left
+                // the tile completely unresponsive for anyone currently
+                // reading as Pro — including every real account today, since
+                // `isPro` is temporarily defaulted to `true` app-wide for QA
+                // (see useUserStore's own comment on that default).
+                onPress={() => showPaywall(t('closet.hub.capsuleScore.premiumAlertMessage'))}
               />
             </FadeInView>
           </View>
