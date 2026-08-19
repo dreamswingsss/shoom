@@ -22,11 +22,7 @@ export const FREE_PLANNED_DAYS_LIMIT = 2;
 // namespace since it's display text, not a business number; these three
 // stay here so the actual RUB amount is never duplicated as a second
 // literal anywhere it's shown.
-// TEMPORARY — 10 RUB for a live end-to-end payment test (real card/SBP
-// purchase through Platega, not a stub). Revert to 149 the moment that
-// test is done — this is the real production price every client sees on
-// PricingScreen, not a hidden/dev-only value.
-export const PRICE_PRO_MONTHLY_RUB = 10;
+export const PRICE_PRO_MONTHLY_RUB = 149;
 export const PRICE_PRO_YEARLY_RUB = 1490;
 export const PRICE_FOUNDER_LIFETIME_RUB = 2990;
 

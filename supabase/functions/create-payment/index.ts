@@ -25,9 +25,7 @@ const SECRET = Deno.env.get('PLATEGA_SECRET') ?? '';
 // if a price ever changes. founderLifetime has no `months` (never expires;
 // platega-webhook leaves `pro_expires_at` null for it).
 const TIERS: Record<string, { amountRub: number; description: string; months: number | null }> = {
-  // TEMPORARY — 10 RUB for a live payment test, mirrors monetization.js's
-  // own TEMPORARY comment. Revert to 149 once that test is done.
-  proMonthly: { amountRub: 10, description: 'Shoom Pro — 1 месяц', months: 1 },
+  proMonthly: { amountRub: 149, description: 'Shoom Pro — 1 месяц', months: 1 },
   proYearly: { amountRub: 1490, description: 'Shoom Pro — 1 год', months: 12 },
   founderLifetime: { amountRub: 2990, description: 'Shoom Pro — Founder Lifetime', months: null },
 };
