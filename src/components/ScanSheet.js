@@ -13,7 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
-import BottomSheet from './BottomSheet';
+import BottomSheet, { SLIDE_MS } from './BottomSheet';
 import CenteredModal from './CenteredModal';
 import RegistrationFlow from './RegistrationFlow';
 import Toast from './Toast';
@@ -88,6 +88,12 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
   const completeOnboarding = useUserStore((state) => state.completeOnboarding);
 
   const [authPromptVisible, setAuthPromptVisible] = useState(false);
+  // Set the instant a guest/uncalibrated client taps Save, cleared once the
+  // next interstitial actually opens — see handleSave below for why this
+  // exists: it's what lets the sheet slide away on its own before the
+  // centered dialog flies in, instead of both changes landing in the same
+  // render and reading as one abrupt cut.
+  const [dismissingSheet, setDismissingSheet] = useState(false);
 
   // `needsCalibration` — true whenever ANY of gender/body type/height/
   // weight/Color DNA is still missing, checked at the store level (not
@@ -124,6 +130,7 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
       setSaveError(null);
       setAuthPromptVisible(false);
       setRegistrationVisible(false);
+      setDismissingSheet(false);
       progressWidth.setValue(0);
     }
   }, [visible]);
@@ -335,17 +342,36 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
   // — see the reset-on-visible effect's own comment above for where that
   // actually got fixed). A guest tapping Save is now guaranteed un-stuck
   // regardless of whatever `saving` happened to be a moment before.
+  // Both gated branches below go through `dismissingSheet` instead of
+  // opening the next interstitial in the same tick: flipping
+  // `authPromptVisible`/`registrationVisible` immediately (the original
+  // version of this function) computed `sheetVisible` (see below) false in
+  // that SAME render, and since react-native-web's `<Modal>` on this sheet
+  // stops rendering the instant its `visible` prop goes false, that read as
+  // the whole sheet just vanishing under the new dialog rather than making
+  // way for it. `dismissingSheet` hides the sheet the same way, but doesn't
+  // open the next dialog until BottomSheet's own close animation (see its
+  // `SLIDE_MS` export) has actually had time to play — one thing leaves,
+  // then the next flies in, instead of a cut.
   function handleSave() {
     if (!isLoggedIn) {
       setSaving(false);
-      setAuthPromptVisible(true);
+      setDismissingSheet(true);
+      setTimeout(() => {
+        setDismissingSheet(false);
+        setAuthPromptVisible(true);
+      }, SLIDE_MS);
       return;
     }
 
     if (saving || !scanResult) return;
 
     if (needsCalibration) {
-      setRegistrationVisible(true);
+      setDismissingSheet(true);
+      setTimeout(() => {
+        setDismissingSheet(false);
+        setRegistrationVisible(true);
+      }, SLIDE_MS);
       return;
     }
 
@@ -416,12 +442,14 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
   // CenteredModal that WAS being told to show never actually became
   // interactable (or visible) on top of the still-live sheet underneath.
   // Gating this sheet's own `visible` on the two dialogs above it being
-  // closed guarantees at most one native Modal is ever mounted at a time —
-  // the sheet disappears the instant a guest taps Save (no slide-down
-  // transition plays; `animationType="none"` means there's nothing left to
-  // animate once the native modal itself is gone), and reappears the same
-  // way if the client cancels back out of either dialog.
-  const sheetVisible = visible && !authPromptVisible && !registrationVisible;
+  // closed (`dismissingSheet` included — see handleSave's own comment)
+  // guarantees at most one native Modal is ever mounted at a time — the
+  // sheet plays its own slide-down close (BottomSheet now stays mounted
+  // long enough for that, see its `SLIDE_MS`/`mounted` comment) before
+  // `authPromptVisible`/`registrationVisible` ever flips true, and reappears
+  // the same way (sliding back up) if the client cancels back out of either
+  // dialog.
+  const sheetVisible = visible && !dismissingSheet && !authPromptVisible && !registrationVisible;
 
   return (
     <>
