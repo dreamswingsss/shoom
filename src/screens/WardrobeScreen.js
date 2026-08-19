@@ -338,7 +338,7 @@ export default function WardrobeScreen() {
               <BentoTile
                 square
                 statTile
-                dimmed
+                dimmed={!isPro}
                 tint="sky"
                 icon={<Feather name="star" size={14} color={colors.textPrimary} />}
                 // Value itself is Pro-only — free tier always sees the
@@ -351,16 +351,18 @@ export default function WardrobeScreen() {
                 // state or tier (see `dimmed`/badge below), so the label
                 // itself stays fixed too.
                 subtitle={t('closet.hub.capsuleScore.subtitle')}
-                // Badge stays unconditional (shown to Pro too) — it reads as
-                // "this is the Pro capsule feature", not "you're locked out
-                // of it": CohesionBreakdownSheet itself is what actually
-                // gates content per tier now (see its own top comment), not
-                // this tile.
+                // Free only — a paid tier reads as a plain, unlocked "sky"
+                // tile (no dim, no lock badge), matching every other real
+                // stat tile on this screen. The lock badge is what actually
+                // communicates "this needs Pro"; once a client has Pro,
+                // there's nothing left to lock.
                 badge={
-                  <>
-                    <Feather name="lock" size={10} color={colors.inverseText} />
-                    <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
-                  </>
+                  !isPro && (
+                    <>
+                      <Feather name="lock" size={10} color={colors.inverseText} />
+                      <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
+                    </>
+                  )
                 }
                 // Opens the real breakdown sheet for every tier now — it was
                 // routed straight to the generic paywall alert regardless of

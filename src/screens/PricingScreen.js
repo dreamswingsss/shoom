@@ -14,26 +14,34 @@ import Toast from '../components/Toast';
 // must never duplicate as a second literal); tier copy/features are i18n
 // text in ru.json's `pricing` namespace since they're display strings, not
 // business numbers.
-const TIER_KEYS = ['free', 'proMonthly', 'proYearly', 'founderLifetime'];
+const ALL_TIER_KEYS = ['free', 'proMonthly', 'proYearly', 'founderLifetime'];
 
 export default function PricingScreen() {
   const { t } = useTranslation();
   const isPro = useUserStore((state) => state.isPro);
   const proTier = useUserStore((state) => state.proTier);
   const userId = useUserStore((state) => state.user?.id);
+  // Free is a real choice only for a client who doesn't have Pro yet —
+  // once any paid tier is active there's nothing to "switch back to" (no
+  // downgrade flow exists), so the card just disappears rather than sit
+  // there unpickable.
+  const tierKeys = isPro ? ALL_TIER_KEYS.filter((key) => key !== 'free') : ALL_TIER_KEYS;
   // Which tier has an outstanding checkout — set right before opening
   // Platega's page, resolved (confirmed/canceled/given-up) by
   // ProActivationWatcher (mounted once at the App.js root, not here — see
   // its own top comment for why polling had to move out of this screen).
-  // Reading it straight from the store instead of local component state
-  // means the busy/disabled UI below stays correct even if the client
-  // leaves and comes back to this screen mid-poll.
+  // Only drives that ONE card's own "Проверяем оплату…" label — doesn't
+  // block tapping any OTHER tier while it resolves (opening a second
+  // checkout just creates a second PENDING row; harmless, and blocking
+  // taps here is what used to make every card but the one just tapped read
+  // as permanently unresponsive whenever a previous checkout was still
+  // being confirmed).
   const pendingTier = useUserStore((state) => state.pendingPayment?.tier ?? null);
   const setPendingPayment = useUserStore((state) => state.setPendingPayment);
   const { toastMessage, toastKey, showToast } = useToast();
 
   async function handlePress(tierKey) {
-    if (tierKey === 'free' || pendingTier) return;
+    if (tierKey === 'free') return;
     if (isPro && proTier === tierKey) {
       showToast(t('profile.devTogglePro.on', 'Pro уже активен'));
       return;
@@ -60,14 +68,13 @@ export default function PricingScreen() {
     <ScreenContainer edges={['bottom']} contentStyle={styles.content}>
       <Text style={styles.lede}>{t('pricing.lede')}</Text>
 
-      {TIER_KEYS.map((tierKey, index) => (
+      {tierKeys.map((tierKey, index) => (
         <FadeInView key={tierKey} delay={index * 60} style={styles.cardWrap}>
           <TierCard
             tierKey={tierKey}
             isPro={isPro}
             proTier={proTier}
             busy={pendingTier === tierKey}
-            disabled={pendingTier !== null && pendingTier !== tierKey}
             onPress={() => handlePress(tierKey)}
           />
         </FadeInView>
@@ -85,7 +92,7 @@ export default function PricingScreen() {
   );
 }
 
-function TierCard({ tierKey, isPro, proTier, busy, disabled, onPress }) {
+function TierCard({ tierKey, isPro, proTier, busy, onPress }) {
   const { t } = useTranslation();
   const tier = t(`pricing.tiers.${tierKey}`, { returnObjects: true });
   const features = Array.isArray(tier.features) ? tier.features : [];
@@ -108,8 +115,8 @@ function TierCard({ tierKey, isPro, proTier, busy, disabled, onPress }) {
   return (
     <AnimatedPressable
       onPress={onPress}
-      disabled={disabled}
-      style={[styles.card, isFounder && styles.cardFounder, disabled && styles.cardDisabled]}
+      disabled={busy}
+      style={[styles.card, isFounder && styles.cardFounder, busy && styles.cardDisabled]}
     >
       {isYearly && (
         <View style={styles.badge}>
@@ -189,10 +196,11 @@ const styles = StyleSheet.create({
     borderColor: colors.inverseText,
     borderWidth: 1.5,
   },
-  // Every OTHER card while one tier's checkout/poll is in flight (see
-  // PricingScreen's `pendingTier`, read from the store's `pendingPayment`)
-  // — dimmed and unpressable so a second tap can't kick off a second
-  // concurrent checkout for a different tier.
+  // Only THIS card while ITS OWN checkout/poll is in flight (see `busy`
+  // above) — dimmed and unpressable so a second tap can't kick off a
+  // second checkout for the same tier. Other cards stay fully tappable;
+  // blocking every card whenever any one payment was still resolving used
+  // to make every OTHER tier's "Оформить" read as broken.
   cardDisabled: { opacity: 0.5 },
 
   badge: {
