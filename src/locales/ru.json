@@ -120,14 +120,15 @@
     "save": "Сохранить",
     "styleVibes": {
       "helper": "Выберите до 3",
-      "Quiet Luxury": "Тихая роскошь",
+      "Old Money": "Олдмани",
       "Streetwear": "Стритвир",
       "Y2K": "Y2K",
       "Gorpcore": "Горпкор",
       "Minimalism": "Минимализм",
-      "Dark Fashion": "Тёмная мода",
       "Vintage": "Винтаж",
-      "Business Casual": "Бизнес-кэжуал"
+      "Classic": "Классика",
+      "Dark Fashion": "Тёмная мода",
+      "Athleisure": "Спортивный кэжуал"
     },
     "options": {
       "Black": "Чёрный",

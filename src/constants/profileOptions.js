@@ -80,14 +80,15 @@ export const BODY_TYPES_WOMEN = [
 // `t('profile.styleVibes.<value>')` for the label, but stores/toggles the
 // raw string here so the prompt never has to translate back.
 export const STYLE_VIBES = [
-  'Quiet Luxury',
+  'Old Money',
   'Streetwear',
   'Y2K',
   'Gorpcore',
   'Minimalism',
-  'Dark Fashion',
   'Vintage',
-  'Business Casual',
+  'Classic',
+  'Dark Fashion',
+  'Athleisure',
 ];
 
 export const MAX_STYLE_VIBES = 3;
