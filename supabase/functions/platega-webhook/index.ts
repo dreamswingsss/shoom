@@ -35,6 +35,11 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
+// Same id telegram-bot-webhook's /stats /broadcast and broadcast-notification
+// already gate admin actions on — reused here as the recipient for the sale
+// notification below, not for any authorization check (this function has no
+// caller to authorize; the notification is one-way, admin -> nothing).
+const ADMIN_TELEGRAM_ID = Deno.env.get('ADMIN_TELEGRAM_ID') ?? '';
 
 // Best-effort "subscription activated" DM, reusing telegram-verify's own
 // pattern of treating the bot as this Mini App's real notification channel
@@ -66,6 +71,43 @@ async function sendProActivatedDm(telegramId: number, tier: string, proExpiresAt
     });
   } catch (err) {
     console.log('platega-webhook: sendProActivatedDm failed:', err);
+  }
+}
+
+// Sales notification to the admin — separate from sendProActivatedDm above
+// (that one goes to the BUYER; this one goes to YOU, on every confirmed
+// purchase, so a sale doesn't require checking /stats or the Supabase
+// dashboard to notice). Same best-effort/never-throws contract as that
+// function, same reasoning: a notification hiccup must never turn an
+// already-credited payment into a Platega retry.
+async function sendAdminSaleNotification(
+  tier: string,
+  amount: number,
+  currency: string,
+  buyer: { telegramId: number | null; telegramUsername: string | null }
+) {
+  if (!BOT_TOKEN || !ADMIN_TELEGRAM_ID) return;
+
+  const tierLabel = TIER_LABELS[tier] ?? tier;
+  const buyerLine = buyer.telegramUsername
+    ? `@${buyer.telegramUsername}`
+    : buyer.telegramId
+      ? `id ${buyer.telegramId}`
+      : 'без Telegram-аккаунта';
+  const text =
+    `Новая подписка Shoom Pro!\n\n` +
+    `Тариф: ${tierLabel}\n` +
+    `Сумма: ${amount} ${currency}\n` +
+    `Покупатель: ${buyerLine}`;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: Number(ADMIN_TELEGRAM_ID), text }),
+    });
+  } catch (err) {
+    console.log('platega-webhook: sendAdminSaleNotification failed:', err);
   }
 }
 
@@ -110,7 +152,7 @@ Deno.serve(async (req) => {
 
     const { data: payment, error: paymentError } = await adminClient
       .from('payments')
-      .select('id, user_id, tier, status')
+      .select('id, user_id, tier, status, amount, currency')
       .eq('platega_transaction_id', transactionId)
       .maybeSingle();
     if (paymentError) throw paymentError;
@@ -135,10 +177,11 @@ Deno.serve(async (req) => {
 
     if (status === 'CONFIRMED') {
       // Fetched unconditionally (not just when the tier has an expiry) —
-      // telegram_id is needed either way for sendProActivatedDm below.
+      // telegram_id/telegram_username are needed either way for
+      // sendProActivatedDm/sendAdminSaleNotification below.
       const { data: userRow, error: userLookupError } = await adminClient
         .from('users')
-        .select('pro_expires_at, telegram_id')
+        .select('pro_expires_at, telegram_id, telegram_username')
         .eq('id', payment.user_id)
         .maybeSingle();
       if (userLookupError) throw userLookupError;
@@ -166,6 +209,11 @@ Deno.serve(async (req) => {
       if (userRow?.telegram_id) {
         await sendProActivatedDm(userRow.telegram_id, payment.tier, proExpiresAt);
       }
+
+      await sendAdminSaleNotification(payment.tier, payment.amount, payment.currency, {
+        telegramId: userRow?.telegram_id ?? null,
+        telegramUsername: userRow?.telegram_username ?? null,
+      });
     }
 
     return json({ received: true }, 200);
