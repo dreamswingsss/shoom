@@ -23,9 +23,18 @@
          app's own `position: 'fixed'` footers (see RegistrationFlow's
          `fixedFooter`), which need a viewport size the keyboard can't
          shrink out from under them. -->
+    <!-- `viewport-fit=cover` — without it, iOS Safari/WKWebView never
+         populates `env(safe-area-inset-*)` at all (every value resolves to
+         0), which is what `react-native-safe-area-context`'s
+         `useSafeAreaInsets()` reads under the hood on web. Telegram's own
+         chrome (contentSafeAreaInset, see useTelegramSafeArea.js) is a
+         separate, already-correct source for ITS overlap — this is
+         specifically about the device's own notch/home-indicator, the other
+         half of the inset math FloatingTabBar's `Math.max(insets.bottom,
+         telegramBottomInset, ...)` depends on. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, interactive-widget=overlays-content"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover, interactive-widget=overlays-content"
     />
     <title>MyApp</title>
     <!-- Temporary payment-provider verification codeword, requested during
@@ -69,6 +78,41 @@
       input:focus,
       textarea:focus {
         outline: none;
+      }
+      /* react-native-web's own generated classes already set box-sizing:
+         border-box on every View/Text/etc. it renders — this is only a
+         backstop for the handful of literal DOM elements outside that
+         (html/body/#root above, the real <input>s TextInput renders as),
+         so Yoga's border-box layout math and the browser's never quietly
+         disagree on any of them. */
+      * {
+        box-sizing: border-box;
+      }
+      /* Chromium (Android's WebView) draws a grey tap-highlight flash on
+         any clickable element by default; WKWebView (iOS) doesn't. Every
+         RN Pressable/TouchableOpacity renders as a plain clickable <div>
+         here, so left alone this reads as "buttons flash on Android, not
+         on iOS" on every single tap — one of the most visible sources of
+         the two platforms looking different from each other, not fixable
+         per-component since it's the browser's own paint, not anything in
+         the RN style tree. */
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Safari/WKWebView (iOS) and Chromium (Android) apply different
+         default chrome to real form controls — rounded corners, inner
+         shadows, platform-specific padding — none of which this app's own
+         TextInput/button styling accounts for, since RN's style props don't
+         cover OS-native appearance. Neutralizing it is what makes a
+         TextInput's actual `theme/tokens.js` styling (border, radius,
+         padding) the only thing either platform ever shows. */
+      input,
+      textarea,
+      button,
+      select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
       }
     </style>
   </head>
