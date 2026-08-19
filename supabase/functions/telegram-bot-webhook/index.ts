@@ -43,35 +43,31 @@ const WORDMARK_PHOTO_URL = `${MINI_APP_URL}/brand/shoom-wordmark.png`;
 
 // Longer than the original one-paragraph pitch on purpose — modeled on
 // @sgxplanner_bot's own `/start` reply (mechanism explanation + a bullet
-// capability list + Free/Pro line, all before the CTA), which reads as a
-// real answer in the chat rather than a single line pushing straight to
-// the Mini App. Free-tier numbers here must stay in sync with
+// capability list, all before the CTA), which reads as a real answer in
+// the chat rather than a single line pushing straight to the Mini App.
+// No Free/Pro pricing line here (dropped per the user's own rewrite) —
 // PricingScreen's own free-tier copy (src/locales/ru.json's
-// `pricing.tiers.free.features`) and the real caps in
-// constants/monetization.js — this is marketing copy of the same facts,
-// not a second source of truth for them.
+// `pricing.tiers.free.features`) is where that lives now.
 const WELCOME_TEXT =
-  '*Shoom — твой личный ИИ-стилист*\n\n' +
+  '*Shoom — твой личный стилист*\n\n' +
   'Это не просто гардероб. Shoom учитывает твой цветотип и форму тела — ' +
-  'подскажет, что тебе идёт, а что нет, и что надеть вместо.\n\n' +
+  'подскажет, что тебе идёт, а что нужно поменять.\n\n' +
   '*Как это работает*\n' +
   'Сфотографируй вещь — Shoom разберёт её и добавит в твой цифровой гардероб. ' +
-  'Дальше можно спросить ИИ-стилиста, спланировать образы на неделю или свериться ' +
+  'Дальше можно спросить ИИ-стилиста, спланировать образы на неделю или посоветоваться ' +
   'с помощником покупок перед новой вещью.\n\n' +
   '*Что умеет*\n' +
-  '— Сканирует вещи и собирает гардероб\n' +
-  '— Проверяет вещи по твоему цветотипу\n' +
-  '— Советует с учётом формы тела\n' +
-  '— ИИ-стилист отвечает на вопросы об образах\n' +
-  '— Планировщик: образы на каждый день недели\n' +
-  '— Помощник покупок: проверка вещи перед покупкой\n\n' +
-  'Free — все разделы открыты: до 15 вещей в гардеробе, 10 сообщений ИИ-стилисту, ' +
-  'планирование 2 раза в неделю. Pro снимает все лимиты.\n\n' +
+  '• Сканирует вещи и собирает гардероб\n' +
+  '• Проверяет вещи по твоему цветотипу\n' +
+  '• Советует с учётом формы тела\n' +
+  '• ИИ-стилист отвечает на вопросы об образах\n' +
+  '• Планировщик: образы на каждый день недели\n' +
+  '• Помощник покупок: проверка вещи перед покупкой\n\n' +
   'Жми кнопку ниже, чтобы начать.';
 
 // Photo + caption (not a plain text message) — the wordmark renders above
 // the pitch text in the chat, same "image first, text below" shape as the
-// reference bot this whole /start flow is modeled on. WELCOME_TEXT (795
+// reference bot this whole /start flow is modeled on. WELCOME_TEXT (653
 // chars at last count) must stay under Telegram's 1024-char caption cap
 // for sendPhoto — sendMessage's own 4096-char cap doesn't apply here.
 async function sendWelcomePhoto(chatId: number, caption: string): Promise<void> {
