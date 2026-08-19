@@ -164,6 +164,26 @@ export const useUserStore = create(
       // flipping tiers mid-session to check a specific paywall; it just
       // won't survive an app restart, by the same mechanism.
       isPro: false,
+      // Which Pro tier is actually active — 'proMonthly' | 'proYearly' |
+      // 'founderLifetime' | null. Same freshness rule as `isPro` (fetchProfile-
+      // only, excluded from persistence below): PricingScreen's TierCard reads
+      // this to mark ONLY the tier the client actually bought as "Текущий
+      // тариф", not every paid tier just because `isPro` is true.
+      proTier: null,
+
+      // Set right before PricingScreen opens a Platega checkout page, cleared
+      // once that payment's outcome has been handled — see paymentService.js
+      // and PricingScreen's handlePress/pollForResult. Deliberately NOT
+      // excluded from persistence like isPro/proTier above: this is the one
+      // thing that MUST survive a reload, since it's what lets
+      // ProActivationWatcher (mounted in App.js) pick a payment's result back
+      // up after the client returns from Telegram's external checkout browser
+      // — which can tear down this Mini App's whole JS session mid-poll,
+      // silently losing both the in-flight `pollForResult` loop and the
+      // "Pro activated" celebration it would have shown.
+      pendingPayment: null,
+      setPendingPayment: (payment) => set({ pendingPayment: payment }),
+      clearPendingPayment: () => set({ pendingPayment: null }),
 
       // Session-only — sets isLoggedIn/user from the Supabase session.
       // Deliberately does NOT touch profile fields (gender, etc.): that's
@@ -217,6 +237,11 @@ export const useUserStore = create(
           staleChangedFields: [],
           profileSyncError: null,
           isPro: false,
+          proTier: null,
+          // A pending checkout belongs to the account that started it — a
+          // different account signing in on this device has no business
+          // resolving (or being congratulated for) someone else's payment.
+          pendingPayment: null,
         }),
 
       // TEMPORARY — dev-only escape hatch (ProfileScreen's `__DEV__`-gated
@@ -261,9 +286,10 @@ export const useUserStore = create(
           bonusWardrobeSlots: row.bonus_wardrobe_slots ?? 0,
           bonusChatMessages: row.bonus_chat_messages ?? 0,
           pushToken: row.expo_push_token || null,
-          // Real entitlement, from platega-webhook's write — see this
-          // field's own comment above `isPro: false`.
+          // Real entitlement, from platega-webhook's write — see these
+          // fields' own comments above `isPro: false`/`proTier: null`.
           isPro: row.is_pro ?? false,
+          proTier: row.pro_tier ?? null,
           profileSyncError: null,
         });
       },
@@ -522,18 +548,19 @@ export const useUserStore = create(
     {
       name: 'user-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // `isPro` is deliberately excluded from whatever's on disk — the
-      // default zustand `persist` merge is `{ ...currentState,
+      // `isPro`/`proTier` are deliberately excluded from whatever's on disk
+      // — the default zustand `persist` merge is `{ ...currentState,
       // ...persistedState }` (persisted wins), which would let a stale
       // AsyncStorage copy from a previous session silently outrank a fresh
-      // `fetchProfile()` read of `users.is_pro` on the very next relaunch.
-      // Dropping the persisted copy of just this one key means `isPro`
-      // always comes from the initial `false` default above until
-      // fetchProfile (or a `setIsPro` call made earlier THIS session)
-      // overwrites it — every other field still merges and rehydrates
-      // exactly as before.
+      // `fetchProfile()` read of `users.is_pro`/`pro_tier` on the very next
+      // relaunch. Dropping the persisted copy of just these two keys means
+      // they always come from the initial defaults above until fetchProfile
+      // (or a `setIsPro` call made earlier THIS session) overwrites them —
+      // every other field, `pendingPayment` included, still merges and
+      // rehydrates exactly as before (see that field's own comment on why
+      // IT specifically needs to survive a reload).
       merge: (persistedState, currentState) => {
-        const { isPro: _persistedIsPro, ...rest } = persistedState || {};
+        const { isPro: _persistedIsPro, proTier: _persistedProTier, ...rest } = persistedState || {};
         return { ...currentState, ...rest };
       },
     }

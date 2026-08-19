@@ -26,8 +26,9 @@ import Reanimated, {
 import { analyzeShoppingItem } from '../services/aiShoppingCopilot';
 import { readImageAsBase64 } from '../utils/imageBase64';
 import { getPalette } from '../utils/colorDna';
-import { calculateCohesionScore, calculateInsights } from '../utils/wardrobeUtils';
+import { getCohesionBreakdown, calculateInsights } from '../utils/wardrobeUtils';
 import InsightsCard from '../components/InsightsCard';
+import CohesionBreakdownSheet from '../components/CohesionBreakdownSheet';
 import { generateDailyChallenge } from '../utils/dailyChallengeEngine';
 import { useUserStore } from '../store/useUserStore';
 import { isAdminTelegramId } from '../utils/admin';
@@ -101,6 +102,7 @@ export default function WardrobeScreen() {
   const [scanSheetVisible, setScanSheetVisible] = useState(false);
   const [copilotAnalyzing, setCopilotAnalyzing] = useState(false);
   const [colorDnaModalVisible, setColorDnaModalVisible] = useState(false);
+  const [cohesionSheetVisible, setCohesionSheetVisible] = useState(false);
   const { toastMessage, toastKey, toastHoldMs, showToast } = useToast();
   const { paywallMessage, showPaywall, closePaywall } = usePaywall();
 
@@ -114,7 +116,8 @@ export default function WardrobeScreen() {
   // (reactive selectors above) and the very next render swaps to the real
   // results, no separate "done" callback needed.
   const needsColorDnaCalibration = !hairColor || !eyeColor || !skinTone;
-  const cohesionScore = useMemo(() => calculateCohesionScore(wardrobe), [wardrobe]);
+  const cohesionBreakdown = useMemo(() => getCohesionBreakdown(wardrobe), [wardrobe]);
+  const cohesionScore = cohesionBreakdown.total;
   const insights = useMemo(() => calculateInsights(wardrobe, scheduledOutfits), [wardrobe, scheduledOutfits]);
   // Gated on !wardrobeLoading too — otherwise the very first render (before
   // the fetch resolves, `wardrobe` still `[]`) would flash the empty-state
@@ -348,26 +351,26 @@ export default function WardrobeScreen() {
                 // state or tier (see `dimmed`/badge below), so the label
                 // itself stays fixed too.
                 subtitle={t('closet.hub.capsuleScore.subtitle')}
-                // Badge and dimming are now unconditional, not gated on
-                // `isPro` — there's no real unlocked state to switch into
-                // for EITHER tier (no detailed-breakdown screen exists),
-                // so this reads as a permanent "Pro" teaser tile rather
-                // than a real toggle between two states.
+                // Badge stays unconditional (shown to Pro too) — it reads as
+                // "this is the Pro capsule feature", not "you're locked out
+                // of it": CohesionBreakdownSheet itself is what actually
+                // gates content per tier now (see its own top comment), not
+                // this tile.
                 badge={
                   <>
                     <Feather name="lock" size={10} color={colors.inverseText} />
                     <Text style={styles.proBadgeText}>{t('closet.hub.capsuleScore.proBadge')}</Text>
                   </>
                 }
-                // Unconditional, not gated on `isPro` — there's no real
-                // detailed-breakdown screen built yet for EITHER tier, so a
-                // tap always opens the paywall nudge (which itself routes to
-                // Pricing). Was `isPro ? undefined : ...` before, which left
-                // the tile completely unresponsive for anyone currently
-                // reading as Pro — including every real account today, since
-                // `isPro` is temporarily defaulted to `true` app-wide for QA
-                // (see useUserStore's own comment on that default).
-                onPress={() => showPaywall(t('closet.hub.capsuleScore.premiumAlertMessage'))}
+                // Opens the real breakdown sheet for every tier now — it was
+                // routed straight to the generic paywall alert regardless of
+                // `isPro` before, which is what made this tile demand payment
+                // on tap even from an already-Pro account: CohesionBreakdownSheet
+                // existed with real content but was never actually wired up
+                // anywhere in the app. The sheet itself handles the free-tier
+                // lock (only its "tips" section) via its own `isPro`/
+                // `onUpgradePress` props below.
+                onPress={() => setCohesionSheetVisible(true)}
               />
             </FadeInView>
           </View>
@@ -519,6 +522,16 @@ export default function WardrobeScreen() {
         onClose={closePaywall}
         onUpgrade={() => {
           closePaywall();
+          navigation.navigate('Pricing');
+        }}
+      />
+      <CohesionBreakdownSheet
+        visible={cohesionSheetVisible}
+        onClose={() => setCohesionSheetVisible(false)}
+        breakdown={cohesionBreakdown}
+        isPro={isPro}
+        onUpgradePress={() => {
+          setCohesionSheetVisible(false);
           navigation.navigate('Pricing');
         }}
       />

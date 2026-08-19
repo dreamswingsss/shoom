@@ -11,6 +11,7 @@ import InspirationDetailScreen from './src/screens/InspirationDetailScreen';
 import PricingScreen from './src/screens/PricingScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import { AppTourProvider } from './src/components/AppTour';
+import ProActivationWatcher from './src/components/ProActivationWatcher';
 import { useUserStore } from './src/store/useUserStore';
 import { useSupabaseAuthSync } from './src/hooks/useSupabaseAuthSync';
 import { colors, fonts } from './src/theme/tokens';
@@ -254,6 +255,13 @@ export default function App() {
             )}
           </View>
         </View>
+
+        {/* Mounted once here (not inside PricingScreen) — resolves a
+            checkout regardless of which screen the client is on when it
+            returns, and survives this whole tree remounting if reopening
+            the Mini App after Telegram's external checkout browser does
+            that. See its own top comment. */}
+        <ProActivationWatcher />
       </AppErrorBoundary>
     </SafeAreaProvider>
   );

@@ -1,16 +1,14 @@
-import { useState } from 'react';
 import { Linking, View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../store/useUserStore';
 import { useToast } from '../hooks/useToast';
 import { SUPPORT_URL, SUPPORT_TELEGRAM_USERNAME } from '../constants/legal';
-import { createPaymentCheckout, openCheckoutUrl, getPaymentStatus } from '../services/paymentService';
+import { createPaymentCheckout, openCheckoutUrl } from '../services/paymentService';
 import { colors, spacing, radius, shadows, typography, fonts, buttons } from '../theme/tokens';
 import ScreenContainer from '../components/ScreenContainer';
 import { FadeInView, AnimatedPressable } from '../components/AnimatedPressable';
 import Toast from '../components/Toast';
-import ProActivatedModal from '../components/ProActivatedModal';
 
 // Real prices live in constants/monetization.js (the one number this file
 // must never duplicate as a second literal); tier copy/features are i18n
@@ -18,68 +16,25 @@ import ProActivatedModal from '../components/ProActivatedModal';
 // business numbers.
 const TIER_KEYS = ['free', 'proMonthly', 'proYearly', 'founderLifetime'];
 
-// How long (and how often) to poll `payments` for a status after the client
-// returns from Platega's checkout page — see handlePress's pollForResult
-// below. Platega's own webhook usually lands within a few seconds of a
-// confirmed payment; 10x3s = 30s covers that with margin without leaving
-// the tier's CTA stuck on "Проверяем оплату…" indefinitely if the client
-// just closed the checkout tab without paying.
-const POLL_ATTEMPTS = 10;
-const POLL_INTERVAL_MS = 3000;
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export default function PricingScreen() {
   const { t } = useTranslation();
   const isPro = useUserStore((state) => state.isPro);
+  const proTier = useUserStore((state) => state.proTier);
   const userId = useUserStore((state) => state.user?.id);
-  const fetchProfile = useUserStore((state) => state.fetchProfile);
+  // Which tier has an outstanding checkout — set right before opening
+  // Platega's page, resolved (confirmed/canceled/given-up) by
+  // ProActivationWatcher (mounted once at the App.js root, not here — see
+  // its own top comment for why polling had to move out of this screen).
+  // Reading it straight from the store instead of local component state
+  // means the busy/disabled UI below stays correct even if the client
+  // leaves and comes back to this screen mid-poll.
+  const pendingTier = useUserStore((state) => state.pendingPayment?.tier ?? null);
+  const setPendingPayment = useUserStore((state) => state.setPendingPayment);
   const { toastMessage, toastKey, showToast } = useToast();
-  // Which tier card is mid-flow (checkout open or polling for the result) —
-  // at most one at a time, since opening a second checkout while the first
-  // is still being confirmed would create two PENDING payments for the
-  // same client.
-  const [busyTier, setBusyTier] = useState(null);
-  // Which tier just got confirmed — drives ProActivatedModal below. This is
-  // the in-Mini-App equivalent of a system notification the client asked
-  // for (there's no OS notification center to target: the Mini App always
-  // runs as Platform.OS === 'web', see App.js's own isTelegramMiniApp
-  // comment) — a centered interstitial reliably grabs attention the way a
-  // Toast (easy to miss, gone in a couple seconds) doesn't.
-  const [activatedTier, setActivatedTier] = useState(null);
-
-  async function pollForResult(tierKey, transactionId) {
-    for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
-      await wait(POLL_INTERVAL_MS);
-      let status;
-      try {
-        status = await getPaymentStatus(transactionId);
-      } catch (err) {
-        console.log('[PricingScreen] getPaymentStatus failed:', err);
-        continue;
-      }
-      if (status === 'CONFIRMED') {
-        if (userId) await fetchProfile(userId);
-        setActivatedTier(tierKey);
-        return;
-      }
-      if (status === 'CANCELED') {
-        showToast(t('pricing.paymentCanceledToast'));
-        return;
-      }
-    }
-    // Still PENDING after every attempt — Platega's webhook may just be
-    // slow, or the client backed out without paying. Not treated as an
-    // error: the webhook will still credit the account whenever it does
-    // land, the next fetchProfile() (e.g. on relaunch) will pick it up.
-    showToast(t('pricing.paymentPendingToast'));
-  }
 
   async function handlePress(tierKey) {
-    if (tierKey === 'free' || busyTier) return;
-    if (isPro) {
+    if (tierKey === 'free' || pendingTier) return;
+    if (isPro && proTier === tierKey) {
       showToast(t('profile.devTogglePro.on', 'Pro уже активен'));
       return;
     }
@@ -91,16 +46,13 @@ export default function PricingScreen() {
       return;
     }
 
-    setBusyTier(tierKey);
     try {
       const { url, transactionId } = await createPaymentCheckout(tierKey);
+      setPendingPayment({ tier: tierKey, transactionId });
       await openCheckoutUrl(url);
-      await pollForResult(tierKey, transactionId);
     } catch (err) {
       console.log('[PricingScreen] checkout failed:', err);
       showToast(t('pricing.paymentErrorToast'));
-    } finally {
-      setBusyTier(null);
     }
   }
 
@@ -113,8 +65,9 @@ export default function PricingScreen() {
           <TierCard
             tierKey={tierKey}
             isPro={isPro}
-            busy={busyTier === tierKey}
-            disabled={busyTier !== null && busyTier !== tierKey}
+            proTier={proTier}
+            busy={pendingTier === tierKey}
+            disabled={pendingTier !== null && pendingTier !== tierKey}
             onPress={() => handlePress(tierKey)}
           />
         </FadeInView>
@@ -128,24 +81,24 @@ export default function PricingScreen() {
       <Text style={styles.verificationCode}>PLAT</Text>
 
       <Toast key={toastKey} message={toastMessage} />
-
-      <ProActivatedModal
-        visible={activatedTier !== null}
-        onClose={() => setActivatedTier(null)}
-        tierLabel={activatedTier ? t(`pricing.tiers.${activatedTier}.name`) : ''}
-      />
     </ScreenContainer>
   );
 }
 
-function TierCard({ tierKey, isPro, busy, disabled, onPress }) {
+function TierCard({ tierKey, isPro, proTier, busy, disabled, onPress }) {
   const { t } = useTranslation();
   const tier = t(`pricing.tiers.${tierKey}`, { returnObjects: true });
   const features = Array.isArray(tier.features) ? tier.features : [];
 
   const isFounder = tierKey === 'founderLifetime';
   const isYearly = tierKey === 'proYearly';
-  const isOwned = tierKey === 'free' || (isPro && tierKey !== 'free');
+  // Free reads as "current" only while NOT on Pro; once a specific paid
+  // tier is active, ONLY that tier's card should read as current — not
+  // every paid tier just because `isPro` is true, and not Free anymore
+  // either (that was this screen's actual bug: buying proMonthly used to
+  // leave Free's "Текущий тариф" state showing too, and would have shown
+  // it on proYearly/founderLifetime as well had the client bought those).
+  const isOwned = tierKey === 'free' ? !isPro : proTier === tierKey;
   const ctaLabel = busy
     ? t('pricing.ctaChecking')
     : isOwned
@@ -237,8 +190,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   // Every OTHER card while one tier's checkout/poll is in flight (see
-  // PricingScreen's `busyTier` state) — dimmed and unpressable so a second
-  // tap can't kick off a second concurrent checkout for a different tier.
+  // PricingScreen's `pendingTier`, read from the store's `pendingPayment`)
+  // — dimmed and unpressable so a second tap can't kick off a second
+  // concurrent checkout for a different tier.
   cardDisabled: { opacity: 0.5 },
 
   badge: {
