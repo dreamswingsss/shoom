@@ -27,6 +27,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useToast } from '../hooks/useToast';
 import { CATEGORIES, COLOR_OPTIONS } from '../constants/wardrobeOptions';
 import { agreeColorWithNoun } from '../utils/colorAgreement';
+import { scrollFieldIntoView } from '../utils/scrollFieldIntoView';
 import {
   colors,
   spacing,
@@ -565,6 +566,7 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
                   style={styles.editNameInput}
                   value={scanResult.subcategory}
                   onChangeText={(value) => updateResultField('subcategory', value)}
+                  onFocus={scrollFieldIntoView}
                   placeholder={t('closet.confirm.namePlaceholder')}
                   placeholderTextColor={colors.textMuted}
                 />

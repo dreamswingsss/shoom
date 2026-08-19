@@ -27,6 +27,7 @@ import {
 } from '../constants/profileOptions';
 import ColorSwatchPicker from '../components/ColorSwatchPicker';
 import BodyShapeSelector from '../components/BodyShapeSelector';
+import { scrollFieldIntoView } from '../utils/scrollFieldIntoView';
 
 // Display-only unit toggle, matching RegistrationFlow's own measurements
 // step exactly (see that file's own comment on `unitSystem`) — 'metric' is
@@ -38,53 +39,6 @@ const UNIT_SYSTEMS = ['metric', 'imperial'];
 
 function toInputString(value) {
   return value != null ? String(value) : '';
-}
-
-// This screen is a long ScrollView with many text fields spread across
-// three accordion sections — tapping one deep in "Параметры тела" or
-// "Стилевые предпочтения" left the browser to decide what (if anything) to
-// scroll, which on a Telegram Mini App's WebView keyboard is often nothing
-// at all: the field (and the blinking text caret inside it) ends up hidden
-// behind the on-screen keyboard, reading as "the screen doesn't react to
-// what I tapped." `event.target` in a React Native Web focus event is the
-// real underlying DOM node, so `scrollIntoView` centers the EXACT field
-// that was focused, not just some generic scroll position. Native
-// (iOS/Android) event targets are opaque handles with no such method, so
-// this silently no-ops there instead of needing a Platform.OS check.
-//
-// Scrolling immediately on focus (the original version of this function)
-// raced the WebView's OWN keyboard-open scroll adjustment, which lands
-// slightly later once the keyboard has actually finished animating in and
-// silently overrides whatever we just scrolled to — the visible symptom was
-// a field that started smoothly centering, then abruptly snapped up and
-// landed jammed under the fixed header instead. Waiting for
-// `visualViewport`'s "resize" event (fires once the keyboard has actually
-// resized the visible viewport) before scrolling means our call is the
-// LAST word on scroll position, not a step that gets clobbered — so there's
-// exactly one, smooth scroll instead of two competing ones. The `setTimeout`
-// is only a safety net for a WebView that never fires that resize event at
-// all, so the field doesn't stay stuck behind the keyboard forever.
-function scrollFieldIntoView(event) {
-  const node = event.target;
-  if (typeof node?.scrollIntoView !== 'function') return;
-
-  const doScroll = () => node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-  const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
-  if (!viewport) {
-    doScroll();
-    return;
-  }
-
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    viewport.removeEventListener('resize', finish);
-    doScroll();
-  };
-  viewport.addEventListener('resize', finish);
-  setTimeout(finish, 400);
 }
 
 // Redesigned to share RegistrationFlow's visual language (Manrope weights,

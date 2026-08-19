@@ -25,6 +25,7 @@ import Toast from '../components/Toast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { agreeColorWithNoun } from '../utils/colorAgreement';
+import { scrollFieldIntoView } from '../utils/scrollFieldIntoView';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -273,6 +274,7 @@ export default function ItemDetailScreen() {
                 style={styles.editNameInput}
                 value={draftSubcategory}
                 onChangeText={setDraftSubcategory}
+                onFocus={scrollFieldIntoView}
                 placeholder={t('itemDetail.editNamePlaceholder')}
                 placeholderTextColor={colors.textMuted}
               />
@@ -434,6 +436,7 @@ function MeasurementField({ label, value, onChangeText }) {
           style={styles.measurementInput}
           value={value}
           onChangeText={onChangeText}
+          onFocus={scrollFieldIntoView}
           keyboardType="numeric"
           maxLength={3}
           placeholder="—"
