@@ -51,11 +51,40 @@ function toInputString(value) {
 // that was focused, not just some generic scroll position. Native
 // (iOS/Android) event targets are opaque handles with no such method, so
 // this silently no-ops there instead of needing a Platform.OS check.
+//
+// Scrolling immediately on focus (the original version of this function)
+// raced the WebView's OWN keyboard-open scroll adjustment, which lands
+// slightly later once the keyboard has actually finished animating in and
+// silently overrides whatever we just scrolled to — the visible symptom was
+// a field that started smoothly centering, then abruptly snapped up and
+// landed jammed under the fixed header instead. Waiting for
+// `visualViewport`'s "resize" event (fires once the keyboard has actually
+// resized the visible viewport) before scrolling means our call is the
+// LAST word on scroll position, not a step that gets clobbered — so there's
+// exactly one, smooth scroll instead of two competing ones. The `setTimeout`
+// is only a safety net for a WebView that never fires that resize event at
+// all, so the field doesn't stay stuck behind the keyboard forever.
 function scrollFieldIntoView(event) {
   const node = event.target;
-  if (typeof node?.scrollIntoView === 'function') {
-    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (typeof node?.scrollIntoView !== 'function') return;
+
+  const doScroll = () => node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
+  if (!viewport) {
+    doScroll();
+    return;
   }
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    viewport.removeEventListener('resize', finish);
+    doScroll();
+  };
+  viewport.addEventListener('resize', finish);
+  setTimeout(finish, 400);
 }
 
 // Redesigned to share RegistrationFlow's visual language (Manrope weights,
