@@ -53,6 +53,7 @@ import Skeleton from '../components/Skeleton';
 import { TourTarget } from '../components/AppTour';
 import ColorDnaCalibrationSheet from '../components/ColorDnaCalibrationSheet';
 import { triggerHaptic } from '../utils/haptics';
+import { scrollFieldIntoView } from '../utils/scrollFieldIntoView';
 import { FREE_WARDROBE_LIMIT } from '../constants/monetization';
 
 // Radius for icon chips. The Hub's own cards use `radius.card` (redesign
@@ -1106,6 +1107,7 @@ function ManualCityModal({ visible, onClose, onSubmit }) {
             style={styles.cityModalInput}
             value={cityInput}
             onChangeText={setCityInput}
+            onFocus={scrollFieldIntoView}
             placeholder={t('closet.hub.weather.manualCityPlaceholder')}
             placeholderTextColor={colors.textMuted}
             autoFocus

@@ -28,6 +28,7 @@ import { connectGoogleCalendar, disconnectGoogleCalendar } from '../services/goo
 import { CALENDAR_EXPORT_ENABLED, REFERRAL_ENABLED } from '../constants/featureFlags';
 import { REFERRAL_BONUS } from '../constants/monetization';
 import { SUPPORT_URL, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../constants/legal';
+import { scrollFieldIntoView } from '../utils/scrollFieldIntoView';
 import { useFadeOnFocus } from '../hooks/useFadeOnFocus';
 import { useTelegramSignIn } from '../hooks/useTelegramSignIn';
 import { useConfirm } from '../hooks/useConfirm';
@@ -625,6 +626,7 @@ export default function ProfileScreen({ navigation, route }) {
               style={styles.adminInput}
               value={broadcastMessage}
               onChangeText={setBroadcastMessage}
+              onFocus={scrollFieldIntoView}
               placeholder={t('profile.admin.placeholder')}
               placeholderTextColor={colors.textMuted}
               multiline

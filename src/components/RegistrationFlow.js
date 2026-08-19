@@ -19,6 +19,7 @@ import {
   filterDigits,
 } from '../constants/profileOptions';
 import { colors, spacing, radius, typography, buttons, opacity as opacityTokens } from '../theme/tokens';
+import { scrollFieldIntoView } from '../utils/scrollFieldIntoView';
 
 const HEIGHT_MIN_CM = 90;
 const HEIGHT_MAX_CM = 250;
@@ -431,6 +432,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={heightInput}
                         onChangeText={(text) => setHeightInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder={t('closet.scan.calibration.heightPlaceholder')}
@@ -453,6 +455,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={weightInput}
                         onChangeText={(text) => setWeightInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder={t('closet.scan.calibration.weightPlaceholder')}
@@ -525,6 +528,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={shouldersInput}
                         onChangeText={(text) => setShouldersInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder="—"
@@ -541,6 +545,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={chestInput}
                         onChangeText={(text) => setChestInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder="—"
@@ -557,6 +562,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={waistInput}
                         onChangeText={(text) => setWaistInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder="—"
@@ -573,6 +579,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={hipsInput}
                         onChangeText={(text) => setHipsInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder="—"
@@ -625,6 +632,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                   style={styles.styleNotesInput}
                   value={stylePreferencesValue}
                   onChangeText={setStylePreferencesValue}
+                  onFocus={scrollFieldIntoView}
                   placeholder={t('onboarding.stylePreferencesStep.placeholder')}
                   placeholderTextColor={colors.textMuted}
                   multiline
