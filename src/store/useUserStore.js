@@ -154,25 +154,16 @@ export const useUserStore = create(
       // Shopping Copilot, Capsule Score detail, calendar integrations,
       // Planner's day cap, Export to Calendar) reads this one flag.
       //
-      // TEMPORARY — defaulted to `true` for real-device Pro QA (every
-      // paywalled flow needs to be exercised without a real purchase to
-      // trigger it). Flip back to `false` once that pass is done, or sooner
-      // if the store's own `merge` below feels like it's fighting you: this
-      // value is also explicitly exempted from persistence there, so a
-      // device that already ran the app with the OLD `false` default can't
-      // have a stale AsyncStorage copy silently keep overriding this one on
-      // every relaunch — every launch re-derives `isPro` from THIS literal,
-      // never from disk. `setIsPro` (ProfileScreen's `__DEV__`-gated
-      // "Toggle Pro" row) still works normally for flipping to the free
-      // tier mid-session to check a specific paywall; it just won't survive
-      // an app restart while this default is `true`, by the same
-      // mechanism. There's no real IAP/subscription receipt validation
-      // wired up yet — swap this whole stub for a real entitlement check
-      // (App Store/Play receipt, RevenueCat, a `subscriptions` table row,
-      // whichever gets picked) without touching any of the call sites that
-      // already read `isPro` — they only care about the boolean, never how
-      // it got set.
-      isPro: true,
+      // `false` until fetchProfile() below loads the real `users.is_pro`
+      // column (set by supabase/functions/platega-webhook once a Platega
+      // checkout actually confirms — see src/services/paymentService.js and
+      // PricingScreen.js). Excluded from persistence in `merge` below on
+      // purpose: this should always come from a fresh server read, never a
+      // stale AsyncStorage copy from a previous session. `setIsPro`
+      // (ProfileScreen's `__DEV__`-gated "Toggle Pro" row) still works for
+      // flipping tiers mid-session to check a specific paywall; it just
+      // won't survive an app restart, by the same mechanism.
+      isPro: false,
 
       // Session-only — sets isLoggedIn/user from the Supabase session.
       // Deliberately does NOT touch profile fields (gender, etc.): that's
@@ -270,6 +261,9 @@ export const useUserStore = create(
           bonusWardrobeSlots: row.bonus_wardrobe_slots ?? 0,
           bonusChatMessages: row.bonus_chat_messages ?? 0,
           pushToken: row.expo_push_token || null,
+          // Real entitlement, from platega-webhook's write — see this
+          // field's own comment above `isPro: false`.
+          isPro: row.is_pro ?? false,
           profileSyncError: null,
         });
       },
@@ -530,14 +524,14 @@ export const useUserStore = create(
       storage: createJSONStorage(() => AsyncStorage),
       // `isPro` is deliberately excluded from whatever's on disk — the
       // default zustand `persist` merge is `{ ...currentState,
-      // ...persistedState }` (persisted wins), which is exactly what would
-      // let an old, already-installed `isPro: false` sitting in AsyncStorage
-      // from before this file's own default flipped to `true` keep
-      // silently winning on every relaunch, no matter what this file says.
+      // ...persistedState }` (persisted wins), which would let a stale
+      // AsyncStorage copy from a previous session silently outrank a fresh
+      // `fetchProfile()` read of `users.is_pro` on the very next relaunch.
       // Dropping the persisted copy of just this one key means `isPro`
-      // always comes from the fresh initial state above (or a `setIsPro`
-      // call made earlier THIS session) — every other field still merges
-      // and rehydrates exactly as before.
+      // always comes from the initial `false` default above until
+      // fetchProfile (or a `setIsPro` call made earlier THIS session)
+      // overwrites it — every other field still merges and rehydrates
+      // exactly as before.
       merge: (persistedState, currentState) => {
         const { isPro: _persistedIsPro, ...rest } = persistedState || {};
         return { ...currentState, ...rest };

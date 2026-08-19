@@ -385,6 +385,12 @@ verify_jwt = false
 # instead (see the function's own comment).
 verify_jwt = false
 
+[functions.platega-webhook]
+# Platega's own status callback carries no Supabase JWT either — identity
+# here is the X-MerchantId/X-Secret pair the function checks itself (see
+# its own header comment), not Supabase's.
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
