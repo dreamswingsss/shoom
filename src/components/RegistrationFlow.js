@@ -203,9 +203,6 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
   const weightValue = Number(weightInput);
   const heightOutOfRange = heightInput.length > 0 && (heightValue < HEIGHT_MIN_CM || heightValue > HEIGHT_MAX_CM);
   const weightOutOfRange = weightInput.length > 0 && (weightValue < WEIGHT_MIN_KG || weightValue > WEIGHT_MAX_KG);
-  // Computed once, reused across all four Body Measurements fields — same
-  // translated "cm"/"in" string every field's own unit suffix shows.
-  const measurementUnitLabel = t(measurementUnitValue === 'cm' ? 'common.units.cm' : 'common.units.in');
 
   const stepKey = stepKeys[stepIndex];
   const isLastStep = stepIndex === stepKeys.length - 1;
@@ -331,7 +328,22 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      // `animationType="fade"`, not the previous `"slide"` — react-native-
+      // web's own ModalAnimation.js implements the slide-in transition with
+      // a real CSS `transform` on this Modal's outer wrapper (`translateY`,
+      // even the RESTING value after the animation finishes is still a
+      // literal `transform: translateY(0%)`, not `transform: none`). ANY
+      // non-`none` `transform` on an ancestor creates a new containing
+      // block for `position: fixed` descendants — that's what was making
+      // every "fixed" footer/button inside this Modal (the Continue button
+      // included) anchor to THIS wrapper's box instead of the real browser
+      // viewport, which is exactly the classic iOS Safari "position:fixed
+      // swims/jumps when the on-screen keyboard opens" bug. `"fade"`'s own
+      // animation (see ModalAnimation.js's `fadeIn`/`fadeOut`) only ever
+      // touches `opacity`, never `transform`, so it doesn't create that
+      // containing block at all — the Continue button now genuinely
+      // anchors to the real viewport and stays put when the keyboard opens.
+      animationType="fade"
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
@@ -518,70 +530,28 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                   })}
                 </View>
 
-                <View style={styles.bodyMeasurementsGrid}>
-                  <View style={styles.bodyMeasurementField}>
-                    <View style={styles.inputRow}>
-                      <TextInput
-                        style={styles.input}
-                        value={shouldersInput}
-                        onChangeText={(text) => setShouldersInput(filterDigits(text))}
-                        keyboardType="numeric"
-                        maxLength={3}
-                        placeholder="—"
-                        placeholderTextColor={colors.textMuted}
-                      />
-                      {shouldersInput.length > 0 && <Text style={styles.inputUnit}>{measurementUnitLabel}</Text>}
-                    </View>
-                    <Text style={styles.bodyMeasurementLabel}>{t('profile.fields.shoulders')}</Text>
-                  </View>
-
-                  <View style={styles.bodyMeasurementField}>
-                    <View style={styles.inputRow}>
-                      <TextInput
-                        style={styles.input}
-                        value={chestInput}
-                        onChangeText={(text) => setChestInput(filterDigits(text))}
-                        keyboardType="numeric"
-                        maxLength={3}
-                        placeholder="—"
-                        placeholderTextColor={colors.textMuted}
-                      />
-                      {chestInput.length > 0 && <Text style={styles.inputUnit}>{measurementUnitLabel}</Text>}
-                    </View>
-                    <Text style={styles.bodyMeasurementLabel}>{t('profile.fields.chest')}</Text>
-                  </View>
-
-                  <View style={styles.bodyMeasurementField}>
-                    <View style={styles.inputRow}>
-                      <TextInput
-                        style={styles.input}
-                        value={waistInput}
-                        onChangeText={(text) => setWaistInput(filterDigits(text))}
-                        keyboardType="numeric"
-                        maxLength={3}
-                        placeholder="—"
-                        placeholderTextColor={colors.textMuted}
-                      />
-                      {waistInput.length > 0 && <Text style={styles.inputUnit}>{measurementUnitLabel}</Text>}
-                    </View>
-                    <Text style={styles.bodyMeasurementLabel}>{t('profile.fields.waist')}</Text>
-                  </View>
-
-                  <View style={styles.bodyMeasurementField}>
-                    <View style={styles.inputRow}>
-                      <TextInput
-                        style={styles.input}
-                        value={hipsInput}
-                        onChangeText={(text) => setHipsInput(filterDigits(text))}
-                        keyboardType="numeric"
-                        maxLength={3}
-                        placeholder="—"
-                        placeholderTextColor={colors.textMuted}
-                      />
-                      {hipsInput.length > 0 && <Text style={styles.inputUnit}>{measurementUnitLabel}</Text>}
-                    </View>
-                    <Text style={styles.bodyMeasurementLabel}>{t('profile.fields.hips')}</Text>
-                  </View>
+                <View style={styles.bodyMeasurementsList}>
+                  <BodyMeasurementRow
+                    label={t('profile.fields.shoulders')}
+                    value={shouldersInput}
+                    onChangeText={(text) => setShouldersInput(filterDigits(text))}
+                  />
+                  <BodyMeasurementRow
+                    label={t('profile.fields.chest')}
+                    value={chestInput}
+                    onChangeText={(text) => setChestInput(filterDigits(text))}
+                  />
+                  <BodyMeasurementRow
+                    label={t('profile.fields.waist')}
+                    value={waistInput}
+                    onChangeText={(text) => setWaistInput(filterDigits(text))}
+                  />
+                  <BodyMeasurementRow
+                    label={t('profile.fields.hips')}
+                    value={hipsInput}
+                    onChangeText={(text) => setHipsInput(filterDigits(text))}
+                    last
+                  />
                 </View>
               </View>
             )}
@@ -731,6 +701,29 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
         </RegistrationFlowRoot>
       </SafeAreaProvider>
     </Modal>
+  );
+}
+
+// One row of the Body Measurements step — label left, numeral right, same
+// hairline-row idiom EditProfileScreen's own NumberRow uses, swapped in for
+// the previous 2x2 grid (shoulders/chest side by side, waist/hips side by
+// side) per the client's own request: a single stacked column instead. No
+// per-row unit suffix either — the cm/in choice is made ONCE via the
+// segmented toggle above this list, not repeated next to every number.
+function BodyMeasurementRow({ label, value, onChangeText, last }) {
+  return (
+    <View style={[styles.bodyMeasurementRow, last && styles.bodyMeasurementRowLast]}>
+      <Text style={styles.bodyMeasurementRowLabel}>{label}</Text>
+      <TextInput
+        style={styles.bodyMeasurementRowInput}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType="numeric"
+        maxLength={3}
+        placeholder="—"
+        placeholderTextColor={colors.textMuted}
+      />
+    </View>
   );
 }
 
@@ -964,19 +957,28 @@ const styles = StyleSheet.create({
   inputUnit: { fontSize: 13, fontWeight: '500', color: colors.textSecondary, marginBottom: spacing.xs },
   fieldError: { fontSize: 11, color: colors.danger, marginTop: 4, textAlign: 'center' },
 
-  // Body Measurements step — same boxed-numeral `input`/`inputRow` styling
-  // as the height/weight fields above, but 2-per-row (`bodyMeasurementField`
-  // at ~38% width, not `field`'s 60%) since 4 stacked fields would run
-  // noticeably taller than this one screen wants.
-  bodyMeasurementsGrid: {
+  // Body Measurements step — single stacked column (label left, numeral
+  // right, hairline row) instead of a 2x2 grid, same idiom
+  // EditProfileScreen's own NumberRow uses. No per-row unit suffix — the
+  // cm/in choice lives once in the segmented toggle above this list.
+  bodyMeasurementsList: { marginTop: spacing.md },
+  bodyMeasurementRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    paddingVertical: spacing.sm,
   },
-  bodyMeasurementField: { width: '38%', alignItems: 'center' },
-  bodyMeasurementLabel: { fontSize: 11, fontWeight: '600', color: colors.textSecondary, marginTop: spacing.xs },
+  bodyMeasurementRowLast: { borderBottomWidth: 0 },
+  bodyMeasurementRowLabel: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },
+  bodyMeasurementRowInput: {
+    color: colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'right',
+    minWidth: 60,
+  },
 
   // Floating, not edge-to-edge — `width: '90%'` + `alignSelf: 'center'`
   // (overriding `buttons.primary`'s own `width: '100%'`, which this style
