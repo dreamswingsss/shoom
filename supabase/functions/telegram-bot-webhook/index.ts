@@ -25,6 +25,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
 const WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '';
 const MINI_APP_URL = Deno.env.get('TELEGRAM_MINI_APP_URL') ?? 'https://shoom-dusky.vercel.app';
+// Same id broadcast-notification/index.ts already gates on — shared
+// secret, not re-set separately for this function.
+const ADMIN_TELEGRAM_ID = Deno.env.get('ADMIN_TELEGRAM_ID') ?? '';
 // Payment-provider review requirement — Privacy Policy/Terms must be
 // reachable from a permanent button in the bot itself, not just linked
 // once somewhere. Same two telegra.ph pages ProfileScreen's "Документы и
@@ -93,6 +96,139 @@ async function sendWelcomePhoto(chatId: number, caption: string): Promise<void> 
   });
 }
 
+// Plain sendMessage, optionally with an inline keyboard — /broadcast's own
+// "Кнопка: label | url" line (see parseBroadcastCommand below) is what
+// fills the `button` argument; every other admin reply here just omits it.
+async function sendPlainMessage(
+  chatId: number,
+  text: string,
+  button?: { label: string; url: string }
+): Promise<boolean> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        ...(button
+          ? { reply_markup: { inline_keyboard: [[{ text: button.label, url: button.url }]] } }
+          : {}),
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Telegram's own rate limit is ~30 messages/second to distinct chats — this
+// app has nowhere near enough users yet to need a real queue, same
+// reasoning as broadcast-notification/index.ts's own BATCH_SIZE.
+const BROADCAST_BATCH_SIZE = 20;
+const BROADCAST_BATCH_PAUSE_MS = 1000;
+
+// Admin-only — typed directly into the bot chat, no need to open the Mini
+// App's own admin screen. Replies with the same headline counts a manual
+// `select count(*) ... from users` in the Supabase SQL editor would give.
+async function handleStatsCommand(chatId: number): Promise<void> {
+  const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Four cheap `head: true` count queries rather than one hand-written SQL
+  // function — no migration needed, and this is a low-traffic admin command,
+  // not a hot path worth a single round trip for.
+  const [total, telegramLinked, pro, newLast7Days] = await Promise.all([
+    adminClient.from('users').select('id', { count: 'exact', head: true }),
+    adminClient.from('users').select('id', { count: 'exact', head: true }).not('telegram_id', 'is', null),
+    adminClient.from('users').select('id', { count: 'exact', head: true }).eq('is_pro', true),
+    adminClient.from('users').select('id', { count: 'exact', head: true }).gt('created_at', sevenDaysAgo),
+  ]);
+
+  const firstError = [total, telegramLinked, pro, newLast7Days].find((r) => r.error)?.error;
+  if (firstError) {
+    await sendPlainMessage(chatId, `Не удалось получить статистику: ${firstError.message}`);
+    return;
+  }
+
+  await sendPlainMessage(
+    chatId,
+    `Пользователи Shoom\n\n` +
+      `Всего аккаунтов: ${total.count ?? '—'}\n` +
+      `Через Telegram: ${telegramLinked.count ?? '—'}\n` +
+      `С активной подпиской Pro: ${pro.count ?? '—'}\n` +
+      `Новых за 7 дней: ${newLast7Days.count ?? '—'}`
+  );
+}
+
+// Parses everything after "/broadcast" into a message body plus an
+// OPTIONAL button, on one line at the end shaped
+// "Кнопка: Текст кнопки | https://ссылка" — one message, no multi-step
+// conversation state to track in this stateless webhook. Returns null body
+// when there's nothing to send (bare "/broadcast" with no text), so the
+// caller can reply with usage instead of sending an empty broadcast.
+function parseBroadcastCommand(text: string): { body: string | null; button?: { label: string; url: string } } {
+  const afterCommand = text.replace(/^\/broadcast(@\w+)?/, '').trim();
+  if (!afterCommand) return { body: null };
+
+  const lines = afterCommand.split('\n');
+  const lastLine = lines[lines.length - 1];
+  const buttonMatch = lastLine.match(/^кнопка:\s*(.+?)\s*\|\s*(https?:\/\/\S+)\s*$/i);
+
+  if (buttonMatch) {
+    const body = lines.slice(0, -1).join('\n').trim();
+    return { body: body || null, button: { label: buttonMatch[1], url: buttonMatch[2] } };
+  }
+  return { body: afterCommand };
+}
+
+// Admin-only. Same recipient query as broadcast-notification/index.ts
+// (telegram_id set + notifications_enabled=true) — this command exists
+// specifically so a broadcast with a button doesn't need the app's own
+// admin screen (ProfileScreen's broadcast row calls that Edge Function
+// directly, plain text only, no button support).
+async function handleBroadcastCommand(chatId: number, text: string): Promise<void> {
+  const { body, button } = parseBroadcastCommand(text);
+  if (!body) {
+    await sendPlainMessage(
+      chatId,
+      'Формат:\n/broadcast Текст рассылки\n\n' +
+        'С кнопкой — последней строкой:\n/broadcast Текст рассылки\nКнопка: Текст кнопки | https://ссылка'
+    );
+    return;
+  }
+
+  const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const { data: recipients, error } = await adminClient
+    .from('users')
+    .select('telegram_id')
+    .eq('notifications_enabled', true)
+    .not('telegram_id', 'is', null);
+  if (error) {
+    await sendPlainMessage(chatId, `Не удалось получить получателей: ${error.message}`);
+    return;
+  }
+
+  const chatIds = (recipients ?? []).map((row) => row.telegram_id as number);
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < chatIds.length; i += BROADCAST_BATCH_SIZE) {
+    const batch = chatIds.slice(i, i + BROADCAST_BATCH_SIZE);
+    const results = await Promise.all(batch.map((id) => sendPlainMessage(id, body, button)));
+    for (const ok of results) {
+      if (ok) sent += 1;
+      else failed += 1;
+    }
+    if (i + BROADCAST_BATCH_SIZE < chatIds.length) await sleep(BROADCAST_BATCH_PAUSE_MS);
+  }
+
+  await sendPlainMessage(chatId, `Разослано: ${sent}${failed ? `, ошибок: ${failed}` : ''}`);
+}
+
 Deno.serve(async (req) => {
   // Telegram doesn't sign webhook bodies — this shared-secret header
   // (set once via setWebhook's own `secret_token` param, see this file's
@@ -114,6 +250,21 @@ Deno.serve(async (req) => {
     // needs a plain 200 so Telegram doesn't mistake "we chose not to reply"
     // for "delivery failed" and keep resending the same update.
     if (chatId && typeof message?.text === 'string') {
+      const isAdmin = Boolean(ADMIN_TELEGRAM_ID) && senderId && String(senderId) === ADMIN_TELEGRAM_ID;
+
+      // Admin-only commands, typed straight into the bot chat — checked
+      // before the referral/welcome-photo path below, and short-circuits
+      // it entirely (no reason a stats/broadcast command should ALSO get
+      // the welcome photo back).
+      if (isAdmin && /^\/stats(@\w+)?/.test(message.text)) {
+        await handleStatsCommand(chatId);
+        return new Response('OK', { status: 200 });
+      }
+      if (isAdmin && /^\/broadcast(@\w+)?/.test(message.text)) {
+        await handleBroadcastCommand(chatId, message.text);
+        return new Response('OK', { status: 200 });
+      }
+
       // Referral link is `/start ref_<referrer's telegram_id>` — logged
       // here (the bot side, which sees every /start regardless of whether
       // the client ever opens the Mini App) rather than only in the Mini
