@@ -420,6 +420,8 @@
       }
     },
     "confirm": {
+      "name": "Название",
+      "namePlaceholder": "Например, Футболка",
       "category": "Категория",
       "color": "Цвет"
     },
@@ -621,8 +623,17 @@
     "deleteErrorTitle": "Не удалось удалить вещь",
     "deleting": "Удаляем...",
     "deleted": "Вещь удалена",
+    "editNameLabel": "Название",
+    "editNamePlaceholder": "Например, Футболка",
     "editCategoryLabel": "Категория",
     "editColorLabel": "Цвет",
+    "measurementsTitle": "Замеры",
+    "editLength": "Длина",
+    "editWidth": "Ширина",
+    "editSleeveLength": "Длина рукава",
+    "editInseam": "Длина штанины",
+    "editLegOpening": "Ширина низа (выход)",
+    "editWaist": "Ширина пояса",
     "editSave": "Сохранить",
     "editCancel": "Отмена",
     "notFound": "Этой вещи больше нет в вашем гардеробе."

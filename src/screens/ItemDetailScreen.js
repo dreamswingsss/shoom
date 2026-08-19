@@ -1,5 +1,15 @@
 import { useLayoutEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, Modal, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Modal,
+  StyleSheet,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -17,6 +27,45 @@ import { useToast } from '../hooks/useToast';
 import { agreeColorWithNoun } from '../utils/colorAgreement';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+
+// Cut measurements the AI scan never asks about — length/width/sleeve
+// length for a Top, inseam/leg opening/waist for a pair of Bottoms. Kept as
+// one `measurements` jsonb object server-side (see 0012_item_measurements.sql),
+// same convention public.users.measurements already uses for shoulders/
+// chest/waist/hips, but the six possible keys are all tracked as plain
+// strings here while editing — TextInput needs a string `value` regardless
+// of what's actually stored, and going through the same string round-trip
+// on every field (even ones the item never had) means switching category
+// mid-edit never has to reconcile two different draft shapes.
+const TOP_MEASUREMENT_KEYS = ['length', 'width', 'sleeveLength'];
+const BOTTOM_MEASUREMENT_KEYS = ['inseam', 'legOpening', 'waist'];
+
+function toInputString(value) {
+  return value != null ? String(value) : '';
+}
+
+function draftMeasurementsFrom(measurements) {
+  const source = measurements || {};
+  const drafts = {};
+  [...TOP_MEASUREMENT_KEYS, ...BOTTOM_MEASUREMENT_KEYS].forEach((key) => {
+    drafts[key] = toInputString(source[key]);
+  });
+  return drafts;
+}
+
+// Inverse of draftMeasurementsFrom — a blank field is dropped entirely
+// rather than saved as an empty string or a stray 0, so clearing a field
+// and saving actually removes that measurement instead of zeroing it out.
+function measurementsPayloadFrom(drafts) {
+  const payload = {};
+  Object.entries(drafts).forEach(([key, raw]) => {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) return;
+    const num = Number(trimmed);
+    if (!Number.isNaN(num)) payload[key] = num;
+  });
+  return payload;
+}
 
 export default function ItemDetailScreen() {
   const { t } = useTranslation();
@@ -38,6 +87,8 @@ export default function ItemDetailScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [draftCategory, setDraftCategory] = useState(item?.category);
   const [draftColor, setDraftColor] = useState(item?.color);
+  const [draftSubcategory, setDraftSubcategory] = useState(item?.subcategory || '');
+  const [draftMeasurements, setDraftMeasurements] = useState(draftMeasurementsFrom(item?.measurements));
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDone, setDeleteDone] = useState(false);
   const { confirm, dialogProps, closeDialog, handleConfirm } = useConfirm();
@@ -47,6 +98,8 @@ export default function ItemDetailScreen() {
     triggerHaptic();
     setDraftCategory(item.category);
     setDraftColor(item.color);
+    setDraftSubcategory(item.subcategory || '');
+    setDraftMeasurements(draftMeasurementsFrom(item.measurements));
     setIsEditing(true);
   }
 
@@ -55,9 +108,22 @@ export default function ItemDetailScreen() {
     setIsEditing(false);
   }
 
+  function updateDraftMeasurement(key, value) {
+    setDraftMeasurements((prev) => ({ ...prev, [key]: value }));
+  }
+
   function handleEditSave() {
     triggerHaptic();
-    updateItem(item.id, { category: draftCategory, color: draftColor });
+    // Falls back to the item's current name rather than saving a blank one
+    // if the client clears the field entirely — same defensive fallback
+    // measurementsPayloadFrom applies per-field for the measurement inputs.
+    const trimmedName = draftSubcategory.trim();
+    updateItem(item.id, {
+      category: draftCategory,
+      color: draftColor,
+      subcategory: trimmedName || item.subcategory,
+      measurements: measurementsPayloadFrom(draftMeasurements),
+    });
     setIsEditing(false);
   }
 
@@ -202,7 +268,16 @@ export default function ItemDetailScreen() {
 
           {isEditing ? (
             <View style={styles.editPanel}>
-              <Text style={styles.editLabel}>{t('itemDetail.editCategoryLabel')}</Text>
+              <Text style={styles.editLabel}>{t('itemDetail.editNameLabel')}</Text>
+              <TextInput
+                style={styles.editNameInput}
+                value={draftSubcategory}
+                onChangeText={setDraftSubcategory}
+                placeholder={t('itemDetail.editNamePlaceholder')}
+                placeholderTextColor={colors.textMuted}
+              />
+
+              <Text style={[styles.editLabel, styles.editLabelSpaced]}>{t('itemDetail.editCategoryLabel')}</Text>
               <ChipPicker
                 options={CATEGORIES}
                 value={draftCategory}
@@ -217,6 +292,61 @@ export default function ItemDetailScreen() {
                 onSelect={setDraftColor}
                 getLabel={(option) => t(`closet.colors.${option}`)}
               />
+
+              {/* Cut measurements the AI scan never asks about — Tops get
+                  length/width/sleeve length, Bottoms get inseam/leg opening/
+                  waist. Keyed off `draftCategory` (not `item.category`) so
+                  switching category mid-edit swaps which three fields show
+                  without needing a Save first. */}
+              {draftCategory === 'Tops' && (
+                <>
+                  <Text style={[styles.editLabel, styles.editLabelSpaced]}>
+                    {t('itemDetail.measurementsTitle')}
+                  </Text>
+                  <View style={styles.measurementsGrid}>
+                    <MeasurementField
+                      label={t('itemDetail.editLength')}
+                      value={draftMeasurements.length}
+                      onChangeText={(value) => updateDraftMeasurement('length', value)}
+                    />
+                    <MeasurementField
+                      label={t('itemDetail.editWidth')}
+                      value={draftMeasurements.width}
+                      onChangeText={(value) => updateDraftMeasurement('width', value)}
+                    />
+                    <MeasurementField
+                      label={t('itemDetail.editSleeveLength')}
+                      value={draftMeasurements.sleeveLength}
+                      onChangeText={(value) => updateDraftMeasurement('sleeveLength', value)}
+                    />
+                  </View>
+                </>
+              )}
+
+              {draftCategory === 'Bottoms' && (
+                <>
+                  <Text style={[styles.editLabel, styles.editLabelSpaced]}>
+                    {t('itemDetail.measurementsTitle')}
+                  </Text>
+                  <View style={styles.measurementsGrid}>
+                    <MeasurementField
+                      label={t('itemDetail.editInseam')}
+                      value={draftMeasurements.inseam}
+                      onChangeText={(value) => updateDraftMeasurement('inseam', value)}
+                    />
+                    <MeasurementField
+                      label={t('itemDetail.editLegOpening')}
+                      value={draftMeasurements.legOpening}
+                      onChangeText={(value) => updateDraftMeasurement('legOpening', value)}
+                    />
+                    <MeasurementField
+                      label={t('itemDetail.editWaist')}
+                      value={draftMeasurements.waist}
+                      onChangeText={(value) => updateDraftMeasurement('waist', value)}
+                    />
+                  </View>
+                </>
+              )}
 
               <View style={styles.editActions}>
                 <TouchableOpacity style={styles.editCancelBtn} onPress={handleEditCancel} activeOpacity={0.8}>
@@ -287,6 +417,31 @@ function DeleteStatusOverlay({ visible, done }) {
         </View>
       </View>
     </Modal>
+  );
+}
+
+// One labeled numeric field for the measurements grid — `label` is a short
+// pre-translated string (e.g. "Длина рукава"), the unit suffix ("см") comes
+// straight from `common.units.cm` so it stays in sync with every other
+// centimeter figure in the app rather than a hardcoded literal here.
+function MeasurementField({ label, value, onChangeText }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.measurementField}>
+      <Text style={styles.measurementLabel}>{label}</Text>
+      <View style={styles.measurementInputRow}>
+        <TextInput
+          style={styles.measurementInput}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType="numeric"
+          maxLength={3}
+          placeholder="—"
+          placeholderTextColor={colors.textMuted}
+        />
+        <Text style={styles.measurementUnit}>{t('common.units.cm')}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -378,6 +533,30 @@ const styles = StyleSheet.create({
   },
   editLabel: { ...typography.label },
   editLabelSpaced: { marginTop: spacing.md },
+  editNameInput: {
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  measurementsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+  measurementField: { flexGrow: 1, flexBasis: '30%', minWidth: 90 },
+  measurementLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
+  measurementInputRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderStrong,
+    paddingVertical: spacing.xs,
+  },
+  measurementInput: { flexGrow: 1, fontSize: 16, fontWeight: '700', color: colors.textPrimary, minWidth: 24 },
+  measurementUnit: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   editActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   editCancelBtn: { ...buttons.secondary, flex: 1, paddingVertical: spacing.xs },
   editCancelBtnText: { ...buttons.secondaryText, fontSize: 14 },

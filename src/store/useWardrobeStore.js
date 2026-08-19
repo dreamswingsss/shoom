@@ -55,6 +55,7 @@ function fromRow(row) {
     color: row.color,
     style: row.style,
     description: row.description,
+    measurements: row.measurements || {},
     wornCount: row.worn_count,
     lastWornDate: row.last_worn_date,
   };
@@ -243,7 +244,7 @@ export const useWardrobeStore = create((set, get) => ({
     }
   },
 
-  // ItemDetailScreen's inline edit panel (category/color today).
+  // ItemDetailScreen's inline edit panel (category/color/name/measurements).
   updateItem: async (itemId, patch) => {
     const previousItems = get().items;
     set({
@@ -253,6 +254,8 @@ export const useWardrobeStore = create((set, get) => ({
     const dbPatch = {
       ...(patch.category !== undefined && { category: patch.category }),
       ...(patch.color !== undefined && { color: patch.color }),
+      ...(patch.subcategory !== undefined && { subcategory: patch.subcategory }),
+      ...(patch.measurements !== undefined && { measurements: patch.measurements }),
     };
     const { error } = await supabase.from('clothes').update(dbPatch).eq('id', itemId);
     if (error) set({ items: previousItems, error: error.message });

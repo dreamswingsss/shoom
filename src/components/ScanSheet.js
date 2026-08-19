@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   Image,
   Animated,
@@ -559,7 +560,15 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
 
             {editingDetails && (
               <View style={styles.editFieldsWrap}>
-                <Text style={styles.editFieldLabel}>{t('closet.confirm.category')}</Text>
+                <Text style={styles.editFieldLabel}>{t('closet.confirm.name')}</Text>
+                <TextInput
+                  style={styles.editNameInput}
+                  value={scanResult.subcategory}
+                  onChangeText={(value) => updateResultField('subcategory', value)}
+                  placeholder={t('closet.confirm.namePlaceholder')}
+                  placeholderTextColor={colors.textMuted}
+                />
+                <Text style={[styles.editFieldLabel, styles.editFieldLabelSpaced]}>{t('closet.confirm.category')}</Text>
                 <ChipPicker
                   options={CATEGORIES}
                   value={scanResult.category}
@@ -748,6 +757,17 @@ const styles = StyleSheet.create({
   editFieldsWrap: { marginBottom: spacing.sm },
   editFieldLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
   editFieldLabelSpaced: { marginTop: spacing.sm },
+  editNameInput: {
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
 
   errorBox: {
     padding: spacing.sm,
