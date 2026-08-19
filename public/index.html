@@ -3,7 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <!-- `maximum-scale=1, user-scalable=no` — without these, focusing a
+         text field on this Telegram Mini App WebView could trigger the
+         browser's own "zoom in on the focused input" behavior, which reads
+         as the whole screen suddenly scaling up/down and the layout
+         (Continue button included) jumping around as the keyboard opens —
+         reported directly against RegistrationFlow's measurement steps.
+         This is a real native app substitute, not a document meant to be
+         pinch-zoomed, so disabling that entirely is the fix, not something
+         to work around per-field. `interactive-widget=resizes-content` is
+         the modern (Chromium-only; harmlessly ignored elsewhere) hint that
+         an on-screen keyboard should shrink the visual viewport rather than
+         overlay it un-announced — keeps position:fixed content (every
+         Modal/BottomSheet in this app) working with the keyboard instead of
+         guessing. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, interactive-widget=resizes-content"
+    />
     <title>MyApp</title>
     <!-- Temporary payment-provider verification codeword, requested during
          bank approval — safe to remove once the kassa is registered (see
