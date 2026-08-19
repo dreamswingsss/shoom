@@ -19,6 +19,7 @@ import {
   filterDigits,
 } from '../constants/profileOptions';
 import { colors, spacing, radius, typography, buttons, opacity as opacityTokens } from '../theme/tokens';
+import { scrollFieldIntoView } from '../utils/scrollFieldIntoView';
 
 const HEIGHT_MIN_CM = 90;
 const HEIGHT_MAX_CM = 250;
@@ -360,7 +361,22 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
           `react-native-safe-area-context`'s own documented workaround for
           RN's `Modal`, not a project-specific hack. */}
       <SafeAreaProvider>
-        <RegistrationFlowRoot>
+        <RegistrationFlowRoot
+          footer={
+            stepKey !== 'google' && (
+              <TouchableOpacity
+                style={[buttons.primary, !stepReady && buttons.disabled, styles.continueBtn]}
+                onPress={handleContinue}
+                disabled={!stepReady || isTransitioning}
+                activeOpacity={0.85}
+              >
+                <Text style={buttons.primaryText}>
+                  {isLastStep ? t('onboarding.buttons.finish') : t('onboarding.buttons.continue')}
+                </Text>
+              </TouchableOpacity>
+            )
+          }
+        >
         <View style={styles.header}>
           {stepIndex > 0 ? (
             <TouchableOpacity
@@ -443,6 +459,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={heightInput}
                         onChangeText={(text) => setHeightInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder={t('closet.scan.calibration.heightPlaceholder')}
@@ -465,6 +482,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                         style={styles.input}
                         value={weightInput}
                         onChangeText={(text) => setWeightInput(filterDigits(text))}
+                        onFocus={scrollFieldIntoView}
                         keyboardType="numeric"
                         maxLength={3}
                         placeholder={t('closet.scan.calibration.weightPlaceholder')}
@@ -595,6 +613,7 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
                   style={styles.styleNotesInput}
                   value={stylePreferencesValue}
                   onChangeText={setStylePreferencesValue}
+                  onFocus={scrollFieldIntoView}
                   placeholder={t('onboarding.stylePreferencesStep.placeholder')}
                   placeholderTextColor={colors.textMuted}
                   multiline
@@ -685,19 +704,6 @@ export default function RegistrationFlow({ visible, onClose, initialGender, isLo
             )}
           </Animated.View>
         </ScrollView>
-
-        {stepKey !== 'google' && (
-          <TouchableOpacity
-            style={[buttons.primary, !stepReady && buttons.disabled, styles.continueBtn]}
-            onPress={handleContinue}
-            disabled={!stepReady || isTransitioning}
-            activeOpacity={0.85}
-          >
-            <Text style={buttons.primaryText}>
-              {isLastStep ? t('onboarding.buttons.finish') : t('onboarding.buttons.continue')}
-            </Text>
-          </TouchableOpacity>
-        )}
         </RegistrationFlowRoot>
       </SafeAreaProvider>
     </Modal>
@@ -718,6 +724,7 @@ function BodyMeasurementRow({ label, value, onChangeText, last }) {
         style={styles.bodyMeasurementRowInput}
         value={value}
         onChangeText={onChangeText}
+        onFocus={scrollFieldIntoView}
         keyboardType="numeric"
         maxLength={3}
         placeholder="—"
@@ -732,11 +739,26 @@ function BodyMeasurementRow({ label, value, onChangeText, last }) {
 // top of RegistrationFlow itself — a hook reads context from where ITS OWN
 // component sits in the tree, and RegistrationFlow sits ABOVE the Modal's
 // own nested provider, not inside it).
-function RegistrationFlowRoot({ children }) {
+//
+// `footer` (the Continue/Finish button) renders in its own `position:
+// 'fixed'` layer, NOT as a normal flex-flow sibling of `children` the way
+// it used to — a plain flow position left it vulnerable to the on-screen
+// keyboard's viewport resize pushing it up along with everything else
+// (reported directly: "the button shouldn't rise with the keyboard, pin it
+// in place"). `position: 'fixed'` genuinely anchors to the real browser
+// viewport now that the Modal's own `animationType` is `"fade"` (see that
+// prop's own comment — `"slide"` used to leave a `transform` on an
+// ancestor, which creates a new containing block that `fixed` would anchor
+// to INSTEAD of the true viewport). `children` gets its own scrollable
+// area above it, sized to `flex: 1` so it fills whatever's left.
+function RegistrationFlowRoot({ children, footer }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-      {children}
+    <View style={styles.root}>
+      <View style={[styles.rootScrollArea, { paddingTop: insets.top }]}>{children}</View>
+      {footer ? (
+        <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>{footer}</View>
+      ) : null}
     </View>
   );
 }
@@ -747,6 +769,21 @@ const styles = StyleSheet.create({
   // distinct, dedicated screen rather than a raised card floating over the
   // app, matching the mockup's own full-screen registration flow.
   root: { flex: 1, backgroundColor: colors.background },
+  rootScrollArea: { flex: 1 },
+  // Pinned to the real viewport bottom (see RegistrationFlowRoot's own
+  // comment) — `backgroundColor` matches `root` so it reads as one
+  // continuous surface with whatever's scrolled underneath it, not a
+  // floating card. `alignItems: 'center'` centers `continueBtn`'s own 90%
+  // width; `paddingBottom` (safe-area aware) is set inline by the caller.
+  fixedFooter: {
+    position: 'fixed',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    paddingTop: spacing.sm,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -775,7 +812,12 @@ const styles = StyleSheet.create({
   // 'center'` had nothing but its own `minHeight` to center within.
   scrollFlex: { flex: 1 },
   contentFlex: { flex: 1 },
-  scrollWrap: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, flexGrow: 1 },
+  // `paddingBottom: 120` — clears the now-`position: 'fixed'` footer
+  // (button + its own top padding + safe-area bottom padding), which no
+  // longer takes up flex space of its own the way an in-flow sibling
+  // would, so the last row of a tall step (Body Measurements' four fields)
+  // doesn't end up sitting underneath it.
+  scrollWrap: { paddingHorizontal: spacing.md, paddingBottom: 120, flexGrow: 1 },
   // `flex: 1` (on top of the old `minHeight` floor, kept as a safety net
   // for a step shorter than the screen) is what lets the final step's
   // `googleStepBlock` truly center within the full available height instead
@@ -980,15 +1022,14 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
 
-  // Floating, not edge-to-edge — `width: '90%'` + `alignSelf: 'center'`
-  // (overriding `buttons.primary`'s own `width: '100%'`, which this style
-  // object is spread AFTER in the style array) leaves clear side margins
-  // instead of the pill running flush to both screen edges. `marginBottom`
-  // sits on top of the root container's own safe-area bottom padding (see
-  // the root View's inline style), so this never crowds the home
-  // indicator either. Same style object on every non-Google step, so the
+  // Floating, not edge-to-edge — `width: '90%'` (overriding `buttons.
+  // primary`'s own `width: '100%'`, which this style object is spread
+  // AFTER in the style array) leaves clear side margins instead of the
+  // pill running flush to both screen edges. No margin of its own — its
+  // parent `fixedFooter` already supplies top spacing and safe-area-aware
+  // bottom padding. Same style object on every non-Google step, so the
   // button reads identically regardless of which question is showing.
-  continueBtn: { width: '90%', alignSelf: 'center', marginTop: spacing.sm, marginBottom: spacing.sm },
+  continueBtn: { width: '90%' },
 
   // Final step — same icon-chip/title/subtitle/CTA shape ScanSheet's old
   // auth prompt used, centered rather than left-aligned like the other steps.
