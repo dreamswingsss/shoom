@@ -322,31 +322,48 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
     }
   }
 
-  // "Save to Closet" — Deferred Registration's actual gate. Three states:
-  //   1. Guest (no session)              -> authPromptVisible (centered modal)
-  //   2. Signed in, never calibrated      -> registrationVisible (params only, no Google step)
-  //   3. Signed in AND calibrated         -> straight to performSave
+  // "Save to Closet" — Deferred Registration's actual gate. Two states:
+  //   1. Not actually onboarded yet (isLoggedIn false, OR true but
+  //      needsCalibration — see below for why those are the same case now)
+  //                                        -> authPromptVisible (centered modal)
+  //   2. Signed in AND calibrated          -> straight to performSave
   // handleRegistrationSuccess below re-runs after RegistrationFlow finishes
-  // (either via its Google step for a guest, or its own last param step's
-  // Continue for an already-signed-in client), so a fresh sign-up falls
-  // straight through into the save without the client tapping Save twice.
+  // (either via its Google/Telegram step for a guest, or its own last param
+  // step's Continue for an already-signed-in client), so a fresh sign-up
+  // falls straight through into the save without the client tapping Save
+  // twice.
   //
-  // The guest check is THE FIRST STATEMENT in this function, before any
-  // other read or side effect — no loader, no store/DB call, nothing —
+  // `isLoggedIn` alone used to gate straight past authPromptVisible into
+  // needsCalibration's own branch (which opens RegistrationFlow directly,
+  // no intro screen) — that was correct back when isLoggedIn only ever
+  // became true after an explicit sign-in tap. useSupabaseAuthSync's
+  // bootstrap() now silently exchanges the Telegram Mini App's own
+  // initData for a session the INSTANT the app opens (see that file's own
+  // comment), before the client has done anything at all — so by the time
+  // a brand-new guest reaches this Save tap, `isLoggedIn` is already true
+  // and `needsCalibration` is also true (nothing filled in yet), and this
+  // function used to skip straight into RegistrationFlow with no "you're
+  // not set up yet, want to continue?" interstitial ever shown — reported
+  // as "the registration steps just start, no menu first." Treating
+  // `needsCalibration` the same as `!isLoggedIn` here — both go through
+  // authPromptVisible first — is what restores that intro screen for the
+  // realistic case (auto-signed-in Telegram guest) as well as the
+  // fallback case (Telegram auto sign-in failed, genuinely no session).
+  //
+  // This combined check is THE FIRST STATEMENT in this function, before
+  // any other read or side effect — no loader, no store/DB call, nothing —
   // touches state before it. `saving` only ever flips true inside
-  // performSave(), which this returns before a guest can ever reach, so
-  // there's no ordering that could leave a guest looking at a stuck
-  // spinner in THIS function's own logic. `setSaving(false)` in the guest
-  // branch below is still explicit, not just implied by that ordering —
-  // belt-and-suspenders for the exact class of bug that caused the earlier
-  // freeze report (a `saving: true` left stuck from a previous open/attempt
+  // performSave(), which this returns before reaching, so there's no
+  // ordering that could leave a not-yet-onboarded client looking at a
+  // stuck spinner in THIS function's own logic. `setSaving(false)` below
+  // is still explicit, not just implied by that ordering — belt-and-
+  // suspenders for the exact class of bug that caused the earlier freeze
+  // report (a `saving: true` left stuck from a previous open/attempt
   // permanently disabling the Save button, since it's `disabled={saving}}`
   // — see the reset-on-visible effect's own comment above for where that
-  // actually got fixed). A guest tapping Save is now guaranteed un-stuck
-  // regardless of whatever `saving` happened to be a moment before.
-  // Both gated branches below go through `dismissingSheet` instead of
-  // opening the next interstitial in the same tick: flipping
-  // `authPromptVisible`/`registrationVisible` immediately (the original
+  // actually got fixed).
+  // Goes through `dismissingSheet` instead of opening the next interstitial
+  // in the same tick: flipping `authPromptVisible` immediately (an earlier
   // version of this function) computed `sheetVisible` (see below) false in
   // that SAME render, and since react-native-web's `<Modal>` on this sheet
   // stops rendering the instant its `visible` prop goes false, that read as
@@ -356,7 +373,7 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
   // `SLIDE_MS` export) has actually had time to play — one thing leaves,
   // then the next flies in, instead of a cut.
   function handleSave() {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || needsCalibration) {
       setSaving(false);
       setDismissingSheet(true);
       setTimeout(() => {
@@ -367,15 +384,6 @@ export default function ScanSheet({ visible, onClose, onSave, palette }) {
     }
 
     if (saving || !scanResult) return;
-
-    if (needsCalibration) {
-      setDismissingSheet(true);
-      setTimeout(() => {
-        setDismissingSheet(false);
-        setRegistrationVisible(true);
-      }, SLIDE_MS);
-      return;
-    }
 
     performSave();
   }
