@@ -278,23 +278,24 @@ export default function ProfileScreen({ navigation, route }) {
   // only does the server-side deletion now — finalizeAccountDeletion() (the
   // actual signOut() + store-clear) fires on a short delay AFTER the
   // DeleteAccountStatusOverlay below has shown its checkmark, not
-  // immediately: finalizeAccountDeletion() flips useUserStore straight to
-  // logged-out, and the SIGNED_OUT event it triggers (useSupabaseAuthSync's
-  // own listener) is what makes App.js swap this whole screen out for
-  // OnboardingScreen — doing that instantly, in the same tick as the
-  // success response, used to unmount ProfileScreen before any confirmation
-  // could ever paint, which read as "the screen just changed underneath me
-  // with no acknowledgement it worked." `isDeleting` stays true across both
-  // steps (the overlay owns showing progress vs. done via `deleteAccountDone`)
-  // so there's exactly one continuous overlay, not a flash back to the
-  // normal screen between them.
+  // immediately, so the "Аккаунт успешно удалён" confirmation actually gets
+  // a moment on screen instead of being clobbered by the store-clear in the
+  // same tick. NOTE this screen does NOT navigate away on its own — App.js's
+  // root routing gate is `!hasCompletedWelcome` (see its own comment),
+  // untouched by logout()/finalizeAccountDeletion(), so ProfileScreen stays
+  // mounted the whole time. That means `isDeleting`/`deleteAccountDone`
+  // MUST be reset back to false once the hold is over — leaving them true
+  // is what left the checkmark card stuck on screen forever after a
+  // successful delete, reported as "the picture just stays there."
   async function performDeleteAccount() {
     setIsDeleting(true);
     try {
       await deleteAccount();
       setDeleteAccountDone(true);
-      setTimeout(() => {
-        finalizeAccountDeletion();
+      setTimeout(async () => {
+        await finalizeAccountDeletion();
+        setIsDeleting(false);
+        setDeleteAccountDone(false);
       }, 900);
     } catch (err) {
       // `err.message` is now the REAL server-side reason (see
