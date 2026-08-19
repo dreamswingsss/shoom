@@ -1,7 +1,15 @@
 // Client side of Delete Account — invokes the delete-account Edge Function
 // (supabase/functions/delete-account/index.ts) for the actual server-side
-// deletion, then clears every locally persisted store so a re-login (even
-// as a *different* account, same device) never shows a flash of stale data.
+// deletion. Split into two steps (deleteAccount below, finalizeAccountDeletion
+// further down) rather than one atomic call: finalizeAccountDeletion is what
+// actually signs out and clears every locally persisted store, and doing
+// THAT immediately inside deleteAccount used to unmount ProfileScreen (its
+// user-store subscription drops to nothing the instant logout() runs) before
+// any "account deleted" confirmation the caller wanted to show ever had a
+// chance to paint — the screen would visibly swap out from under the client
+// with no success message, reading as if the delete silently failed or hung.
+// ProfileScreen now calls deleteAccount(), shows its own success state, THEN
+// calls finalizeAccountDeletion() on a short delay — see its own comment.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { useUserStore } from '../store/useUserStore';
@@ -77,10 +85,15 @@ export async function deleteAccount() {
     console.log('[deleteAccount] Edge Function error:', detail, error);
     throw new Error(detail);
   }
+}
 
-  // Session is already gone server-side (the auth user no longer exists) —
-  // this just clears the locally cached tokens so supabase-js stops trying
-  // to refresh them.
+// The actual local sign-out/clear — deliberately NOT part of deleteAccount()
+// above, see that function's own comment for why. Session is already gone
+// server-side by the time this runs (the auth user no longer exists) — this
+// just clears the locally cached tokens so supabase-js stops trying to
+// refresh them, then every locally persisted store, so a re-login (even as
+// a *different* account, same device) never shows a flash of stale data.
+export async function finalizeAccountDeletion() {
   await supabase.auth.signOut();
 
   useWardrobeStore.getState().reset();

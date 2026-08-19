@@ -21,7 +21,7 @@ import { useWardrobeStore } from '../store/useWardrobeStore';
 import { usePlannerStore, getStyleStreak } from '../store/usePlannerStore';
 import { calculateCohesionScore } from '../utils/wardrobeUtils';
 import { supabase } from '../services/supabaseClient';
-import { deleteAccount } from '../services/accountService';
+import { deleteAccount, finalizeAccountDeletion } from '../services/accountService';
 import { sendBroadcast } from '../services/broadcastService';
 import { isAdminTelegramId } from '../utils/admin';
 import { connectGoogleCalendar, disconnectGoogleCalendar } from '../services/googleCalendarService';
@@ -38,6 +38,7 @@ import { colors, cardTints, spacing, radius, shadows, hairline, typography, font
 import EditProfileScreen from './EditProfileScreen';
 import ScreenContainer from '../components/ScreenContainer';
 import ConfirmDialog from '../components/ConfirmDialog';
+import DeleteStatusOverlay from '../components/DeleteStatusOverlay';
 import Toast from '../components/Toast';
 import { getInitials } from '../utils/getInitials';
 
@@ -104,6 +105,7 @@ export default function ProfileScreen({ navigation, route }) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteAccountDone, setDeleteAccountDone] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isConnectingCalendar, setIsConnectingCalendar] = useState(false);
@@ -189,13 +191,6 @@ export default function ProfileScreen({ navigation, route }) {
     Share.share({ message: t('profile.referral.shareMessage', { link, bonus: REFERRAL_BONUS }) }).catch(() => {});
   }
 
-  // App Store Guideline 5.1.1(v) — irreversible, so this confirms once
-  // before doing anything. accountService.deleteAccount() already calls
-  // supabase.auth.signOut() as its last local step, which fires the same
-  // SIGNED_OUT event handleLogout above relies on — useSupabaseAuthSync's
-  // listener clears every store and App.js swaps this screen out for
-  // OnboardingScreen on its own. Nothing to do here on success but let it
-  // happen; isDeleting only needs resetting on the failure path.
   // Dev-only "Reset App Tour" button's handler — WardrobeScreen's own
   // tour-launch effect is gated on `hasSeenAppTour` (what `resetAppTour`
   // flips back to false), so calling that alone from HERE — Profile — used
@@ -278,10 +273,29 @@ export default function ProfileScreen({ navigation, route }) {
     }
   }
 
+  // App Store Guideline 5.1.1(v) — irreversible, so this confirms once
+  // before doing anything (see handleDeleteAccount below). deleteAccount()
+  // only does the server-side deletion now — finalizeAccountDeletion() (the
+  // actual signOut() + store-clear) fires on a short delay AFTER the
+  // DeleteAccountStatusOverlay below has shown its checkmark, not
+  // immediately: finalizeAccountDeletion() flips useUserStore straight to
+  // logged-out, and the SIGNED_OUT event it triggers (useSupabaseAuthSync's
+  // own listener) is what makes App.js swap this whole screen out for
+  // OnboardingScreen — doing that instantly, in the same tick as the
+  // success response, used to unmount ProfileScreen before any confirmation
+  // could ever paint, which read as "the screen just changed underneath me
+  // with no acknowledgement it worked." `isDeleting` stays true across both
+  // steps (the overlay owns showing progress vs. done via `deleteAccountDone`)
+  // so there's exactly one continuous overlay, not a flash back to the
+  // normal screen between them.
   async function performDeleteAccount() {
     setIsDeleting(true);
     try {
       await deleteAccount();
+      setDeleteAccountDone(true);
+      setTimeout(() => {
+        finalizeAccountDeletion();
+      }, 900);
     } catch (err) {
       // `err.message` is now the REAL server-side reason (see
       // accountService.js's own extractFunctionErrorMessage), not the
@@ -709,6 +723,12 @@ export default function ProfileScreen({ navigation, route }) {
         <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
       )}
       <Toast key={toastKey} message={toastMessage} />
+      <DeleteStatusOverlay
+        visible={isDeleting}
+        done={deleteAccountDone}
+        progressText={t('profile.deleteAccount.deleting')}
+        doneText={t('profile.deleteAccount.deleted')}
+      />
     </ScreenContainer>
   );
 }

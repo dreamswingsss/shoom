@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Modal,
   StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -22,6 +21,7 @@ import { ChipPicker } from '../components/ChipPicker';
 import ScreenContainer from '../components/ScreenContainer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
+import DeleteStatusOverlay from '../components/DeleteStatusOverlay';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { agreeColorWithNoun } from '../utils/colorAgreement';
@@ -390,35 +390,13 @@ export default function ItemDetailScreen() {
         <ConfirmDialog visible onClose={closeDialog} onConfirm={handleConfirm} {...dialogProps} />
       )}
       <Toast key={toastKey} message={toastMessage} />
-      <DeleteStatusOverlay visible={isDeleting} done={deleteDone} />
+      <DeleteStatusOverlay
+        visible={isDeleting}
+        done={deleteDone}
+        progressText={t('itemDetail.deleting')}
+        doneText={t('itemDetail.deleted')}
+      />
     </ScreenContainer>
-  );
-}
-
-// Full-screen, untappable overlay covering the whole delete round-trip —
-// see performDelete's own comment for why this exists (the header's tiny
-// spinner alone wasn't a strong enough signal that anything was happening).
-// Swaps a spinner for a checkmark once the delete actually succeeds, then
-// performDelete navigates back shortly after.
-function DeleteStatusOverlay({ visible, done }) {
-  const { t } = useTranslation();
-  return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-      <View style={styles.deleteOverlayRoot}>
-        <View style={styles.deleteOverlayCard}>
-          {done ? (
-            <View style={styles.deleteOverlayIconWrap}>
-              <Feather name="check" size={26} color={colors.inverseText} />
-            </View>
-          ) : (
-            <ActivityIndicator size="large" color={colors.textPrimary} />
-          )}
-          <Text style={styles.deleteOverlayText}>
-            {done ? t('itemDetail.deleted') : t('itemDetail.deleting')}
-          </Text>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -575,30 +553,4 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   notFoundText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
-
-  deleteOverlayRoot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: withAlpha(colors.textPrimary, 0.4),
-  },
-  deleteOverlayCard: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    minWidth: 160,
-    backgroundColor: colors.surface,
-    borderRadius: radius.cardLg,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    ...shadows.navBar,
-  },
-  deleteOverlayIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteOverlayText: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
 });
