@@ -743,16 +743,8 @@ function MessageBubble({
                   {wardrobeItem.subcategory}
                 </Text>
                 <Text style={styles.outfitMiniColor} numberOfLines={1}>
-                  {wardrobeItem.color}
+                  {t(`closet.colors.${wardrobeItem.color}`, wardrobeItem.color)}
                 </Text>
-                {/* Per-item styling rationale — only ever present on the new
-                    `suggestedOutfit` shape, so a fallback-rendered legacy
-                    bubble (id-only) simply has nothing here. */}
-                {wardrobeItem.reasoning ? (
-                  <Text style={styles.outfitMiniReasoning} numberOfLines={3}>
-                    ✨ {wardrobeItem.reasoning}
-                  </Text>
-                ) : null}
               </View>
             ))}
           </View>
