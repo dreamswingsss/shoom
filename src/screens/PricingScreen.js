@@ -10,6 +10,7 @@ import { colors, spacing, radius, shadows, typography, fonts, buttons } from '..
 import ScreenContainer from '../components/ScreenContainer';
 import { FadeInView, AnimatedPressable } from '../components/AnimatedPressable';
 import Toast from '../components/Toast';
+import ProActivatedModal from '../components/ProActivatedModal';
 
 // Real prices live in constants/monetization.js (the one number this file
 // must never duplicate as a second literal); tier copy/features are i18n
@@ -41,8 +42,15 @@ export default function PricingScreen() {
   // is still being confirmed would create two PENDING payments for the
   // same client.
   const [busyTier, setBusyTier] = useState(null);
+  // Which tier just got confirmed — drives ProActivatedModal below. This is
+  // the in-Mini-App equivalent of a system notification the client asked
+  // for (there's no OS notification center to target: the Mini App always
+  // runs as Platform.OS === 'web', see App.js's own isTelegramMiniApp
+  // comment) — a centered interstitial reliably grabs attention the way a
+  // Toast (easy to miss, gone in a couple seconds) doesn't.
+  const [activatedTier, setActivatedTier] = useState(null);
 
-  async function pollForResult(transactionId) {
+  async function pollForResult(tierKey, transactionId) {
     for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
       await wait(POLL_INTERVAL_MS);
       let status;
@@ -54,7 +62,7 @@ export default function PricingScreen() {
       }
       if (status === 'CONFIRMED') {
         if (userId) await fetchProfile(userId);
-        showToast(t('pricing.paymentConfirmedToast'));
+        setActivatedTier(tierKey);
         return;
       }
       if (status === 'CANCELED') {
@@ -87,7 +95,7 @@ export default function PricingScreen() {
     try {
       const { url, transactionId } = await createPaymentCheckout(tierKey);
       await openCheckoutUrl(url);
-      await pollForResult(transactionId);
+      await pollForResult(tierKey, transactionId);
     } catch (err) {
       console.log('[PricingScreen] checkout failed:', err);
       showToast(t('pricing.paymentErrorToast'));
@@ -120,6 +128,12 @@ export default function PricingScreen() {
       <Text style={styles.verificationCode}>PLAT</Text>
 
       <Toast key={toastKey} message={toastMessage} />
+
+      <ProActivatedModal
+        visible={activatedTier !== null}
+        onClose={() => setActivatedTier(null)}
+        tierLabel={activatedTier ? t(`pricing.tiers.${activatedTier}.name`) : ''}
+      />
     </ScreenContainer>
   );
 }
