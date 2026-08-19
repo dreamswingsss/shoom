@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import BottomSheet from './BottomSheet';
 import { colors, spacing, radius, typography, buttons } from '../theme/tokens';
 
-const MAX_SCORES = { category: 40, color: 30, worn: 30 };
+const MAX_SCORES = { category: 40, color: 30, style: 30 };
 
 // The capsule-score tile's tap used to either show a generic paywall alert
 // (free) or do literally nothing (Pro — no real breakdown screen existed
@@ -17,16 +17,16 @@ const MAX_SCORES = { category: 40, color: 30, worn: 30 };
 // Hub tile.
 export default function CohesionBreakdownSheet({ visible, onClose, breakdown, isPro, onUpgradePress }) {
   const { t } = useTranslation();
-  const { categoryScore = 0, colorBalanceScore = 0, wornScore = 0 } = breakdown || {};
+  const { categoryScore = 0, colorBalanceScore = 0, styleScore = 0 } = breakdown || {};
 
   // Whichever sub-score is furthest below its own max (as a ratio, not raw
-  // points — category's 40 vs. worn's 30 aren't directly comparable) is the
+  // points — category's 40 vs. style's 30 aren't directly comparable) is the
   // one real, specific tip shown — one concrete "fix this" beats three
   // generic ones.
   const ratios = [
     { key: 'category', ratio: categoryScore / MAX_SCORES.category, tipKey: 'tipCategory' },
     { key: 'color', ratio: colorBalanceScore / MAX_SCORES.color, tipKey: 'tipColor' },
-    { key: 'worn', ratio: wornScore / MAX_SCORES.worn, tipKey: 'tipWorn' },
+    { key: 'style', ratio: styleScore / MAX_SCORES.style, tipKey: 'tipStyle' },
   ];
   const lowest = ratios.reduce((min, entry) => (entry.ratio < min.ratio ? entry : min), ratios[0]);
 
@@ -37,18 +37,21 @@ export default function CohesionBreakdownSheet({ visible, onClose, breakdown, is
 
         <ScoreBar
           label={t('closet.hub.capsuleScore.breakdown.categoryLabel')}
+          hint={t('closet.hub.capsuleScore.breakdown.categoryHint')}
           value={categoryScore}
           max={MAX_SCORES.category}
         />
         <ScoreBar
           label={t('closet.hub.capsuleScore.breakdown.colorLabel')}
+          hint={t('closet.hub.capsuleScore.breakdown.colorHint')}
           value={colorBalanceScore}
           max={MAX_SCORES.color}
         />
         <ScoreBar
-          label={t('closet.hub.capsuleScore.breakdown.wornLabel')}
-          value={wornScore}
-          max={MAX_SCORES.worn}
+          label={t('closet.hub.capsuleScore.breakdown.styleLabel')}
+          hint={t('closet.hub.capsuleScore.breakdown.styleHint')}
+          value={styleScore}
+          max={MAX_SCORES.style}
         />
 
         <Text style={styles.tipsTitle}>{t('closet.hub.capsuleScore.breakdown.tipsTitle')}</Text>
@@ -82,7 +85,7 @@ export default function CohesionBreakdownSheet({ visible, onClose, breakdown, is
   );
 }
 
-function ScoreBar({ label, value, max }) {
+function ScoreBar({ label, hint, value, max }) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
   return (
     <View style={styles.scoreRow}>
@@ -93,6 +96,7 @@ function ScoreBar({ label, value, max }) {
       <View style={styles.barTrack}>
         <View style={[styles.barFill, { width: `${pct}%` }]} />
       </View>
+      {hint && <Text style={styles.scoreHint}>{hint}</Text>}
     </View>
   );
 }
@@ -107,6 +111,10 @@ const styles = StyleSheet.create({
   scoreValue: { ...typography.captionSecondary },
   barTrack: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 4, backgroundColor: colors.violet },
+  // Short "what this actually measures" line — added because the bare
+  // label + fraction (e.g. "Разнообразие категорий · 0/40") read as
+  // meaningless numbers with no explanation of what they're even scoring.
+  scoreHint: { ...typography.captionSecondary, fontSize: 11.5, marginTop: 4 },
 
   tipsTitle: { ...typography.label, marginTop: spacing.md, marginBottom: spacing.sm },
   tipCard: {
@@ -115,8 +123,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     backgroundColor: colors.glassCard,
     borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
+    // Solid ink outline — same "deliberate dark accent" convention
+    // PricingScreen's own tier cards use (colors.textPrimary, 1.5), not
+    // the faint colors.border every other card in this sheet's ancestry
+    // defaults to — this is the one actionable recommendation in the
+    // sheet, so it reads as a distinct, deliberate callout.
+    borderWidth: 1.5,
+    borderColor: colors.textPrimary,
     padding: spacing.sm,
   },
   tipText: { ...typography.bodySecondary, fontSize: 13.5, flex: 1, lineHeight: 19 },
