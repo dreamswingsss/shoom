@@ -1722,7 +1722,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.glassCard,
     borderRadius: radius.xl,
     color: colors.textPrimary,
-    fontSize: 15,
+    // 16px, not 15 — under 16px is what triggers iOS Safari's auto-zoom-
+    // on-focus on a real <input>, independent of the viewport meta tag's
+    // own maximum-scale/user-scalable.
+    fontSize: 16,
     paddingHorizontal: spacing.sm,
   },
   // Primary CTA of the screen — Electric Blue fill.

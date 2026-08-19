@@ -11,15 +11,21 @@
          reported directly against RegistrationFlow's measurement steps.
          This is a real native app substitute, not a document meant to be
          pinch-zoomed, so disabling that entirely is the fix, not something
-         to work around per-field. `interactive-widget=resizes-content` is
-         the modern (Chromium-only; harmlessly ignored elsewhere) hint that
-         an on-screen keyboard should shrink the visual viewport rather than
-         overlay it un-announced — keeps position:fixed content (every
-         Modal/BottomSheet in this app) working with the keyboard instead of
-         guessing. -->
+         to work around per-field.
+         `interactive-widget=overlays-content` (Chromium-only — Android
+         Telegram's WebView; harmlessly ignored elsewhere) — NOT
+         `resizes-content`, an earlier mistake here: `resizes-content`
+         means "the keyboard SHRINKS the visible viewport," which is
+         exactly the reflow that pushes fixed-position footers (the
+         Continue button) up when the keyboard opens. `overlays-content`
+         keeps the layout viewport at its full, keyboard-independent size —
+         the keyboard just covers whatever's underneath it, matching this
+         app's own `position: 'fixed'` footers (see RegistrationFlow's
+         `fixedFooter`), which need a viewport size the keyboard can't
+         shrink out from under them. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, interactive-widget=resizes-content"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, interactive-widget=overlays-content"
     />
     <title>MyApp</title>
     <!-- Temporary payment-provider verification codeword, requested during

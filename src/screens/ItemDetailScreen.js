@@ -521,7 +521,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    fontSize: 15,
+    // 16px, not 15 — under 16px is what triggers iOS Safari's auto-zoom-
+    // on-focus on a real <input>, independent of the viewport meta tag's
+    // own maximum-scale/user-scalable.
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
   },

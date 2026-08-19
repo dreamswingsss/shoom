@@ -960,6 +960,12 @@ const styles = StyleSheet.create({
   adminTitle: { ...typography.rowTitle, marginBottom: spacing.sm },
   adminInput: {
     ...typography.body,
+    // Overrides typography.body's own 14px — under 16px is what triggers
+    // iOS Safari's auto-zoom-on-focus on a real <input>, independent of
+    // the viewport meta tag's own maximum-scale/user-scalable. Only this
+    // input's own fontSize changes; typography.body itself stays 14px for
+    // every other (non-input) use across the app.
+    fontSize: 16,
     minHeight: 72,
     textAlignVertical: 'top',
     backgroundColor: colors.background,

@@ -952,8 +952,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
     padding: spacing.sm,
-    fontSize: 14,
-    lineHeight: 20,
+    // 16px, not 14 — any real <input>/<textarea> under 16px is exactly
+    // what triggers iOS Safari's auto-zoom-on-focus, independent of the
+    // viewport meta tag's own maximum-scale/user-scalable (see
+    // public/index.html's own comment) — the two fixes cover different
+    // browsers/paths to the same zoom bug.
+    fontSize: 16,
+    lineHeight: 22,
     color: colors.textPrimary,
   },
 
