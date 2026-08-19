@@ -22,11 +22,22 @@
 // scroll instead of two competing ones. The `setTimeout` is only a safety
 // net for a WebView that never fires that resize event at all, so the field
 // doesn't stay stuck behind the keyboard forever.
+//
+// `block: 'nearest'`, not `'center'` — centering was the right call for a
+// single isolated field, but on a multi-field grid (RegistrationFlow's
+// shoulders/chest/waist/hips step) it forcibly recentered whichever one
+// field was tapped, shoving the other three fields and the section title
+// off-screen and dragging the fixed Continue-button footer up along with
+// it every single time — reported as "the camera flies everywhere."
+// `'nearest'` only scrolls the minimum distance needed to clear the
+// keyboard — often nothing at all, if the field is already visible — so
+// the rest of the layout (and that footer button) stays put instead of
+// getting reshuffled around whatever was just tapped.
 export function scrollFieldIntoView(event) {
   const node = event.target;
   if (typeof node?.scrollIntoView !== 'function') return;
 
-  const doScroll = () => node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const doScroll = () => node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
   if (!viewport) {
