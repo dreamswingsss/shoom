@@ -770,15 +770,27 @@ function MessageBubble({
               saved={Boolean(item.inspirationSaved)}
               baseItemId={item.baseItemId ?? null}
               aiText={item.text}
-              generatedItems={outfitItems.map((wardrobeItem) => ({
-                type: 'wardrobe',
-                id: wardrobeItem.id,
-                name: wardrobeItem.subcategory,
-                imageUrl: wardrobeItem.imageUri,
-              }))}
+              // Both halves of the look the AI actually proposed — real
+              // wardrobe pieces AND the missingBasics chips shown above
+              // ("прямые джинсы синего цвета" etc.). Only the wardrobe half
+              // used to be included here, which is exactly why a saved
+              // look's detail screen only ever showed one item: `type:
+              // 'new'` (no `id`, matching InspirationDetailScreen's own
+              // `entry.type === 'wardrobe' ? ... : null` branch) is what
+              // renders these as suggestion cards there instead of being
+              // silently dropped.
+              generatedItems={[
+                ...outfitItems.map((wardrobeItem) => ({
+                  type: 'wardrobe',
+                  id: wardrobeItem.id,
+                  name: wardrobeItem.subcategory,
+                  imageUrl: wardrobeItem.imageUri,
+                })),
+                ...missingBasics.map((basic) => ({ type: 'new', name: basic, imageUrl: null })),
+              ]}
               showToast={showToast}
             />
-            <SaveToPlannerButton outfitIds={item.outfitIds || []} />
+            <SaveToPlannerButton outfitIds={item.outfitIds || []} missingBasics={missingBasics} />
           </>
         )}
       </View>
@@ -1073,7 +1085,7 @@ function DynamicQuickReplies({ lastMessage, isConversationStart, onSelect }) {
 // Lets the client pin this exact generated look (wardrobe item ids + any
 // suggested-to-buy items) to a day on the WeeklyPlanner without leaving the
 // chat. Picks from the same 7-day window WeeklyPlanner shows.
-function SaveToPlannerButton({ outfitIds }) {
+function SaveToPlannerButton({ outfitIds, missingBasics = [] }) {
   const { t } = useTranslation();
   const scheduleOutfit = usePlannerStore((state) => state.scheduleOutfit);
   const scheduledOutfits = usePlannerStore((state) => state.scheduledOutfits);
@@ -1109,7 +1121,14 @@ function SaveToPlannerButton({ outfitIds }) {
       return;
     }
     try {
-      await scheduleOutfit(dateKey, { outfitIds });
+      // newItems: same {name} shape usePlannerStore's fromRow/PlannerScreen's
+      // summarizeOutfit/getScheduledItemNames already expect — see this
+      // button's own missingBasics prop comment (StylistScreen's message
+      // renderer) for why this used to be silently dropped.
+      await scheduleOutfit(dateKey, {
+        outfitIds,
+        newItems: missingBasics.map((basic) => ({ name: basic })),
+      });
     } catch (err) {
       // scheduleOutfit's own backstop threw — the pre-check above should
       // already have caught this in practice, but a second device planning

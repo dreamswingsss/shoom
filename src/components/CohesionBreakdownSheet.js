@@ -1,20 +1,28 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import BottomSheet from './BottomSheet';
-import { colors, spacing, radius, typography, buttons } from '../theme/tokens';
+import { colors, spacing, radius, shadows, typography, buttons } from '../theme/tokens';
 
 const MAX_SCORES = { category: 40, color: 30, style: 30 };
 
 // The capsule-score tile's tap used to either show a generic paywall alert
 // (free) or do literally nothing (Pro — no real breakdown screen existed
-// for either tier). This is that screen: the three sub-scores
-// getCohesionBreakdown() already computes are ALWAYS real and visible here,
-// for every tier — free-tier upgrade pressure comes from the "Рекомендации"
-// section specifically being locked, not from hiding the numbers
-// themselves. Same LockableTile-style dim+lock-badge shape as the rest of
-// the app, just applied inline to one section of a sheet instead of a whole
-// Hub tile.
+// for either tier). This is that screen — real content only for Pro; a
+// free-tier client sees LockedState below instead, not the real numbers.
+//
+// An earlier version showed the three real bars to every tier and only
+// locked the "Рекомендации" tip (a dimmed real card + an absolutely-
+// positioned lock overlay on top of it). That overlay used
+// `StyleSheet.absoluteFillObject` inside an `overflow: hidden` parent whose
+// own height came from its dimmed child — react-native-web resolves that
+// differently across WebViews, and on Android's (Chrome-based) WebView the
+// overlay rendered well below where its content actually was instead of
+// centered over it. Free tier not seeing the real numbers at all (this
+// screen's own actual product requirement, not just a layout fix) sidesteps
+// that whole class of bug: LockedState needs no absolute positioning
+// because there's nothing real underneath it to overlay.
 export default function CohesionBreakdownSheet({ visible, onClose, breakdown, isPro, onUpgradePress }) {
   const { t } = useTranslation();
   const { categoryScore = 0, colorBalanceScore = 0, styleScore = 0 } = breakdown || {};
@@ -22,7 +30,7 @@ export default function CohesionBreakdownSheet({ visible, onClose, breakdown, is
   // Whichever sub-score is furthest below its own max (as a ratio, not raw
   // points — category's 40 vs. style's 30 aren't directly comparable) is the
   // one real, specific tip shown — one concrete "fix this" beats three
-  // generic ones.
+  // generic ones. Only ever computed/shown for Pro.
   const ratios = [
     { key: 'category', ratio: categoryScore / MAX_SCORES.category, tipKey: 'tipCategory' },
     { key: 'color', ratio: colorBalanceScore / MAX_SCORES.color, tipKey: 'tipColor' },
@@ -35,53 +43,59 @@ export default function CohesionBreakdownSheet({ visible, onClose, breakdown, is
       <View style={styles.wrap}>
         <Text style={styles.title}>{t('closet.hub.capsuleScore.breakdown.title')}</Text>
 
-        <ScoreBar
-          label={t('closet.hub.capsuleScore.breakdown.categoryLabel')}
-          hint={t('closet.hub.capsuleScore.breakdown.categoryHint')}
-          value={categoryScore}
-          max={MAX_SCORES.category}
-        />
-        <ScoreBar
-          label={t('closet.hub.capsuleScore.breakdown.colorLabel')}
-          hint={t('closet.hub.capsuleScore.breakdown.colorHint')}
-          value={colorBalanceScore}
-          max={MAX_SCORES.color}
-        />
-        <ScoreBar
-          label={t('closet.hub.capsuleScore.breakdown.styleLabel')}
-          hint={t('closet.hub.capsuleScore.breakdown.styleHint')}
-          value={styleScore}
-          max={MAX_SCORES.style}
-        />
-
-        <Text style={styles.tipsTitle}>{t('closet.hub.capsuleScore.breakdown.tipsTitle')}</Text>
-
         {isPro ? (
-          <View style={styles.tipCard}>
-            <Feather name="zap" size={14} color={colors.violet} />
-            <Text style={styles.tipText}>{t(`closet.hub.capsuleScore.breakdown.${lowest.tipKey}`)}</Text>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.lockedTipCard} onPress={onUpgradePress} activeOpacity={0.85}>
-            <View style={styles.lockedTipContent} pointerEvents="none">
+          <>
+            <ScoreBar
+              label={t('closet.hub.capsuleScore.breakdown.categoryLabel')}
+              hint={t('closet.hub.capsuleScore.breakdown.categoryHint')}
+              value={categoryScore}
+              max={MAX_SCORES.category}
+            />
+            <ScoreBar
+              label={t('closet.hub.capsuleScore.breakdown.colorLabel')}
+              hint={t('closet.hub.capsuleScore.breakdown.colorHint')}
+              value={colorBalanceScore}
+              max={MAX_SCORES.color}
+            />
+            <ScoreBar
+              label={t('closet.hub.capsuleScore.breakdown.styleLabel')}
+              hint={t('closet.hub.capsuleScore.breakdown.styleHint')}
+              value={styleScore}
+              max={MAX_SCORES.style}
+            />
+
+            <Text style={styles.tipsTitle}>{t('closet.hub.capsuleScore.breakdown.tipsTitle')}</Text>
+            <View style={styles.tipCard}>
               <Feather name="zap" size={14} color={colors.violet} />
-              <Text style={[styles.tipText, styles.lockedTipText]} numberOfLines={2}>
-                {t(`closet.hub.capsuleScore.breakdown.${lowest.tipKey}`)}
-              </Text>
+              <Text style={styles.tipText}>{t(`closet.hub.capsuleScore.breakdown.${lowest.tipKey}`)}</Text>
             </View>
-            <View style={styles.lockedOverlay}>
-              <View style={styles.lockBadge}>
-                <Feather name="lock" size={12} color={colors.inverseText} />
-              </View>
-              <Text style={styles.lockedMessage}>{t('closet.hub.capsuleScore.breakdown.lockedMessage')}</Text>
-              <View style={styles.lockedCtaBtn}>
-                <Text style={styles.lockedCtaText}>{t('closet.hub.capsuleScore.breakdown.lockedCta')}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+          </>
+        ) : (
+          <LockedState onUpgradePress={onUpgradePress} />
         )}
       </View>
     </BottomSheet>
+  );
+}
+
+// Plain document-flow block, same gradient-icon-circle/title/message/pill-
+// button shape ScanSheet's "you need an account" prompt and
+// ProActivatedModal already use elsewhere in this app — no absolute
+// positioning, see this file's own top comment for why.
+function LockedState({ onUpgradePress }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.lockedWrap}>
+      <LinearGradient colors={[colors.violet, colors.violetLight]} style={styles.lockedIconWrap}>
+        <Feather name="lock" size={24} color={colors.inverseText} />
+      </LinearGradient>
+      <Text style={styles.lockedTitle}>{t('closet.hub.capsuleScore.breakdown.lockedMessage')}</Text>
+      <Text style={styles.lockedSubtitle}>{t('closet.hub.capsuleScore.breakdown.lockedSubtitle')}</Text>
+
+      <TouchableOpacity style={styles.lockedCtaBtn} onPress={onUpgradePress} activeOpacity={0.85}>
+        <Text style={styles.lockedCtaText}>{t('closet.hub.capsuleScore.breakdown.lockedCta')}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -134,50 +148,38 @@ const styles = StyleSheet.create({
   },
   tipText: { ...typography.bodySecondary, fontSize: 13.5, flex: 1, lineHeight: 19 },
 
-  // Same "visible but not usable" shape LockableTile already uses on Hub
-  // tiles — dimmed real content underneath (pointerEvents disabled so a tap
-  // always hits the overlay, never the text), a lock badge, and here also a
-  // short teaser line + explicit CTA button, since this is one section of a
-  // sheet rather than a whole tile with its own obvious next step.
-  lockedTipCard: {
-    position: 'relative',
-    borderRadius: radius.card,
-    overflow: 'hidden',
-  },
-  lockedTipContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.xs,
-    backgroundColor: colors.glassCard,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.sm,
-    opacity: 0.35,
-  },
-  lockedTipText: { color: colors.textMuted },
-  lockedOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  // Free-tier state — plain document flow, no absolute positioning (see
+  // this file's own top comment for why that matters here specifically).
+  // Same gradient-icon-circle/title/message/pill-button shape as
+  // ScanSheet's "you need an account" prompt and ProActivatedModal.
+  lockedWrap: { alignItems: 'center', paddingVertical: spacing.md },
+  lockedIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.cardLg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    shadowColor: colors.violet,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  lockBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.inverseBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lockedMessage: { ...typography.captionSecondary, textAlign: 'center' },
-  lockedCtaBtn: {
-    backgroundColor: colors.violet,
-    borderRadius: radius.pill,
+  lockedTitle: { ...typography.h2, fontSize: 17, textAlign: 'center', marginBottom: spacing.xs },
+  lockedSubtitle: {
+    ...typography.bodySecondary,
+    fontSize: 13.5,
+    textAlign: 'center',
+    marginBottom: spacing.md,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    marginTop: 2,
   },
-  lockedCtaText: { ...buttons.primaryText, fontSize: 12.5 },
+  lockedCtaBtn: {
+    backgroundColor: colors.inverseBackground,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    ...shadows.accent,
+  },
+  lockedCtaText: { ...buttons.primaryText, fontSize: 14.5 },
 });

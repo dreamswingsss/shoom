@@ -1213,7 +1213,7 @@ function ColorDnaModal({ visible, palette, onClose }) {
             {palette.best.map((color) => (
               <View key={color.hex} style={styles.colorDnaSwatchRowItem}>
                 <View style={[styles.colorDnaSwatchLg, { backgroundColor: color.hex }]} />
-                <Text style={styles.colorDnaSwatchName}>{color.name}</Text>
+                <Text style={styles.colorDnaSwatchName}>{color.nameRu}</Text>
               </View>
             ))}
           </View>
@@ -1225,7 +1225,7 @@ function ColorDnaModal({ visible, palette, onClose }) {
             {palette.avoid.map((color) => (
               <View key={color.hex} style={styles.colorDnaSwatchRowItem}>
                 <View style={[styles.colorDnaSwatchLg, { backgroundColor: color.hex }]} />
-                <Text style={styles.colorDnaSwatchName}>{color.name}</Text>
+                <Text style={styles.colorDnaSwatchName}>{color.nameRu}</Text>
               </View>
             ))}
           </View>

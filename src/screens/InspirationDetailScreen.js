@@ -270,15 +270,14 @@ export default function InspirationDetailScreen() {
         <Text style={styles.itemsHeading}>{t('closet.inspirationDetail.itemsHeading')}</Text>
 
         {items.map((entry, index) => {
-          // Real wardrobe items get enriched with live data (color/category/
-          // description) when the item is still in the closet — the saved
-          // snapshot itself only ever carries {type, id, name, imageUrl},
-          // never a description, since that's all SaveInspirationButton had
-          // to work with at save time (see StylistScreen.js). A "new"
-          // (AI-suggested) item never has a description at all — Gemini's
-          // own schema only returns name + search_query for those (see
-          // aiChatEngine.js's buildSystemPrompt) — so this only ever shows
-          // one for the wardrobe case, never a fabricated one.
+          // Real wardrobe items get a live link to their own detail screen
+          // (tappable, chevron shown) when the item is still in the closet
+          // — the saved snapshot itself only ever carries {type, id, name,
+          // imageUrl}, so this re-resolves the live row rather than
+          // trusting a stale one. A "new" (AI-suggested) item has no `id`
+          // at all — nothing to link to, so it renders as a plain,
+          // non-pressable card (see GeneratedItemThumb's own placeholder
+          // for the missing photo).
           const liveItem = entry.type === 'wardrobe' ? wardrobeById[entry.id] : null;
           const isFromCloset = entry.type === 'wardrobe';
 
@@ -295,11 +294,6 @@ export default function InspirationDetailScreen() {
                 <Text style={styles.itemName} numberOfLines={1}>
                   {entry.name}
                 </Text>
-                {liveItem?.description ? (
-                  <Text style={styles.itemDescription} numberOfLines={2}>
-                    {liveItem.description}
-                  </Text>
-                ) : null}
                 <View style={[styles.itemBadge, isFromCloset ? styles.itemBadgeCloset : styles.itemBadgeSuggested]}>
                   <Text
                     style={[
@@ -420,7 +414,6 @@ const styles = StyleSheet.create({
   itemThumb: { width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: radius.sm },
   itemTextWrap: { flex: 1, gap: 2 },
   itemName: { fontSize: 14.5, fontWeight: '700', color: colors.textPrimary },
-  itemDescription: { fontSize: 12, color: colors.textSecondary },
   itemBadge: {
     alignSelf: 'flex-start',
     borderRadius: radius.pill,
@@ -439,7 +432,23 @@ const styles = StyleSheet.create({
   // the back button's own inset on the left. Adding more on top of that was
   // exactly what made the trash icon read as off-center/misaligned relative
   // to the title and the header's other edge.
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  //
+  // `height` + `justifyContent: 'center'` added on top of that — Android's
+  // (Chromium) WebView measured this row at its own content height (32px,
+  // headerIconBtn's own size) instead of matching the native-stack header
+  // bar's real height the way iOS's WKWebView did, so `alignItems: 'center'`
+  // alone centered the icon within a box that was already the wrong height
+  // and top-aligned within the actual header row — read as the icon
+  // floating high/clipped near the status bar. An explicit height matching
+  // the standard header content height removes that platform-dependent
+  // measurement from the equation entirely.
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    gap: spacing.md,
+  },
   // Explicit square, centered hit area with its OWN circular chip
   // background — not just `padding`, and not relying on any background a
   // parent/native header container might already be drawing. A plain

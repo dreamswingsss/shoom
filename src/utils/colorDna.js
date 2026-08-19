@@ -8,29 +8,36 @@
 
 const LIGHT_SKIN_TONES = ['Very Fair', 'Fair', 'Light'];
 
+// `name` stays English on every entry — calculateColorDnaMatch below
+// matches it (case-insensitive substring) against COLOR_OPTIONS' own
+// English enum values (see aiScanner.js's own comment: that enum is
+// "internal ... not shown to the client as-is"), so changing it to Russian
+// would silently break every match. `nameRu` is the ONLY field either
+// ColorDnaTile or ColorDnaModal (WardrobeScreen.js) should ever render —
+// this app is Russian-only per AGENTS.md.
 const LIGHT_PALETTE = {
   best: [
-    { name: 'Navy', hex: '#1B2A4A' },
-    { name: 'Emerald', hex: '#2F5D50' },
-    { name: 'Soft Rose', hex: '#D98E9B' },
-    { name: 'Lavender', hex: '#9B8AA8' },
+    { name: 'Navy', nameRu: 'Тёмно-синий', hex: '#1B2A4A' },
+    { name: 'Emerald', nameRu: 'Изумрудный', hex: '#2F5D50' },
+    { name: 'Soft Rose', nameRu: 'Пудровая роза', hex: '#D98E9B' },
+    { name: 'Lavender', nameRu: 'Лавандовый', hex: '#9B8AA8' },
   ],
   avoid: [
-    { name: 'Mustard', hex: '#C9A227' },
-    { name: 'Neon Orange', hex: '#FF6A00' },
+    { name: 'Mustard', nameRu: 'Горчичный', hex: '#C9A227' },
+    { name: 'Neon Orange', nameRu: 'Неоново-оранжевый', hex: '#FF6A00' },
   ],
 };
 
 const DEEP_PALETTE = {
   best: [
-    { name: 'Terracotta', hex: '#B5651D' },
-    { name: 'Mustard', hex: '#C9A227' },
-    { name: 'Cream', hex: '#F0E6D2' },
-    { name: 'Olive', hex: '#6B6E3A' },
+    { name: 'Terracotta', nameRu: 'Терракотовый', hex: '#B5651D' },
+    { name: 'Mustard', nameRu: 'Горчичный', hex: '#C9A227' },
+    { name: 'Cream', nameRu: 'Кремовый', hex: '#F0E6D2' },
+    { name: 'Olive', nameRu: 'Оливковый', hex: '#6B6E3A' },
   ],
   avoid: [
-    { name: 'Pale Yellow', hex: '#F5E6A8' },
-    { name: 'Muddy Brown', hex: '#7A6A5D' },
+    { name: 'Pale Yellow', nameRu: 'Бледно-жёлтый', hex: '#F5E6A8' },
+    { name: 'Muddy Brown', nameRu: 'Мутно-коричневый', hex: '#7A6A5D' },
   ],
 };
 

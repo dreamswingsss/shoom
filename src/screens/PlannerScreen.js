@@ -55,15 +55,23 @@ function buildWeekDays() {
 }
 
 // Real summary of what was actually saved for a day — wardrobe item
-// subcategories if it's a from-closet outfit, else the first suggested-to-
-// buy item's name. Mirrors the same lookup StylistScreen's
-// SaveToPlannerButton / thumbnail logic already uses.
-function summarizeOutfit(scheduled, wardrobeById) {
-  const items = (scheduled.outfitIds || []).map((id) => wardrobeById[id]).filter(Boolean);
-  if (items.length > 0) {
-    return items.slice(0, 2).map((item) => item.subcategory).join(', ');
-  }
-  return scheduled.newItems?.[0]?.name || null;
+// subcategories AND any AI-suggested (not-yet-owned) piece names, so a look
+// with both (the common case — see StylistScreen's SaveToPlannerButton)
+// reads as "a full outfit", not just whichever wardrobe item happens to be
+// first. Caps at 2 names + a "+N" tail rather than listing everything,
+// since planCardTitle only gets 2 lines to work with.
+function summarizeOutfit(scheduled, wardrobeById, t) {
+  const wardrobeNames = (scheduled.outfitIds || [])
+    .map((id) => wardrobeById[id])
+    .filter(Boolean)
+    .map((item) => item.subcategory);
+  const newNames = (scheduled.newItems || []).map((entry) => entry.name).filter(Boolean);
+  const allNames = [...wardrobeNames, ...newNames];
+  if (allNames.length === 0) return null;
+
+  const shown = allNames.slice(0, 2).join(', ');
+  const remaining = allNames.length - 2;
+  return remaining > 0 ? t('planner.outfitSummaryMore', { shown, count: remaining }) : shown;
 }
 
 // Every piece in a scheduled day's outfit, for Export to Calendar's own
@@ -482,7 +490,7 @@ export default function PlannerScreen() {
 
           <View>
             <Text style={styles.planCardTitle} numberOfLines={2}>
-              {summarizeOutfit(selectedEntry, wardrobeById) || t('planner.plannedLook')}
+              {summarizeOutfit(selectedEntry, wardrobeById, t) || t('planner.plannedLook')}
             </Text>
             <Text style={styles.planCardCaption}>{formatWeekdayShortWithDate(selectedDate)}</Text>
           </View>
