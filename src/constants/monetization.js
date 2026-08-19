@@ -22,9 +22,9 @@ export const FREE_PLANNED_DAYS_LIMIT = 2;
 // namespace since it's display text, not a business number; these three
 // stay here so the actual RUB amount is never duplicated as a second
 // literal anywhere it's shown.
-export const PRICE_PRO_MONTHLY_RUB = 249;
-export const PRICE_PRO_YEARLY_RUB = 2490;
-export const PRICE_FOUNDER_LIFETIME_RUB = 4490;
+export const PRICE_PRO_MONTHLY_RUB = 149;
+export const PRICE_PRO_YEARLY_RUB = 1490;
+export const PRICE_FOUNDER_LIFETIME_RUB = 2990;
 
 // Bonus wardrobe slots / AI messages credited to BOTH sides of a completed
 // referral (see supabase/functions/telegram-verify/index.ts's own

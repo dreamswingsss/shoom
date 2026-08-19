@@ -25,9 +25,9 @@ const SECRET = Deno.env.get('PLATEGA_SECRET') ?? '';
 // if a price ever changes. founderLifetime has no `months` (never expires;
 // platega-webhook leaves `pro_expires_at` null for it).
 const TIERS: Record<string, { amountRub: number; description: string; months: number | null }> = {
-  proMonthly: { amountRub: 249, description: 'Shoom Pro — 1 месяц', months: 1 },
-  proYearly: { amountRub: 2490, description: 'Shoom Pro — 1 год', months: 12 },
-  founderLifetime: { amountRub: 4490, description: 'Shoom Pro — Founder Lifetime', months: null },
+  proMonthly: { amountRub: 149, description: 'Shoom Pro — 1 месяц', months: 1 },
+  proYearly: { amountRub: 1490, description: 'Shoom Pro — 1 год', months: 12 },
+  founderLifetime: { amountRub: 2990, description: 'Shoom Pro — Founder Lifetime', months: null },
 };
 
 // No dedicated hosted "return to app" page exists yet (the Mini App's own
